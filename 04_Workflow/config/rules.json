@@ -1,0 +1,76 @@
+{
+  "_readme": "Every business rule that a person might want to change lives here, not in the code. Section numbers refer to AP_Coding_Rules_and_Approval_Matrix.docx.",
+
+  "thresholds": {
+    "overpo_tolerance": 500.00,
+    "retainage_pct": 0.10,
+    "retainage_tolerance": 0.02,
+    "vp_construction_gross_over": 100000.00,
+    "regional_pm_invoice_over": 5000.00,
+    "cfo_bill_over": 25000.00,
+    "arithmetic_tolerance": 0.01,
+    "coi_grace_days": 0
+  },
+
+  "terms_days": { "Net 15": 15, "Net 30": 30, "Net 45": 45 },
+
+  "construction": { "posting_entity": "HPC", "department": "OPS", "retainage_acct": "20500" },
+
+  "corporate": {
+    "default_entity": "HCM",
+    "one_time_acct": "65010",
+    "one_time_entity": "HCM",
+    "one_time_keywords": ["implementation", "consulting", "training", "configuration", "setup", "set-up", "onboarding", "migration"],
+    "subscription_keywords": ["subscription", "license", "licence", "seat", "platform", "renewal", "saas"],
+    "gl_keywords": [
+      ["office suppl", "62107"],
+      ["legal", "65005"],
+      ["accounting", "65000"],
+      ["lodging|hotel", "67120"]
+    ]
+  },
+
+  "entrata_gl_keywords": [
+    ["grounds|landscap|mow", "6200-0055"],
+    ["pest", "6200-0075"],
+    ["pool|spa", "6200-0085"],
+    ["elevator|repair|maintenance", "6300-0160"],
+    ["irrigation", "6300-0095"],
+    ["office suppl", "6600-0090"]
+  ],
+
+  "payment_change_phrases": [
+    "banking information has changed", "bank information has changed", "bank details have changed",
+    "update your records", "new bank", "new account", "remit all future payments",
+    "routing", "account ending", "account number", "wire to", "ach to", "changed effective",
+    "payment instructions", "updated remittance", "change of bank"
+  ],
+
+  "duplicate_stamps": ["REPRINT", "DUPLICATE", "COPY", "PAST DUE", "RESENT", "RE-SENT", "REMINDER", "SECOND NOTICE"],
+
+  "code_priority": ["BANKCHG", "NEWVEND", "DUP", "UNAPPCO", "COI", "LIEN", "NOPO", "OVERPO", "OTHER"],
+
+  "routes": {
+    "DUP": "AP Manager",
+    "NOPO": "Project Manager",
+    "OVERPO": "Project Manager and Supply Chain",
+    "UNAPPCO": "Project Manager; return to subcontractor for a revised application",
+    "LIEN": "Construction Compliance (Projects & Compliance)",
+    "COI": "Construction Compliance (Projects & Compliance)",
+    "NEWVEND": "Vendor Master team",
+    "BANKCHG": "Treasury (call the phone number on file in the vendor master, never the invoice)",
+    "OTHER": "AP Manager"
+  },
+
+  "legal_bill_to_aliases": {
+    "_comment": "Normalized names that count as a Hillpointe legal entity are built from the Entities tab. Add any approved aliases here.",
+    "extra": []
+  },
+
+  "llm": {
+    "enabled_by_default": false,
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 4000,
+    "prompt_file": "prompts/extraction_prompt.md"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "file": "APINBOX_0002.pdf",
+  "supdoc_id": "APINBOX_0002",
+  "sha256": "cb72ab9cd51347f10ba33663e165f20583e483ad5e97dc4941ea3b1a5813d5f9",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "LL-2026-1184",
+  "date": "2026-10-01",
+  "terms_printed": "Net 30",
+  "customer_ref": "Order Form OF-2024-0332",
+  "refs": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": [
+      "OF-2024-0332"
+    ]
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": [
+      "OF-2024-0332"
+    ]
+  },
+  "bill_to": {
+    "name": "Hillpointe Corporate Management, LLC",
+    "c_o": ""
+  },
+  "ship_to": "",
+  "vendor_name_raw": "LedgerLoop Software Inc",
+  "vendor_phone": "",
+  "vendor_email": "billing@ledgerloop.example",
+  "vendor_address_header": "88 Market St, Suite 400 Austin, TX 78701",
+  "remit_to": {
+    "name": "LedgerLoop Software Inc",
+    "address": "88 Market St, Suite 400, Austin, TX 78701"
+  },
+  "emails_on_doc": [
+    "billing@ledgerloop.example"
+  ],
+  "phones_on_doc": [],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "LedgerLoop Platform subscription, October 2026 (per seat)",
+      "qty": "87",
+      "unit": "SEAT",
+      "rate": "41.75",
+      "amount": "3632.25"
+    },
+    {
+      "desc": "Implementation support, report builder configuration",
+      "qty": "6",
+      "unit": "HR",
+      "rate": "175.00",
+      "amount": "1050.00"
+    }
+  ],
+  "subtotal": "4682.25",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "4682.25",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

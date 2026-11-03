@@ -1,0 +1,89 @@
+{
+  "file": "APINBOX_0006.pdf",
+  "supdoc_id": "APINBOX_0006",
+  "sha256": "499e7730f273c80b02d5da40691f5dc8ead9e605ea2eeb70a7218d1d5f53543e",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "SGP-11092",
+  "date": "2026-10-03",
+  "terms_printed": "Net 30",
+  "customer_ref": "SA-PGSIM-2026",
+  "refs": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [
+      "SA-PGSIM-2026"
+    ],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [
+      "SA-PGSIM-2026"
+    ],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Pointe Grand Simpsonville",
+    "c_o": "Hillpointe Property Management, LLC"
+  },
+  "ship_to": "Pointe Grand Simpsonville, Simpsonville, SC",
+  "vendor_name_raw": "Sterling Grounds & Pest LLC",
+  "vendor_phone": "(864) 555-0199",
+  "vendor_email": "accounts@sterling-grounds-pay.example",
+  "vendor_address_header": "9 Commerce Ct, Suite 210, Greenville, SC 29607",
+  "remit_to": {
+    "name": "Sterling Grounds & Pest LLC",
+    "address": "9 Commerce Ct, Suite 210, Greenville, SC 29607"
+  },
+  "emails_on_doc": [
+    "accounts@sterling-grounds-pay.example"
+  ],
+  "phones_on_doc": [
+    "(864) 555-0199"
+  ],
+  "payment_change_hits": [
+    "account ending",
+    "ach to",
+    "banking information has changed",
+    "changed effective",
+    "remit all future payments",
+    "routing",
+    "update your records"
+  ],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Grounds maintenance, October 2026",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "3150.00",
+      "amount": "3150.00"
+    },
+    {
+      "desc": "Monthly pest service, October 2026",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "700.00",
+      "amount": "700.00"
+    }
+  ],
+  "subtotal": "3850.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "3850.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

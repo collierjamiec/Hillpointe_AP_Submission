@@ -1,0 +1,79 @@
+{
+  "file": "APINBOX_0015.pdf",
+  "supdoc_id": "APINBOX_0015",
+  "sha256": "da755a1a031b4f9d9f660650bb6d99e83bbd890ec28c3493adb0c5a0d895ec7a",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "INV-20417",
+  "date": "2026-09-12",
+  "terms_printed": "Net 30",
+  "customer_ref": "PO2410315-014",
+  "refs": {
+    "po": [
+      "PO2410315-014"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO2410315-014"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia jobsite, Columbia, SC",
+  "vendor_name_raw": "Ridgeway Equipment Rental Inc",
+  "vendor_phone": "(803) 555-0177",
+  "vendor_email": "",
+  "vendor_address_header": "2280 Augusta Rd Lexington, SC 29072",
+  "remit_to": {
+    "name": "Ridgeway Equipment Rental Inc",
+    "address": "2280 Augusta Rd, Lexington, SC 29072"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0177"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Telehandler 10K lb, 2 week rate (08/25/2026 to 09/07/2026), Unit TH-1142",
+      "qty": "1",
+      "unit": "2WK",
+      "rate": "2650.00",
+      "amount": "2650.00"
+    },
+    {
+      "desc": "Delivery and pickup, telehandler",
+      "qty": "1",
+      "unit": "EA",
+      "rate": "350.00",
+      "amount": "350.00"
+    }
+  ],
+  "subtotal": "3000.00",
+  "tax_total": "240.00",
+  "tax_label": "SC sales tax 6% + Richland local 2%",
+  "tax_rate": "0.08",
+  "total": "3240.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

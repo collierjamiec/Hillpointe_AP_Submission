@@ -1,0 +1,98 @@
+{
+  "file": "APINBOX_0019.pdf",
+  "supdoc_id": "APINBOX_0019",
+  "sha256": "1f9cf96d1d73534d6330008eea2dcca85b721fea94d6fa5f8315604ccb5fbec9",
+  "pages": 2,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "pay_app",
+  "invoice_no": "GCP-0303",
+  "date": "2026-09-30",
+  "terms_printed": "Net 30",
+  "customer_ref": "Subcontract SC2410315-03",
+  "refs": {
+    "po": [],
+    "subcontract": [
+      "SC2410315-03"
+    ],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [
+      "SC2410315-03"
+    ],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia, Columbia, SC",
+  "vendor_name_raw": "Gulfline Concrete Partners LLC",
+  "vendor_phone": "(803) 555-0141",
+  "vendor_email": "ar@gulflineconcrete.example",
+  "vendor_address_header": "PO Box 4410, West Columbia, SC 29171",
+  "remit_to": {
+    "name": "",
+    "address": ""
+  },
+  "emails_on_doc": [
+    "ar@gulflineconcrete.example"
+  ],
+  "phones_on_doc": [
+    "(803) 555-0141"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "pay_app": {
+    "app_no": 3,
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "original_contract": "612000.00",
+    "net_change_cos": "0.00",
+    "contract_to_date": "612000.00",
+    "completed_to_date": "352500.00",
+    "retainage_to_date": "35250.00",
+    "earned_less_retainage": "317250.00",
+    "previous_certificates": "183600.00",
+    "current_due": "133650.00",
+    "this_period_gross": "148500.00",
+    "this_period_retainage": "14850.00",
+    "continuation": [
+      {
+        "desc": "Building 2 slab on grade",
+        "amount": "74250.00",
+        "retainage": "7425.00"
+      },
+      {
+        "desc": "Building 3 slab on grade",
+        "amount": "74250.00",
+        "retainage": "7425.00"
+      }
+    ],
+    "change_orders_billed": []
+  },
+  "lines": [],
+  "total": "133650.00",
+  "subtotal": "148500.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "lien_waiver": {
+    "attached": true,
+    "promised_later": false,
+    "claimant": "Gulfline Concrete Partners LLC",
+    "amount": "133650.00",
+    "through_date": "2026-09-30",
+    "signature_line_blank": true
+  }
+}

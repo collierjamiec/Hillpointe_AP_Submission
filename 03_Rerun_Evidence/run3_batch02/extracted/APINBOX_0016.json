@@ -1,0 +1,72 @@
+{
+  "file": "APINBOX_0016.pdf",
+  "supdoc_id": "APINBOX_0016",
+  "sha256": "989a301ce87c52c7b36789073de410ece7b2e1bcd97835ea141cf3a4c9a07f8e",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "CSS-88611",
+  "date": "2026-10-08",
+  "terms_printed": "Due upon receipt",
+  "customer_ref": "PO241088-009",
+  "refs": {
+    "po": [
+      "PO241088-009"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO241088-009"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Kingsland East",
+  "vendor_name_raw": "Coastal Site Services LLC",
+  "vendor_phone": "(912) 555-0122",
+  "vendor_email": "",
+  "vendor_address_header": "1190 Louisville Rd, Savannah, GA 31415",
+  "remit_to": {
+    "name": "Coastal Site Services LLC",
+    "address": "1190 Louisville Rd, Savannah, GA 31415"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(912) 555-0122"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Temporary chain link fence rental, 1,450 LF, October 2026",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "2180.00",
+      "amount": "2180.00"
+    }
+  ],
+  "subtotal": "2180.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "2180.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

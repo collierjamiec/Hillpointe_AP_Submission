@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Penny launcher. Works from any folder:  ./penny run 1
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$DIR/.venv/bin/python" ]; then PY="$DIR/.venv/bin/python"; else PY=python3; fi
+exec "$PY" "$DIR/ap.py" "$@"

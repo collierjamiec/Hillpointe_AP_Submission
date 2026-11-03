@@ -1,0 +1,5 @@
+pdfplumber>=0.10
+openpyxl>=3.1
+reportlab>=4.0,<5  # only used by the test suite to build sample invoices; 5.x needs Python 3.10+
+# optional, only for --extractor llm / hybrid:
+# anthropic>=0.40

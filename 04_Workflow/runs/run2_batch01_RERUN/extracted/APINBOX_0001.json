@@ -1,0 +1,86 @@
+{
+  "file": "APINBOX_0001.pdf",
+  "supdoc_id": "APINBOX_0001",
+  "sha256": "2d1d2e3f6a01d415c4f02d5b2e4e52ac455b82d52a001b44eb69e1b7564a68de",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "PBS-604418",
+  "date": "2026-10-06",
+  "terms_printed": "Net 30",
+  "customer_ref": "PO2410315-008",
+  "refs": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia, Bldg 4",
+  "vendor_name_raw": "Pinecrest Building Supply Co",
+  "vendor_phone": "(803) 555-0190",
+  "vendor_email": "",
+  "vendor_address_header": "PO Box 9183 Columbia, SC 29290",
+  "remit_to": {
+    "name": "Pinecrest Building Supply Co",
+    "address": "PO Box 9183, Columbia, SC 29290"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0190"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "2x6x10 SPF stud",
+      "qty": "1800",
+      "unit": "EA",
+      "rate": "5.42",
+      "amount": "9756.00"
+    },
+    {
+      "desc": "2x6x16 #2 SYP plate",
+      "qty": "220",
+      "unit": "EA",
+      "rate": "9.87",
+      "amount": "2171.40"
+    },
+    {
+      "desc": "7/16 in OSB sheathing 4x8",
+      "qty": "160",
+      "unit": "SHT",
+      "rate": "12.85",
+      "amount": "2056.00"
+    }
+  ],
+  "subtotal": "13983.40",
+  "tax_total": "1118.67",
+  "tax_label": "SC sales tax 6% + Richland local 2%",
+  "tax_rate": "0.08",
+  "total": "15102.07",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "file": "APINBOX_0008.pdf",
+  "supdoc_id": "APINBOX_0008",
+  "sha256": "34ba3f2486bc05ae32a108dc309f98b105203448e265e0b50f77bc7c653a06ac",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "MPS-4471",
+  "date": "2026-10-01",
+  "terms_printed": "Net 30",
+  "customer_ref": "SA-PGATH-2026",
+  "refs": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [
+      "SA-PGATH-2026"
+    ],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [
+      "SA-PGATH-2026"
+    ],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Pointe Grand Athens",
+    "c_o": "Hillpointe Property Management, LLC"
+  },
+  "ship_to": "Pointe Grand Athens, Athens, GA",
+  "vendor_name_raw": "Magnolia Pool Services LLC",
+  "vendor_phone": "(706) 555-0119",
+  "vendor_email": "",
+  "vendor_address_header": "210 Prince Ave Athens, GA 30601",
+  "remit_to": {
+    "name": "Magnolia Pool Services LLC",
+    "address": "210 Prince Ave, Athens, GA 30601"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(706) 555-0119"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Pool and spa maintenance, October 2026, weekly service and chemicals",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "1475.00",
+      "amount": "1475.00"
+    }
+  ],
+  "subtotal": "1475.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "1475.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

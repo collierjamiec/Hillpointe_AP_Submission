@@ -1,0 +1,79 @@
+{
+  "file": "APINBOX_0005.pdf",
+  "supdoc_id": "APINBOX_0005",
+  "sha256": "4a664b7455bd54e486d58bfb9115cd385d18f312750d7bb1de30553290a72765",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "CSS-88502",
+  "date": "2026-10-01",
+  "terms_printed": "Due upon receipt",
+  "customer_ref": "PO2410315-011",
+  "refs": {
+    "po": [
+      "PO2410315-011"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO2410315-011"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia",
+  "vendor_name_raw": "Coastal Site Services LLC",
+  "vendor_phone": "(912) 555-0122",
+  "vendor_email": "",
+  "vendor_address_header": "1190 Louisville Rd, Savannah, GA 31415",
+  "remit_to": {
+    "name": "Coastal Site Services LLC",
+    "address": "1190 Louisville Rd, Savannah, GA 31415"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(912) 555-0122"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Portable restroom, weekly service, October 2026",
+      "qty": "6",
+      "unit": "EA",
+      "rate": "160.00",
+      "amount": "960.00"
+    },
+    {
+      "desc": "Handwash station, weekly service, October 2026",
+      "qty": "2",
+      "unit": "EA",
+      "rate": "140.00",
+      "amount": "280.00"
+    }
+  ],
+  "subtotal": "1240.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "1240.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

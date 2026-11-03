@@ -1,0 +1,92 @@
+{
+  "file": "APINBOX_0013.pdf",
+  "supdoc_id": "APINBOX_0013",
+  "sha256": "6fd726e422f85ac461de14ab4afccc40e4c1147aa7d526adb4f835c2358e392c",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "pay_app",
+  "invoice_no": "TCD-2410-02",
+  "date": "2026-09-29",
+  "terms_printed": "Net 30",
+  "customer_ref": "Subcontract SC2410315-09",
+  "refs": {
+    "po": [],
+    "subcontract": [
+      "SC2410315-09"
+    ],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [
+      "SC2410315-09"
+    ],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia",
+  "vendor_name_raw": "Tri County Drywall Inc",
+  "vendor_phone": "(803) 555-0126",
+  "vendor_email": "",
+  "vendor_address_header": "702 Sunset Blvd, West Columbia, SC 29169",
+  "remit_to": {
+    "name": "",
+    "address": ""
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0126"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "pay_app": {
+    "app_no": 2,
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "original_contract": "458000.00",
+    "net_change_cos": "0.00",
+    "contract_to_date": "458000.00",
+    "completed_to_date": "105000.00",
+    "retainage_to_date": "10500.00",
+    "earned_less_retainage": "94500.00",
+    "previous_certificates": "36900.00",
+    "current_due": "57600.00",
+    "this_period_gross": "64000.00",
+    "this_period_retainage": "6400.00",
+    "continuation": [
+      {
+        "desc": "Building 1 hang",
+        "amount": "38000.00",
+        "retainage": "3800.00"
+      },
+      {
+        "desc": "Building 1 tape and finish, partial",
+        "amount": "26000.00",
+        "retainage": "2600.00"
+      }
+    ],
+    "change_orders_billed": []
+  },
+  "lines": [],
+  "total": "57600.00",
+  "subtotal": "64000.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": true
+  }
+}

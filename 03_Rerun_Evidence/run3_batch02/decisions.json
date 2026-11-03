@@ -1,0 +1,228 @@
+[
+  {
+    "file": "APINBOX_0016.pdf",
+    "decision": "ENTER_INTACCT",
+    "codes": [],
+    "reasons": [],
+    "info": [
+      "Invoice prints terms 'Due upon receipt'; used vendor master 'Net 15' as policy requires."
+    ],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "PASS  Not a duplicate: key V1003|CSS88611|Bill is not in ERP history (25 bills) or the register (7 entered)",
+      "PASS  Category: construction (Customer Ref PO241088-009)",
+      "PASS  PO241088-009 found; vendor matches; project 241088 Pointe Grand Kingsland East is Active Construction",
+      "PASS  Insurance certificate valid through 12/31/2026 (bill date 10/08/2026)",
+      "PASS  PO balance: billed $2,180.00 + $2,180.00 = $4,360.00 vs PO $8,000.00, remaining $3,640.00",
+      "PASS  Terms from vendor master: Net 15; bill date 10/08/2026, GL posting date 10/08/2026, due date 10/23/2026",
+      "PASS  Required approvers: Project Manager, Pointe Grand Kingsland East"
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1003",
+    "vendor_name": "Coastal Site Services LLC",
+    "bill_no": "CSS-88611",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-08",
+    "amount": "2180.00",
+    "category": "construction",
+    "system": "Sage Intacct",
+    "project_id": "241088",
+    "reference_no": "PO241088-009",
+    "approvers": [
+      "Project Manager, Pointe Grand Kingsland East"
+    ],
+    "supersedes": "",
+    "lines": [
+      {
+        "LINE_NO": 1,
+        "ACCT_NO": "54000",
+        "LOCATION_ID": "HPC",
+        "DEPARTMENT_ID": "OPS",
+        "PROJECT_ID": "241088",
+        "TASK_ID": "01560",
+        "COST_TYPE_ID": "O",
+        "LINE_MEMO": "Temporary chain link fence rental, 1,450 LF, October 2026",
+        "AMOUNT": "2180.00",
+        "BILL_NO": "CSS-88611",
+        "DOC_TYPE": "Bill",
+        "VENDOR_ID": "V1003",
+        "BILL_DATE": "2026-10-08",
+        "GL_POSTING_DATE": "2026-10-08",
+        "DUE_DATE": "2026-10-23",
+        "TERM_NAME": "Net 15",
+        "REFERENCE_NO": "PO241088-009",
+        "DESCRIPTION": "Coastal Site Services CSS-88611 Pointe Grand Kingsland East",
+        "SUPDOC_ID": "APINBOX_0016"
+      }
+    ],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0017.pdf",
+    "decision": "DUP",
+    "codes": [
+      "DUP"
+    ],
+    "reasons": [
+      "[DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+    ],
+    "info": [],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1002 Ridgeway Equipment Rental Inc (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1002",
+    "vendor_name": "Ridgeway Equipment Rental Inc",
+    "bill_no": "RER-77310",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-05",
+    "amount": "7068.60",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0018.pdf",
+    "decision": "ENTER_INTACCT",
+    "codes": [],
+    "reasons": [],
+    "info": [
+      "Revised invoice replaces HPA-31877, which was held in run run1_batch01 (APINBOX_0012.pdf) and never entered. This version is evaluated on its own merits; the held original is closed out."
+    ],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1009 Harbor Point Aggregates LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "PASS  Not a duplicate: key V1009|HPA31877|Bill is not in ERP history (25 bills) or the register (8 entered)",
+      "PASS  Category: construction (Customer Ref PO241088-022)",
+      "PASS  PO241088-022 found; vendor matches; project 241088 Pointe Grand Kingsland East is Active Construction",
+      "PASS  Insurance certificate valid through 02/28/2027 (bill date 10/02/2026)",
+      "PASS  PO balance: billed $12,326.40 + $16,948.80 = $29,275.20 vs PO $40,000.00, remaining $10,724.80",
+      "PASS  Terms from vendor master: Net 30; bill date 10/02/2026, GL posting date 10/02/2026, due date 11/01/2026",
+      "PASS  Required approvers: Project Manager, Pointe Grand Kingsland East"
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1009",
+    "vendor_name": "Harbor Point Aggregates LLC",
+    "bill_no": "HPA-31877",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-02",
+    "amount": "16948.80",
+    "category": "construction",
+    "system": "Sage Intacct",
+    "project_id": "241088",
+    "reference_no": "PO241088-022",
+    "approvers": [
+      "Project Manager, Pointe Grand Kingsland East"
+    ],
+    "supersedes": "V1009|HPA31877|Bill",
+    "lines": [
+      {
+        "LINE_NO": 1,
+        "ACCT_NO": "50000",
+        "LOCATION_ID": "HPC",
+        "DEPARTMENT_ID": "OPS",
+        "PROJECT_ID": "241088",
+        "TASK_ID": "31230",
+        "COST_TYPE_ID": "M",
+        "LINE_MEMO": "Crushed aggregate base, delivered. Tickets 77401 to 77429 (incl. tax)",
+        "AMOUNT": "16948.80",
+        "BILL_NO": "HPA-31877",
+        "DOC_TYPE": "Bill",
+        "VENDOR_ID": "V1009",
+        "BILL_DATE": "2026-10-02",
+        "GL_POSTING_DATE": "2026-10-02",
+        "DUE_DATE": "2026-11-01",
+        "TERM_NAME": "Net 30",
+        "REFERENCE_NO": "PO241088-022",
+        "DESCRIPTION": "Harbor Point Aggregates HPA-31877 Pointe Grand Kingsland East",
+        "SUPDOC_ID": "APINBOX_0018"
+      }
+    ],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0019.pdf",
+    "decision": "DUP",
+    "codes": [
+      "DUP"
+    ],
+    "reasons": [
+      "[DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+    ],
+    "info": [],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total, pay application lines 1 to 8 agree)",
+      "PASS  Vendor matched to V1001 Gulfline Concrete Partners LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1001",
+    "vendor_name": "Gulfline Concrete Partners LLC",
+    "bill_no": "GCP-0303",
+    "doc_type": "Bill",
+    "bill_date": "2026-09-30",
+    "amount": "133650.00",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0020.pdf",
+    "decision": "DUP",
+    "codes": [
+      "DUP"
+    ],
+    "reasons": [
+      "[DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+    ],
+    "info": [],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1003",
+    "vendor_name": "Coastal Site Services LLC",
+    "bill_no": "CSS-88502",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-01",
+    "amount": "1240.00",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  }
+]

@@ -1,0 +1,68 @@
+{
+  "file": "APINBOX_0012.pdf",
+  "supdoc_id": "APINBOX_0012",
+  "sha256": "a6a10d43f1fcb5b82751d85556445045e30489aeeabc7ac842890f197cb59d6d",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "HPA-31877",
+  "date": "2026-10-02",
+  "terms_printed": "Net 30",
+  "customer_ref": "",
+  "refs": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Hillpointe jobsite",
+  "vendor_name_raw": "Harbor Point Aggregates LLC",
+  "vendor_phone": "(912) 555-0148",
+  "vendor_email": "",
+  "vendor_address_header": "6020 Hwy 17, Richmond Hill, GA 31324",
+  "remit_to": {
+    "name": "Harbor Point Aggregates LLC",
+    "address": "6020 Hwy 17, Richmond Hill, GA 31324"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(912) 555-0148"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Crushed aggregate base, delivered. Tickets 77401 to 77429",
+      "qty": "412.5",
+      "unit": "TON",
+      "rate": "38.40",
+      "amount": "15840.00"
+    }
+  ],
+  "subtotal": "15840.00",
+  "tax_total": "1108.80",
+  "tax_label": "Sales tax 7%",
+  "tax_rate": "0.07",
+  "total": "16948.80",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

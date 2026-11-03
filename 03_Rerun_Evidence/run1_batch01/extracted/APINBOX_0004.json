@@ -1,0 +1,68 @@
+{
+  "file": "APINBOX_0004.pdf",
+  "supdoc_id": "APINBOX_0004",
+  "sha256": "1faca8cf6b44f6ebe30e644bbf46419b8174b6e60aa73993797b4f34e8ad8f1f",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "BLD-1007",
+  "date": "2026-10-04",
+  "terms_printed": "Net 15",
+  "customer_ref": "",
+  "refs": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Development",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Kingsland East (amenity concept)",
+  "vendor_name_raw": "Brightline Landscape Design LLC",
+  "vendor_phone": "(912) 555-0131",
+  "vendor_email": "",
+  "vendor_address_header": "77 Gloucester St, Brunswick, GA 31520",
+  "remit_to": {
+    "name": "Brightline Landscape Design LLC",
+    "address": "77 Gloucester St, Brunswick, GA 31520"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(912) 555-0131"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": true,
+  "lines": [
+    {
+      "desc": "Conceptual landscape plan and plant palette, amenity area",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "6500.00",
+      "amount": "6500.00"
+    }
+  ],
+  "subtotal": "6500.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "6500.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "file": "APINBOX_0011.pdf",
+  "supdoc_id": "APINBOX_0011",
+  "sha256": "9984afa9efc502f328834dcea6a332ed34ac5021ba59c16c83c9c8034f6ed767",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "credit_memo",
+  "invoice_no": "CM-PBS-604102",
+  "date": "2026-10-02",
+  "terms_printed": "N/A",
+  "customer_ref": "PO2410315-008",
+  "refs": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia",
+  "vendor_name_raw": "Pinecrest Building Supply Co",
+  "vendor_phone": "(803) 555-0190",
+  "vendor_email": "",
+  "vendor_address_header": "PO Box 9183 Columbia, SC 29290",
+  "remit_to": {
+    "name": "Pinecrest Building Supply Co",
+    "address": "PO Box 9183, Columbia, SC 29290"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0190"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "PBS-603977",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Return: 2x10x16 #2 SYP joist (original invoice PBS-603977)",
+      "qty": "100",
+      "unit": "EA",
+      "rate": "-20.00",
+      "amount": "-2000.00"
+    }
+  ],
+  "subtotal": "-2000.00",
+  "tax_total": "-160.00",
+  "tax_label": "SC sales tax 6% + Richland local 2%",
+  "tax_rate": "0.08",
+  "total": "-2160.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "_note": "Independent answer key derived by hand from the AP policy BEFORE the code was written. The regression test compares the workflow output to this file.",
+  "batch01": {
+    "APINBOX_0001": {"decision": "HOLD",  "codes": ["OVERPO"]},
+    "APINBOX_0002": {"decision": "ENTER_INTACCT", "total": "4682.25", "lines": 4},
+    "APINBOX_0003": {"decision": "ENTER_INTACCT", "total": "133650.00", "lines": 2},
+    "APINBOX_0004": {"decision": "HOLD",  "codes": ["NEWVEND", "NOPO", "OTHER"]},
+    "APINBOX_0005": {"decision": "ENTER_INTACCT", "total": "1240.00", "lines": 1},
+    "APINBOX_0006": {"decision": "HOLD",  "codes": ["BANKCHG"]},
+    "APINBOX_0007": {"decision": "DUP",   "codes": ["DUP"]},
+    "APINBOX_0008": {"decision": "ENTER_ENTRATA", "total": "1475.00", "lines": 1},
+    "APINBOX_0009": {"decision": "HOLD",  "codes": ["UNAPPCO", "LIEN"]},
+    "APINBOX_0010": {"decision": "ENTER_INTACCT", "total": "7068.60", "lines": 2},
+    "APINBOX_0011": {"decision": "ENTER_INTACCT", "total": "-2160.00", "lines": 1},
+    "APINBOX_0012": {"decision": "HOLD",  "codes": ["NOPO"]},
+    "APINBOX_0013": {"decision": "HOLD",  "codes": ["COI", "LIEN"]},
+    "APINBOX_0014": {"decision": "ENTER_INTACCT", "total": "8081.71", "lines": 1},
+    "APINBOX_0015": {"decision": "DUP",   "codes": ["DUP"]}
+  },
+  "batch01_rerun": "every previously entered document must be SKIP_ALREADY_ENTERED, every held document must still be HOLD, DUP stays DUP, and zero rows are written to the import file",
+  "batch02": {
+    "APINBOX_0016": {"decision": "ENTER_INTACCT", "total": "2180.00", "lines": 1},
+    "APINBOX_0017": {"decision": "DUP",   "codes": ["DUP"]},
+    "APINBOX_0018": {"decision": "ENTER_INTACCT", "total": "16948.80", "lines": 1},
+    "APINBOX_0019": {"decision": "DUP",   "codes": ["DUP"]},
+    "APINBOX_0020": {"decision": "DUP",   "codes": ["DUP"]}
+  }
+}

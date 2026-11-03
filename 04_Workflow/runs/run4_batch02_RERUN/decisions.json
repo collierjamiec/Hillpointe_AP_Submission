@@ -1,0 +1,166 @@
+[
+  {
+    "file": "APINBOX_0016.pdf",
+    "decision": "SKIP_ALREADY_ENTERED",
+    "codes": [],
+    "reasons": [],
+    "info": [
+      "Same inbox file already entered in run run3_batch02. No action."
+    ],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master"
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1003",
+    "vendor_name": "Coastal Site Services LLC",
+    "bill_no": "CSS-88611",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-08",
+    "amount": "2180.00",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0017.pdf",
+    "decision": "DUP",
+    "codes": [
+      "DUP"
+    ],
+    "reasons": [
+      "[DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+    ],
+    "info": [],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1002 Ridgeway Equipment Rental Inc (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1002",
+    "vendor_name": "Ridgeway Equipment Rental Inc",
+    "bill_no": "RER-77310",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-05",
+    "amount": "7068.60",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0018.pdf",
+    "decision": "SKIP_ALREADY_ENTERED",
+    "codes": [],
+    "reasons": [],
+    "info": [
+      "Same inbox file already entered in run run3_batch02. No action."
+    ],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1009 Harbor Point Aggregates LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master"
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1009",
+    "vendor_name": "Harbor Point Aggregates LLC",
+    "bill_no": "HPA-31877",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-02",
+    "amount": "16948.80",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0019.pdf",
+    "decision": "DUP",
+    "codes": [
+      "DUP"
+    ],
+    "reasons": [
+      "[DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+    ],
+    "info": [],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total, pay application lines 1 to 8 agree)",
+      "PASS  Vendor matched to V1001 Gulfline Concrete Partners LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1001",
+    "vendor_name": "Gulfline Concrete Partners LLC",
+    "bill_no": "GCP-0303",
+    "doc_type": "Bill",
+    "bill_date": "2026-09-30",
+    "amount": "133650.00",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  },
+  {
+    "file": "APINBOX_0020.pdf",
+    "decision": "DUP",
+    "codes": [
+      "DUP"
+    ],
+    "reasons": [
+      "[DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+    ],
+    "info": [],
+    "trail": [
+      "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+      "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+      "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+      "PASS  No payment-change language; remit address and phone agree with the vendor master",
+      "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+    ],
+    "confidence": "High",
+    "confidence_basis": [],
+    "vendor_id": "V1003",
+    "vendor_name": "Coastal Site Services LLC",
+    "bill_no": "CSS-88502",
+    "doc_type": "Bill",
+    "bill_date": "2026-10-01",
+    "amount": "1240.00",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  }
+]

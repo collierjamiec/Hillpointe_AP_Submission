@@ -1,0 +1,100 @@
+{
+  "file": "APINBOX_0009.pdf",
+  "supdoc_id": "APINBOX_0009",
+  "sha256": "b97bf8d64b0b7f4375d03852c48e03e2712aae00043752e8c909f6d3afb1137b",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "pay_app",
+  "invoice_no": "SFG-2410-05",
+  "date": "2026-09-30",
+  "terms_printed": "Net 30",
+  "customer_ref": "Subcontract SC2410315-06",
+  "refs": {
+    "po": [],
+    "subcontract": [
+      "SC2410315-06"
+    ],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [
+      "SC2410315-06"
+    ],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia",
+  "vendor_name_raw": "Summit Framing Group LLC",
+  "vendor_phone": "(803) 555-0165",
+  "vendor_email": "",
+  "vendor_address_header": "415 Columbia Ave, Lexington, SC 29072",
+  "remit_to": {
+    "name": "",
+    "address": ""
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0165"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "pay_app": {
+    "app_no": 5,
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "original_contract": "884000.00",
+    "net_change_cos": "40900.00",
+    "contract_to_date": "924900.00",
+    "completed_to_date": "626600.00",
+    "retainage_to_date": "62660.00",
+    "earned_less_retainage": "563940.00",
+    "previous_certificates": "460800.00",
+    "current_due": "103140.00",
+    "this_period_gross": "114600.00",
+    "this_period_retainage": "11460.00",
+    "continuation": [
+      {
+        "desc": "Building 5 wall framing",
+        "amount": "54600.00",
+        "retainage": "5460.00"
+      },
+      {
+        "desc": "Building 5 roof trusses set",
+        "amount": "41600.00",
+        "retainage": "4160.00"
+      },
+      {
+        "desc": "Change Order 2: cabinet and grab bar blocking",
+        "amount": "18400.00",
+        "retainage": "1840.00",
+        "change_order": "CO2"
+      }
+    ],
+    "change_orders_billed": [
+      "CO2"
+    ]
+  },
+  "lines": [],
+  "total": "103140.00",
+  "subtotal": "114600.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

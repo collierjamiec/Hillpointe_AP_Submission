@@ -1,0 +1,95 @@
+{
+  "file": "APINBOX_0017.pdf",
+  "supdoc_id": "APINBOX_0017",
+  "sha256": "9f93e7c0ce353d0a426f56ad25b48a2a74902a904f81483160aabaf3abbb7c17",
+  "pages": 1,
+  "stamps": [
+    "REPRINT"
+  ],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "RER-77310",
+  "date": "2026-10-05",
+  "terms_printed": "Net 30",
+  "customer_ref": "PO2410315-014",
+  "refs": {
+    "po": [
+      "PO2410315-014"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO2410315-014"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia jobsite, Columbia, SC",
+  "vendor_name_raw": "Ridgeway Equipment Rental Inc",
+  "vendor_phone": "(803) 555-0177",
+  "vendor_email": "",
+  "vendor_address_header": "2280 Augusta Rd Lexington, SC 29072",
+  "remit_to": {
+    "name": "Ridgeway Equipment Rental Inc",
+    "address": "2280 Augusta Rd, Lexington, SC 29072"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0177"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Telehandler 10K lb, 4 week rate (09/08/2026 to 10/05/2026), Unit TH-1142",
+      "qty": "1",
+      "unit": "4WK",
+      "rate": "4850.00",
+      "amount": "4850.00"
+    },
+    {
+      "desc": "Delivery and pickup, telehandler",
+      "qty": "1",
+      "unit": "EA",
+      "rate": "350.00",
+      "amount": "350.00"
+    },
+    {
+      "desc": "Scissor lift 19 ft electric, 4 week rate (09/08/2026 to 10/05/2026), Unit SL-0387",
+      "qty": "1",
+      "unit": "4WK",
+      "rate": "1120.00",
+      "amount": "1120.00"
+    },
+    {
+      "desc": "Delivery and pickup, scissor lift",
+      "qty": "1",
+      "unit": "EA",
+      "rate": "225.00",
+      "amount": "225.00"
+    }
+  ],
+  "subtotal": "6545.00",
+  "tax_total": "523.60",
+  "tax_label": "SC sales tax 6% + Richland local 2%",
+  "tax_rate": "0.08",
+  "total": "7068.60",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

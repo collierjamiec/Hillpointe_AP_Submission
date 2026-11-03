@@ -1,0 +1,93 @@
+{
+  "file": "APINBOX_0007.pdf",
+  "supdoc_id": "APINBOX_0007",
+  "sha256": "cf75763e75d1a06065f768ab56e537d8c3d2f3c7267f0a3f9231e1169ff6835a",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "55102",
+  "date": "2026-09-18",
+  "terms_printed": "Net 30",
+  "customer_ref": "PO241088-031",
+  "refs": {
+    "po": [
+      "PO241088-031"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO241088-031"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Kingsland East, Kingsland, GA",
+  "vendor_name_raw": "Copperline Plumbing Supply Inc",
+  "vendor_phone": "(904) 555-0158",
+  "vendor_email": "",
+  "vendor_address_header": "PO Box 2207, Jacksonville, FL 32203",
+  "remit_to": {
+    "name": "Copperline Plumbing Supply Inc",
+    "address": "PO Box 2207, Jacksonville, FL 32203"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(904) 555-0158"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "PEX A tubing 1/2 in, 300 ft coil",
+      "qty": "10",
+      "unit": "CL",
+      "rate": "186.00",
+      "amount": "1860.00"
+    },
+    {
+      "desc": "PEX A tubing 3/4 in, 100 ft coil",
+      "qty": "20",
+      "unit": "CL",
+      "rate": "98.00",
+      "amount": "1960.00"
+    },
+    {
+      "desc": "Brass fittings assortment per quote Q-88310",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "2423.17",
+      "amount": "2423.17"
+    },
+    {
+      "desc": "Ball valve 3/4 in lead free",
+      "qty": "48",
+      "unit": "EA",
+      "rate": "58.75",
+      "amount": "2820.00"
+    }
+  ],
+  "subtotal": "9063.17",
+  "tax_total": "634.42",
+  "tax_label": "GA sales tax 4% + Camden local 3%",
+  "tax_rate": "0.07",
+  "total": "9697.59",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}
