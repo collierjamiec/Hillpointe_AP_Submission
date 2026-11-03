@@ -37,4 +37,4 @@ export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
 - Money is `Decimal`, never float.
 - Every decision change should come with a test in `tests/test_workflow.py`; `tests/expected_decisions.json` holds the
   expected outcome per sample document.
-- Git repo (local only, no remote) on `main` with a baseline commit. Commit only when Jamie asks.
+- Git repo on `main`, pushed to public GitHub repo `collierjamiec/Hillpointe_AP_Submission` (remote `origin`). Commit only when Jamie asks.
