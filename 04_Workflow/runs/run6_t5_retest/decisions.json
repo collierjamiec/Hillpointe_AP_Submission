@@ -1,0 +1,34 @@
+[
+  {
+    "file": "T5_unfamiliar_layout.pdf",
+    "decision": "HOLD",
+    "codes": [
+      "OTHER"
+    ],
+    "reasons": [
+      "[OTHER] This looks like a bill for $940.00 that references PO2410315-008, but it is not in an invoice layout Penny knows how to read, so its numbers could not be checked and nothing was entered. Enter it by hand after review, or ask the vendor for their standard invoice. The optional AI reader (--extractor hybrid) is meant for layouts like this."
+    ],
+    "info": [],
+    "trail": [
+      "FAIL  [OTHER] This looks like a bill for $940.00 that references PO2410315-008, but it is not in an invoice layout Penny knows how to read, so its numbers could not be checked and nothing was entered. Enter it by hand after review, or ask the vendor for their standard invoice. The optional AI reader (--extractor hybrid) is meant for layouts like this."
+    ],
+    "confidence": "Low",
+    "confidence_basis": [
+      "unfamiliar layout; amounts not read"
+    ],
+    "vendor_id": "",
+    "vendor_name": "",
+    "bill_no": "",
+    "doc_type": "Bill",
+    "bill_date": "",
+    "amount": "0",
+    "category": "",
+    "system": "",
+    "project_id": "",
+    "reference_no": "",
+    "approvers": [],
+    "supersedes": "",
+    "lines": [],
+    "entrata_rows": []
+  }
+]

@@ -359,6 +359,26 @@ class UnreadableFiles(unittest.TestCase):
         self.assertEqual(logged["password.pdf"]["Recommended Route"], "AP Manager")
         self.assertTrue((out / "review_workbook.xlsx").exists())
         self.assertEqual(cli.Register(self.tmp / "state").rows, {})   # nothing to key on, so nothing in the register
+        info = json.loads((out / "run_info.json").read_text())
+        self.assertEqual((info["run_id"], info["batch"]), ("bad", "batch"))
+        self.assertTrue(info["started_at"])
+
+    def test_bill_in_an_unknown_layout_is_held_with_an_honest_reason(self):
+        """A real bill Penny cannot read must not be called 'not a bill'. A lien waiver on its own still is."""
+        from unittest import mock
+        batch = self.tmp / "batch"; batch.mkdir()
+        syn.make_statement(batch / "statement.pdf")
+        syn.make_waiver_only(batch / "waiver.pdf")
+        with mock.patch.object(cli, "load_package", return_value=(None, None, None)):
+            decs, errs = cli.run(self.tmp, batch, "layout", self.tmp / "state", self.tmp / "out", quiet=True)
+        by = {d.file: d for d in decs}
+        st, wv = by["statement.pdf"], by["waiver.pdf"]
+        self.assertEqual((st.status, st.codes, st.doc["kind"]), ("HOLD", ["OTHER"], "unrecognized"))
+        self.assertIn("looks like a bill for $940.00 that references PO2410315-008", st.reasons[0])
+        self.assertNotIn("lien waiver", st.reasons[0])
+        self.assertEqual(st.confidence, "Low")
+        self.assertEqual(wv.doc["kind"], "other")
+        self.assertIn("Not a bill", wv.reasons[0])
 
     @needs_package
     def test_good_invoices_still_entered_when_batch_has_bad_files(self):
@@ -372,6 +392,69 @@ class UnreadableFiles(unittest.TestCase):
         self.assertTrue(all(by_file[f"{n}.pdf"].status == "HOLD" for n in syn.BAD_FILES))
         rerun, _ = cli.run(PKG, batch, "mixed2", self.tmp / "state", self.tmp / "out", quiet=True)
         self.assertTrue(all(d.status == "HOLD" for d in rerun if d.file != "good.pdf"))   # re-read every run, never skipped
+
+
+class WebExportTests(unittest.TestCase):
+    """The web view reads one JSON file built from the saved runs. It must carry every run, document and result."""
+
+    OFFICIAL_RUNS = ["run1_batch01", "run2_batch01_RERUN", "run3_batch02", "run4_batch02_RERUN", "run5_edge_tests", "run6_t5_retest"]
+
+    def test_export_of_saved_runs(self):
+        """Uses only the official runs saved in the repo, so extra runs made on this computer do not change the result."""
+        from ap_workflow import webexport
+        missing = [r for r in self.OFFICIAL_RUNS if not (ROOT / "runs" / r / "decisions.json").exists()]
+        self.assertEqual(missing, [], "These saved runs are missing from 04_Workflow/runs (./penny reset or demo deletes them). "
+                                      "Restore them with:  git restore 04_Workflow/runs")
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            for r in self.OFFICIAL_RUNS:
+                shutil.copytree(ROOT / "runs" / r, tmp / "saved_runs" / r)
+            r = webexport.build(tmp / "saved_runs", ROOT / "config" / "rules.json", tmp / "web")
+            data = json.loads(r["path"].read_text())
+            self.assertEqual([x["id"] for x in data["runs"]], ["run1_batch01", "run2_batch01_RERUN", "run3_batch02", "run4_batch02_RERUN", "run5_edge_tests", "run6_t5_retest"])
+            self.assertEqual([x["label"] for x in data["runs"]], ["Batch 01", "Batch 01 rerun", "Batch 02", "Batch 02 rerun", "Edge-case tests", "T5 retest after fix"])
+            self.assertEqual(len(data["documents"]), 26)
+            self.assertEqual(len(data["results"]), 47)
+            self.assertEqual(data["documents"]["T5_unfamiliar_layout"]["extracted"]["kind"], "unrecognized")   # newest reading wins
+            self.assertIsNone(data["documents"]["APINBOX_0001"]["pdf"])          # no package given, no PDFs copied
+            self.assertEqual(data["documents"]["APINBOX_0001"]["extracted"]["invoice_no"], "PBS-604418")
+            held = next(x for x in data["results"] if x["doc_id"] == "APINBOX_0012" and x["run_id"] == "run1_batch01")
+            revised = next(x for x in data["results"] if x["doc_id"] == "APINBOX_0018" and x["run_id"] == "run3_batch02")
+            self.assertEqual(revised["supersedes"], held["key"])                 # lets the web view close out the old hold
+            self.assertEqual(data["rules"]["thresholds"]["overpo_tolerance"], 500.0)
+            first = {f["name"]: f for f in data["runs"][0]["files"]}
+            self.assertEqual(first["intacct_bill_import.csv"]["rows"], 11)            # matches the submitted Batch 01 import file
+            self.assertTrue((tmp / "web" / "runs" / "run1_batch01" / "intacct_bill_import.csv").exists())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_run_names_are_readable(self):
+        from ap_workflow.webexport import _label
+        self.assertEqual(_label("run2_batch01_RERUN", "01_Invoice_Batch_01", True), "Batch 01 rerun")
+        self.assertEqual(_label("01_Invoice_Batch_01_111817", "01_Invoice_Batch_01", False), "Invoice Batch 01")
+        self.assertEqual(_label("01_Invoice_Batch_01_120502", "01_Invoice_Batch_01", True), "Invoice Batch 01 rerun")
+        self.assertEqual(_label("new-tests_111835", "new-tests", False), "New tests")
+
+    def test_export_copies_pdfs_from_the_package(self):
+        from ap_workflow import webexport
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            runs, pkg = tmp / "runs", tmp / "pkg"
+            (pkg / "inbox").mkdir(parents=True)
+            syn.make_invoice(pkg / "inbox" / "bad.pdf")
+            run_dir = runs / "run1_mine"
+            (run_dir / "extracted").mkdir(parents=True)
+            (run_dir / "run_info.json").write_text(json.dumps({"batch": "inbox", "started_at": "2026-11-10T09:00:00-05:00"}))
+            (run_dir / "decisions.json").write_text(json.dumps([{"file": "bad.pdf", "decision": "HOLD", "vendor_id": "", "vendor_name": "",
+                                                                 "bill_no": "", "doc_type": "Bill", "codes": ["OTHER"]}]))
+            r = webexport.build(runs, ROOT / "config" / "rules.json", tmp / "web", package=pkg)
+            data = json.loads(r["path"].read_text())
+            self.assertEqual(r["pdfs_copied"], 1)
+            self.assertEqual(data["documents"]["bad"]["pdf"], "data/pdfs/bad.pdf")
+            self.assertTrue((tmp / "web" / "pdfs" / "bad.pdf").exists())
+            self.assertEqual(data["runs"][0]["started_at"], "2026-11-10T09:00:00-05:00")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

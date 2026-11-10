@@ -153,3 +153,18 @@ BAD_FILES = {
     "password": (_locked, "password protected"),
     "scanned": (_image_only, "scanned image"),
 }
+
+
+def make_statement(path):
+    """A real bill in a layout Penny does not know: no 'Invoice No.' label, just 'AMOUNT DUE'."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.setFont("Helvetica-Bold", 14); c.drawString(48, 740, "Pinecrest Building Supply Co")
+    c.setFont("Helvetica", 9); c.drawString(48, 726, "PO Box 9183, Columbia, SC 29290 | (803) 555-0190")
+    c.setFont("Helvetica-Bold", 16); c.drawString(48, 700, "Statement of Charges")
+    c.setFont("Helvetica", 9)
+    c.drawString(48, 680, "Document #: PBS-910005    Prepared for: Hillpointe Construction, LLC")
+    c.drawString(48, 668, "Issued: October 28, 2026    Your PO: PO2410315-008")
+    c.drawString(48, 640, "2x4x8 framing lumber, kiln dried   $4.00   150   $600.00")
+    c.drawString(48, 628, "2x6x10 framing lumber, treated     $8.50    40   $340.00")
+    c.setFont("Helvetica-Bold", 10); c.drawString(300, 600, "AMOUNT DUE: $940.00")
+    c.save()

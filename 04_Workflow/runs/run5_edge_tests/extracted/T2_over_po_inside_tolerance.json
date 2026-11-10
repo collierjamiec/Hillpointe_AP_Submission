@@ -1,0 +1,72 @@
+{
+  "file": "T2_over_po_inside_tolerance.pdf",
+  "supdoc_id": "T2_over_po_inside_tolerance",
+  "sha256": "595a23933ac8db9603a958b312e888d0e83629ec9d15a59567f69a2de2f16cd6",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "CSS-91001",
+  "date": "2026-10-28",
+  "terms_printed": "Net 15",
+  "customer_ref": "PO241088-009",
+  "refs": {
+    "po": [
+      "PO241088-009"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO241088-009"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Kingsland East",
+  "vendor_name_raw": "Coastal Site Services LLC",
+  "vendor_phone": "(912) 555-0122",
+  "vendor_email": "",
+  "vendor_address_header": "1190 Louisville Rd Savannah, GA 31415",
+  "remit_to": {
+    "name": "Coastal Site Services LLC",
+    "address": "1190 Louisville Rd, Savannah, GA 31415"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(912) 555-0122"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Fence rental",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "6300.00",
+      "amount": "6300.00"
+    }
+  ],
+  "subtotal": "6300.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "6300.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

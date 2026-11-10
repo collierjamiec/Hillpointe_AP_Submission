@@ -127,6 +127,16 @@ class Engine:
             dec.downgrade("Low", "file could not be read")
             dec.status = HOLD
             return self._finish(dec)
+        if doc["kind"] == "unrecognized":
+            po = (doc.get("refs") or {}).get("po") or []
+            seen = doc.get("amount_seen")
+            dec.hold("OTHER", f"This looks like a bill{' for ' + seen if seen else ''}{' that references ' + po[0] if po else ''}, but it is not "
+                              "in an invoice layout Penny knows how to read, so its numbers could not be checked and nothing was entered. "
+                              "Enter it by hand after review, or ask the vendor for their standard invoice. The optional AI reader "
+                              "(--extractor hybrid) is meant for layouts like this.")
+            dec.downgrade("Low", "unfamiliar layout; amounts not read")
+            dec.status = HOLD
+            return self._finish(dec)
         if doc["kind"] == "other":
             dec.hold("OTHER", "Not a bill, pay application or credit memo (for example a standalone lien waiver). Not entered.")
             dec.status = HOLD

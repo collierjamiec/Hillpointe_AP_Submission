@@ -2,6 +2,9 @@
 
 Candidate: Jamie Collier  |  Submitted: October 2026
 
+> **Note added November 2026.** Folders `01` to `05` are the package as submitted. I have kept building Penny since
+> then. Everything added after submission is listed, version by version, in [`SCOPE.md`](SCOPE.md).
+
 ## What is in this package
 
 | Folder | What it holds |
@@ -27,7 +30,7 @@ Candidate: Jamie Collier  |  Submitted: October 2026
 cd 04_Workflow
 ./penny install
 ./penny demo --package /path/to/Hillpointe_AP_Technical_Screen   # or ./run_demo.sh
-./penny test                              # 37 checks
+./penny test                              # 41 checks today (33 at submission)
 ```
 
 Python 3.9 or newer. No API key and no internet are needed for the default mode. See `04_Workflow/README.md` for how

@@ -1,0 +1,21 @@
+{
+  "file": "T6_scanned_picture_only.pdf",
+  "supdoc_id": "T6_scanned_picture_only",
+  "sha256": "5ad2784e668db30f37fd6fff6ebdb475dc980c61a27c8072a6b1b9beef5553e7",
+  "pages": 0,
+  "stamps": [],
+  "kind": "unreadable",
+  "unreadable_reason": "The PDF has no readable text. It is probably a scanned image or photo, which needs OCR or manual entry.",
+  "invoice_no": "",
+  "date": "",
+  "vendor_name_raw": "",
+  "customer_ref": "",
+  "total": null,
+  "lines": [],
+  "extraction": {
+    "method": "none",
+    "warnings": [
+      "The PDF has no readable text. It is probably a scanned image or photo, which needs OCR or manual entry."
+    ]
+  }
+}
