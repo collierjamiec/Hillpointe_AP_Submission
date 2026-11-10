@@ -4,3 +4,5 @@ __pycache__/
 04_Workflow/.venv/
 # invoices uploaded through the web app stay on this computer unless you choose to commit them
 04_Workflow/inbox/
+04_Workflow/state/update_check.json
+04_Workflow/state/update_skip.json

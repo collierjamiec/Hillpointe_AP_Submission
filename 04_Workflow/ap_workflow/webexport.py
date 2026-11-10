@@ -95,7 +95,7 @@ def build(runs_dir, cfg_path, out_dir, package=None, root=None, batch_log=None):
         runs.append({"id": run_id, "order": order, "label": info.get("label") or _label(run_id, batch, seen_before),
                      "batch": batch, "started_at": info.get("started_at", ""),
                      "dry_run": bool(info.get("dry_run", False)), "rerun": "RERUN" in run_id.upper() or seen_before,
-                     "ran_by": info.get("ran_by"), "batch_dir": info.get("batch_dir", ""),
+                     "ran_by": info.get("ran_by"), "batch_dir": info.get("batch_dir", ""), "penny_version": info.get("penny_version"),
                      "preflight_failed": (run_dir / "PREFLIGHT_FAILED.txt").exists(), "documents": len(decisions),
                      "files": _copy_run_files(run_dir, out_dir)})
         for d in decisions:

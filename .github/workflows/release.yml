@@ -1,0 +1,40 @@
+# Tags a Penny release on GitHub when a new version reaches main. (Added after submission, v1.6.)
+# The version comes from 04_Workflow/VERSION and the notes from 04_Workflow/releases.json, which
+# ./penny release writes. If the tag already exists, nothing happens, so re-running is safe.
+name: Tag release
+
+on:
+  push:
+    branches: [main]
+    paths: ["04_Workflow/VERSION"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the tag and GitHub release if they are new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < 04_Workflow/VERSION)"
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already exists; nothing to do."
+            exit 0
+          fi
+          python3 - "$version" > notes.md <<'PY'
+          import json, sys
+          v = sys.argv[1]
+          rel = next(r for r in json.load(open("04_Workflow/releases.json"))["releases"] if r["version"] == v)
+          print(("**Required update.** Older copies of Penny must update before real runs or changes.\n" if rel.get("required") else "Optional update.\n"))
+          print(rel["summary"] + "\n")
+          for n in rel.get("notes", []):
+              print(f"- {n}")
+          PY
+          gh release create "$tag" --target "$GITHUB_SHA" --title "Penny $version" --notes-file notes.md
