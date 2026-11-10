@@ -19,17 +19,14 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.9", "3.12"]   # 3.9 is the Mac's system Python; 3.12 catches anything newer breaks
+    # The official Python images, because current GitHub runners no longer offer 3.9 through setup-python.
+    container: python:${{ matrix.python }}-slim
     defaults:
       run:
         working-directory: 04_Workflow
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: 04_Workflow/requirements.txt
-      - run: pip install -r requirements.txt
+      - run: python --version && pip install --no-cache-dir -r requirements.txt
       - name: Run the tests (package-free set)
         run: python -m unittest discover -s tests -v
 
