@@ -4,7 +4,7 @@ register, runs, accounts and web data are never touched.
   python tests/browser/lab.py            # start and wait (Ctrl+C to stop)
   python tests/browser/run.py            # start the lab, run every suite, stop the lab
 
-Ports (see lab.js): 8781 public site, 8782 real accounts, 8783 and 8784 for the updates suite, and 8785 with the
+Ports (see lab.js): 8781 public site, 8782 real accounts, 8783 and 8784 for the updates suite, 8786 for the setup wizard, and 8785 with the
 assessment package when HILLPOINTE_PACKAGE points at it.
 """
 import json
@@ -78,6 +78,17 @@ def main():
     answer = {**version.status(mine, [required] + local), "checked": "now", "note": ""}
     behind.update_info = lambda force=False: answer       # a fixed answer, so the suite never depends on the network
     serve(behind, 8784)
+
+    # A fresh Penny with the setup wizard open, and a folder that looks like the invoice package for it to find.
+    fresh = service("setup")
+    fresh.root = LAB / "setup"                                  # "the Penny folder" the wizard reports
+    fresh.setup_key = "lab-setup-key-0123456789"
+    pkg = LAB / "setup-package" / "Hillpointe_AP_Technical_Screen"
+    (pkg / "02_Reference_Data").mkdir(parents=True)
+    (pkg / "02_Reference_Data" / "vendor_master.csv").write_text("Vendor ID,Vendor Name\n")
+    (pkg / "01_Invoice_Batch_01").mkdir()
+    shutil.copy2(ROOT / "web" / "data" / "pdfs" / "APINBOX_0001.pdf", pkg / "01_Invoice_Batch_01" / "APINBOX_0001.pdf")
+    serve(fresh, 8786)
 
     package = os.environ.get("HILLPOINTE_PACKAGE")
     if package and Path(package).is_dir():

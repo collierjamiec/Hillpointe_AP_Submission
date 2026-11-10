@@ -14,8 +14,8 @@ about a real product.
 |---|---|---|
 | **Live demo** | The web app with the example invoices, in your browser. Pick a demo role to sign in. | [collierjamiec.github.io/Hillpointe_AP_Submission](https://collierjamiec.github.io/Hillpointe_AP_Submission/) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1 to 2.0.1)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
-| **Current version: 2.0.1** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Built after submission (v1.1 to 2.1.0)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 2.1.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
 | **Where it is going** | The plan to 2.0: a shared server for a real team | [`ROADMAP.md`](ROADMAP.md) |
 | **How it works** | Every check, rule and assumption | [`04_Workflow/README.md`](04_Workflow/README.md) |
 
@@ -58,7 +58,8 @@ For a team on one computer, turn on real accounts and email (all optional):
   twice, a watched inbox folder, paging for long lists and an accessibility pass (v1.9.0), and a layout made for
   phones (v1.9.1), and Penny for a real team: one server that checks and saves everyone's work in a database,
   live updates between teammates, and https for use over a network (v2.0.0), followed by a security review that
-  found and fixed a way around sign-in (v2.0.1).
+  found and fixed a way around sign-in (v2.0.1), and a setup wizard that installs Penny and gets it ready from
+  a double-click (v2.1.0).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

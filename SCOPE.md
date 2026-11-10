@@ -633,7 +633,7 @@ Nothing here changes how Penny decides an invoice.
 * The browser loads the whole audit log at sign-in. Fine for thousands of entries, not built for millions.
 * Changing a rule in the web app rewrites `config/rules.json` in plain two-space JSON, so its layout changes.
 * Not yet done by a person: an outside security review, a session with a screen reader user, and a try on real
-  phones and tablets. Single sign-on is intended for 2.1.
+  phones and tablets. Single sign-on is intended for a later release.
 
 ### Documentation and testing
 
@@ -693,13 +693,64 @@ Nothing here changes how Penny decides an invoice.
 
 ---
 
+## Version 2.1.0: setup wizard (November 2026, after submission)
+
+Setting Penny up for a team took six terminal commands in the right order: install, invite the first Admin, make a
+certificate, find the package folder, remember the right flags, start. This release makes it a double-click and
+five screens. It is optional, and nothing here changes how Penny decides an invoice.
+
+### What it is
+
+* **Install Penny** (`Install Penny.command` on a Mac, `Install Penny.bat` on Windows) installs Penny's libraries
+  into a private space in the Penny folder and opens the wizard. `./penny install` then `./penny setup` does the same.
+* **Five screens** in the browser, in Penny's own look (`web/setup.html`):
+  1. **This computer:** Python, the libraries, the save folder, the database, the example data. Anything missing is
+     named with what to do about it, and Continue waits until the needed ones are there.
+  2. **Your invoices:** the package folder. Penny offers the ones it finds in the usual places, or checks a pasted
+     path and says what is inside. It can be skipped.
+  3. **Who uses Penny:** "Just me" keeps the example accounts. "My team" creates the first Admin with a real
+     password, which turns on sign-in.
+  4. **Settings:** time zone, watched folder, and for a team whether to open Penny to the network, making a
+     certificate if there is none. It says honestly where email goes.
+  5. **All set:** what was chosen, and how to start Penny from now on.
+* **Start Penny** (and `./penny start`) starts Penny the way the wizard was told to, from `state/setup.json`.
+* The wizard can be run again. It starts from the earlier choices and never removes anything.
+
+### Kept safe
+
+* The wizard can create an Admin, so it is closed unless Penny opens it. `./penny setup` makes a one-time key and
+  opens the browser with it. Every `/api/setup` request must carry the key and come from this computer; anything
+  else gets "not found". The key travels after the `#` in the address, which browsers never send to a server, and
+  is taken out of the address bar at once.
+* Once people exist it will not create another "first" Admin.
+* It keeps the two network rules: no network without real accounts, and none without a certificate. "Just me" can
+  never be saved as open to the network.
+* The password is checked by the same rules as everywhere else and is never kept, shown back or saved as text.
+* A computer name for a certificate must be a plain name, so nothing typed there can run as a command.
+
+### Honest limits
+
+* **The double-click files have not been run on a real Mac or a real Windows computer.** Their commands are tested,
+  but things like macOS asking "are you sure you want to open this?" can only be seen there.
+* The wizard does not install Python and does not set up a mail account.
+* A browser cannot hand a web page a folder's real path, so the package folder is pasted or picked from what Penny
+  found, not chosen in a file window.
+
+### Testing
+
+* 121 Python tests; 86 run without the assessment package. Seven are new, for the wizard.
+* 18 browser suites (17 without the package). The new one walks the whole wizard, checks every screen for
+  accessibility (WCAG 2.2 AA), and checks it on a phone.
+
+---
+
 ## What comes next (intended, not scheduled)
 
 The plan to 2.0 is finished. What is intended next is in [`ROADMAP.md`](ROADMAP.md). In short:
 
 | Next step | What it adds |
 |---|---|
-| Single sign-on (intended for 2.1) | Sign in with the company's identity provider. It needs a real identity provider to build and test against. |
+| Single sign-on | Sign in with the company's identity provider. It needs a real identity provider to build and test against. |
 | Checks that need a person | An outside security review, a screen reader session, and a try on real phones and tablets. |
 | Smaller items | Sign-ins that survive a restart, paging by the database, Argon2id password hashing. |
 

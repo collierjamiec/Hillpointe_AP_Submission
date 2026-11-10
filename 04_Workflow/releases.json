@@ -2,6 +2,18 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.1.0",
+      "date": "2026-11-10",
+      "required": false,
+      "summary": "A setup wizard: double-click Install Penny, answer five screens in your browser, and Penny is ready for you or your team.",
+      "notes": [
+        "Install Penny (Mac and Windows) installs Penny and opens the wizard. No commands to type.",
+        "The wizard checks this computer, finds your invoice package, sets up who signs in, and saves a few settings.",
+        "Start Penny starts it the way the wizard was told to.",
+        "The wizard is closed unless Penny itself opens it."
+      ]
+    },
+    {
       "version": "2.0.1",
       "date": "2026-11-10",
       "required": true,

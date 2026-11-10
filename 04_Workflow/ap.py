@@ -33,6 +33,8 @@ def install():
         sys.exit("Install failed. Check your internet connection and run the install command again. If it keeps failing, copy the message above and ask for help.")
     print("4. Checking everything works...\n")
     r = subprocess.run([str(venv_python()), str(HERE / "ap.py"), "check"])
+    if r.returncode == 0:
+        print("\nNext: set Penny up in your browser with  ./penny setup  (a few screens: your invoices, who signs in, settings).")
     sys.exit(r.returncode)
 
 

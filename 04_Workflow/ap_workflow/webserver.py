@@ -141,6 +141,7 @@ class BatchService:
         self._sha = {}                                     # path -> (mtime, size, sha256): a file is hashed once until it changes
         self._log = {"seq": 0, "events": []}               # the server's own log read so far; only newer entries are read again
         self._runs = (None, [])                            # (file stamp, runs) from the web data, for export_file
+        self.setup_key = None                              # set by ./penny setup: the one-time key the setup wizard must send (see setup.py)
         self._log_lock = threading.Lock()                  # its own lock: a run holds self.lock while it reads the log
         from .accounts import Accounts
         from .mailer import Outbox
@@ -734,7 +735,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         """With accounts on, the only things served without a session: the page itself, its scripts, styles and
         fonts, and the public list of releases. Everything else needs a sign-in. This is a short list of what is
         allowed, not a list of what is private, so a new folder is private until someone decides otherwise."""
-        return path in ("/", "/index.html", "/data/releases.json", "/favicon.ico") or path.startswith("/assets/")
+        return path in ("/", "/index.html", "/setup.html", "/data/releases.json", "/favicon.ico") or path.startswith("/assets/")
 
     def host_ok(self):
         """While Penny only listens on this computer, the address in the request must be this computer's. A web
@@ -777,6 +778,10 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             if url.path == "/api/status":
                 return self.send_json(self.status())
+            if url.path == "/api/setup":
+                self.setup_guard()
+                from . import setup
+                return self.send_json(setup.state(self.service, self.service.root))
             if url.path == "/api/auth/me":
                 who = self.me()
                 return self.send_json({"user": who, "accounts": self.service.accounts.enabled()}, 200 if who or not self.service.accounts.enabled() else 401)
@@ -843,6 +848,38 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
             return self.send_json({"error": self.problem(e)}, 500)
         return super().do_GET()
 
+    def setup_guard(self):
+        """The setup wizard is closed unless Penny was started with ./penny setup, and then only to a request
+        that carries that run's one-time key and comes from this computer. Anything else gets "not found"."""
+        import hmac
+        key = self.service.setup_key
+        sent = self.headers.get("X-Penny-Setup") or ""
+        if not key or not hmac.compare_digest(sent.encode(), key.encode()) or self.client_address[0] not in ("127.0.0.1", "::1"):
+            raise BatchError("Not found.", 404)
+
+    def setup_routes(self, parts, raw):
+        """The setup wizard's steps (see setup.py). Each answers with the wizard's whole view, so the page stays in step."""
+        from . import setup
+        self.setup_guard()
+        body = json.loads(raw or b"{}")
+        if not isinstance(body, dict):
+            raise BatchError("The request was not understood.", 400)
+        try:
+            if parts == ["api", "setup", "package"]:
+                return self.send_json(setup.check_package(body.get("path")))
+            if parts == ["api", "setup", "admin"]:
+                who = setup.first_admin(self.service, body.get("name"), body.get("email"), body.get("password"))
+                return self.send_json({"user": {"name": who["name"], "email": who["email"]}, "state": setup.state(self.service, self.service.root)})
+            if parts == ["api", "setup", "certificate"]:
+                setup.make_certificate(self.service.state_dir, [body.get("host") or ""])
+                return self.send_json({"state": setup.state(self.service, self.service.root)})
+            if parts == ["api", "setup", "finish"]:
+                done = setup.finish(self.service, body)
+                return self.send_json({**done, "state": setup.state(self.service, self.service.root)})
+        except setup.SetupError as e:
+            raise BatchError(str(e), 422)
+        raise BatchError("Not found.", 404)
+
     def problem(self, e):
         """What to tell the browser about an unexpected error. With real accounts the details stay in the
         terminal (they can name folders on this computer) and the browser gets a reference to quote."""
@@ -906,6 +943,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
     def work_routes(self, parts, url, raw):
         """Email, batches, rechecks, the rule simulator and manual entry. Returns a response, or None when the
         path is not one of these. Each call acts as the signed-in person (see actor)."""
+        if parts[:2] == ["api", "setup"]:
+            return self.setup_routes(parts, raw)
         if parts == ["api", "events"]:
             # One action from the web app: checked here, then added to the audit log (see actions.py).
             if not self.service.accounts.enabled():

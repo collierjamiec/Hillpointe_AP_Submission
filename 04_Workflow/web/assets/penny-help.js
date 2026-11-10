@@ -531,6 +531,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "install", section: "Using Penny in the terminal", title: "Install and first run",
     summary: "Set Penny up on your computer in about a minute.",
     html: `
+<div class="help-note"><strong>The easy way.</strong> Double-click <strong>Install Penny</strong> in the Penny folder. It installs Penny and opens a setup wizard in your browser. See <a href="#/help/setup">The setup wizard</a>. The steps below do the same by hand.</div>
 <p>Penny runs on Python 3.9 or newer. It sets up its own private environment, so it does not touch anything else on your computer.</p>
 <pre><code>cd 04_Workflow
 ./penny install          # one time: creates .venv and installs the libraries
@@ -543,6 +544,39 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Set up email so invitations, resets and exports go out (see <a href="#/help/email">Emailing exports and approval requests</a>).</li>
   <li>Start the web app with <code>./penny web --package &lt;folder&gt;</code>, open the link, choose your password, and invite everyone else from <a href="#/users">Users</a>.</li>
 </ol>` },
+
+  { slug: "setup", section: "Using Penny in the terminal", title: "The setup wizard",
+    summary: "Install Penny and get it ready with a few screens in your browser.",
+    html: `
+<p><em>Added after submission, in version 2.1.0.</em></p>
+<p>The setup wizard gets Penny ready on a computer without typing commands. It opens in your browser and takes about two minutes.</p>
+<h2>Starting it</h2>
+<ul>
+  <li><strong>On a Mac:</strong> open the Penny folder (<code>04_Workflow</code>) and double-click <strong>Install Penny</strong>. If macOS says it is from an unidentified developer, right-click it and choose <strong>Open</strong>.</li>
+  <li><strong>On Windows:</strong> double-click <strong>Install Penny</strong> in the same folder.</li>
+  <li><strong>In a terminal:</strong> <code>./penny install</code>, then <code>./penny setup</code>.</li>
+</ul>
+<p>The installer makes a private space for Penny's libraries inside the Penny folder. It changes nothing else on the computer. Python 3.9 or newer has to be installed first; the installer says so if it is missing.</p>
+<h2>The five screens</h2>
+<table class="mini"><thead><tr><th>Screen</th><th>What it does</th></tr></thead><tbody>
+<tr><td><strong>1. This computer</strong></td><td>Checks Python, the libraries, the folder Penny saves to, the database and the example data. Anything missing is named, with what to do about it.</td></tr>
+<tr><td><strong>2. Your invoices</strong></td><td>Finds the invoice package: the folder with <code>02_Reference_Data</code> inside. Penny looks in the usual places and offers what it finds, or you paste the folder's path. You can skip this and look around with the example data.</td></tr>
+<tr><td><strong>3. Who uses Penny</strong></td><td><strong>Just me</strong> keeps the four example accounts. <strong>My team</strong> makes you the first Admin with your own password, which turns on real sign-in. See <a href="#/help/team">Working as a team</a>.</td></tr>
+<tr><td><strong>4. Settings</strong></td><td>The company time zone and the <a href="#/help/watched-folder">watched folder</a>. For a team, whether teammates reach Penny over your network, which needs a certificate that Penny can make. It also says honestly where email goes.</td></tr>
+<tr><td><strong>5. All set</strong></td><td>Shows what you chose and how to start Penny from now on.</td></tr>
+</tbody></table>
+<h2>Starting Penny afterwards</h2>
+<p>Double-click <strong>Start Penny</strong> in the Penny folder, or run <code>./penny start</code>. Penny starts the way the wizard was told to: with your invoice package, the watched folder, and open to your team if you chose that. The choices are saved in <code>state/setup.json</code>.</p>
+<p>You can run the wizard again any time. It starts from what you chose before, and it never removes anything.</p>
+<h2>How the wizard is kept safe</h2>
+<ul>
+  <li>The wizard can create an Admin, so it is <strong>closed</strong> unless Penny itself opens it. Each time, Penny makes a one-time key and opens your browser with it. Without that key the wizard answers "not found".</li>
+  <li>It only works from the computer Penny is on.</li>
+  <li>Once people exist, it will not create another "first" Admin. Add people from the <a href="#/users">Users</a> page.</li>
+  <li>It will not open Penny to a network without real accounts and a certificate, the same two rules as everywhere else.</li>
+  <li>Your password is checked, scrambled and stored by Penny. The wizard never keeps it or shows it back.</li>
+</ul>
+<div class="help-note"><strong>What the wizard does not do.</strong> It does not install Python, and it does not set up a mail account: those are done outside Penny. The double-click files have been tested for what they run, but not yet on a real Mac and a real Windows computer.</div>` },
 
   { slug: "commands", section: "Using Penny in the terminal", title: "Command reference",
     summary: "Every terminal command and what it does.",
@@ -560,6 +594,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny web-export --package &lt;folder&gt;</code></td><td>Package the saved runs and invoice PDFs for this web view.</td></tr>
 <tr><td><code>./penny web --package &lt;folder&gt;</code></td><td>Open this web app on your computer, with New batch able to upload and run invoices. Without <code>--package</code>, batches can be uploaded but not run.</td></tr>
 <tr><td><code>./penny web --package &lt;folder&gt; --watch</code></td><td>The same, and also pick up PDFs dropped into <code>inbox/_incoming</code> (or a folder you name after <code>--watch</code>) and preview them. See <a href="#/help/watched-folder">The watched folder</a>.</td></tr>
+<tr><td><code>./penny setup</code></td><td>Open the setup wizard in your browser: your invoice package, who signs in, and a few settings. See <a href="#/help/setup">The setup wizard</a>.</td></tr>
+<tr><td><code>./penny start</code></td><td>Start Penny the way the setup wizard was told to. The same as double-clicking <strong>Start Penny</strong>.</td></tr>
 <tr><td><code>./penny web --host 0.0.0.0 --https</code></td><td>Open Penny to your team's network. Needs real accounts and a certificate. See <a href="#/help/network">Running Penny for your team</a>.</td></tr>
 <tr><td><code>./penny cert --host &lt;name&gt;</code></td><td>Make a self-signed certificate for https in <code>state/tls/</code>.</td></tr>
 <tr><td><code>./penny migrate</code></td><td>Move the audit log and accounts from before 2.0 into the database. Penny also does this by itself the first time it starts.</td></tr>
@@ -569,7 +605,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny users list</code></td><td>List everyone with an account, their role and status.</td></tr>
 <tr><td><code>./penny email status</code></td><td>Show the mail settings Penny will use. The password is never printed.</td></tr>
 <tr><td><code>./penny email test --to &lt;email&gt;</code></td><td>Send one test email. If it fails, Penny says what to check.</td></tr>
-<tr><td><code>./penny release 2.0.1 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
+<tr><td><code>./penny release 2.1.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },
 
@@ -577,7 +613,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
     summary: "Real accounts, https, and opening Penny to other computers.",
     html: `
 <p><em>Added after submission, in version 2.0.0.</em></p>
-<p>By default Penny only answers the computer it runs on. To let a team use it, three things are needed, in this order.</p>
+<p>By default Penny only answers the computer it runs on. To let a team use it, three things are needed, in this order. The <a href="#/help/setup">setup wizard</a> does all three for you; these are the same steps by hand.</p>
 <h2>1. Real accounts</h2>
 <pre><code>./penny users invite --email you@company.com --name "Your Name" --role admin</code></pre>
 <p>The first invitation turns on real sign-in. Invite everyone else from the <a href="#/users">Users</a> page. See <a href="#/help/users">Managing people</a>.</p>
@@ -861,7 +897,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <div class="help-note"><strong>This was a review by the project's own author.</strong> Someone checking their own work misses things. An outside review is still on the list below, and it matters before a real team relies on Penny over a network.</div>
 <h2>What is still to come</h2>
 <ul>
-  <li>Single sign-on with the company's identity provider (intended for 2.1).</li>
+  <li>Single sign-on with the company's identity provider.</li>
   <li>Argon2id password hashing, in place of PBKDF2.</li>
   <li>Sign-ins that survive a restart of Penny. Today a restart signs everyone out.</li>
   <li>An outside security review. The checks here are tested on every change, but nobody outside the project has tried to break them.</li>
@@ -890,7 +926,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>What if Penny cannot read an invoice?</h2>
 <p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 114 automated checks of Penny's decisions, accounts, email and server, and 17 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 121 automated checks of Penny's decisions, accounts, email and server, and 18 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 
