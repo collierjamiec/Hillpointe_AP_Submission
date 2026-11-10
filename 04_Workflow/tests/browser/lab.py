@@ -62,6 +62,8 @@ def main():
     accounts = service("accounts")
     user, token, _ = accounts.accounts.invite(None, "sam@hillpointe.com", "Sam Rivera", "admin", "AP manager", bootstrap=True)
     accounts.accounts.use_token(token, ADMIN_PASSWORD)
+    from ap_workflow.watcher import Watcher
+    accounts.watcher = Watcher(accounts)                  # on, but only looks when a suite presses Check now
     serve(accounts, 8782)
     mine = version.current()
     local = json.loads((ROOT / "releases.json").read_text())["releases"]

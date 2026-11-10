@@ -73,6 +73,13 @@
     "time_zone": "America/New_York"
   },
 
+  "watch": {
+    "_comment": "The watched inbox folder (added after submission, v1.9). When enabled, ./penny web picks up PDFs dropped into this folder, files them as a new batch and runs a preview. It never runs a batch for real. A path that does not start with / is inside 04_Workflow.",
+    "enabled": false,
+    "folder": "inbox/_incoming",
+    "every_seconds": 15
+  },
+
   "email": {
     "_comment": "Who Penny may email (added after submission, v1.7). Penny users can always be emailed; anyone else must be in one of these domains. Files are attached, so keep this list to your own company.",
     "allowed_domains": ["hillpointe.com", "penny.demo"],

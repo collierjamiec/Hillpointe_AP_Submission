@@ -2,6 +2,19 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "1.9.0",
+      "date": "2026-11-10",
+      "required": false,
+      "summary": "See where each value came from on the PDF, track each import file so nothing is imported twice, a watched folder, paging for long lists, and an accessibility pass.",
+      "notes": [
+        "Show on page: highlight on the PDF where Penny read each value.",
+        "Export history: Created, Downloaded, Imported and Confirmed for the Intacct and Entrata files, with a row count check and a second person.",
+        "Watched folder: drop PDFs into inbox/_incoming and Penny previews them. It never runs a batch for real.",
+        "Long lists show 25 rows at a time and stay quick with thousands of invoices.",
+        "Accessibility: every screen checked against WCAG 2.2 AA, with fixes for links, the skip link, phones, tables and contrast."
+      ]
+    },
+    {
       "version": "1.8.0",
       "date": "2026-11-10",
       "required": false,

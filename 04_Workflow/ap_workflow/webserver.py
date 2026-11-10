@@ -130,6 +130,7 @@ class BatchService:
         self.log_path = self.state_dir / "batch_log.jsonl"
         self.lock = threading.Lock()
         self._ref = None                                   # reference data, loaded once on first use
+        self.watcher = None                                # the watched inbox folder, when it is turned on (see watcher.py)
         self._sha = {}                                     # path -> (mtime, size, sha256): a file is hashed once until it changes
         self._log = {"size": 0, "events": []}              # the audit log read so far; only new lines are read again
         from .accounts import Accounts
@@ -679,6 +680,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         info = self.service.update_info()
         return {"mode": "local", "engine": bool(self.service.package), "max_mb": MAX_FILE // (1024 * 1024), "version": current(),
                 "update": {k: info[k] for k in ("version", "latest", "minimum", "state", "newer", "note")},
+                "watch": self.service.watcher.status() if self.service.watcher else {"enabled": False},
                 "accounts": self.service.accounts.enabled(), "email": __import__("ap_workflow.mailer", fromlist=["describe"]).describe(),
                 "inbox": "inbox/", "today": self.service.today(),
                 "time_zone": getattr(self.service.zone(), "key", None)}
@@ -780,6 +782,13 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
     def work_routes(self, parts, url, raw):
         """Email, batches, rechecks, the rule simulator and manual entry. Returns a response, or None when the
         path is not one of these. Each call acts as the signed-in person (see actor)."""
+        if parts == ["api", "watch", "scan"]:
+            # "Check now" on the New batch page: look at the watched folder right away instead of waiting.
+            check_user(self.actor(json.loads(raw or b"{}").get("user")), "upload")
+            if not self.service.watcher:
+                raise BatchError("The watched folder is turned off. Start Penny with --watch to turn it on.", 409)
+            picked = self.service.watcher.scan()
+            return self.send_json({"picked_up": picked, "watch": self.service.watcher.status()})
         if parts == ["api", "email"]:
             body = json.loads(raw or b"{}")
             return self.send_json(self.service.email(self.actor(body.get("user")), body.get("kind"), body.get("to") or [], body.get("note", ""),
@@ -856,6 +865,9 @@ def serve(service, web_dir, port, open_browser=True):
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), make_handler(service, web_dir))
     url = f"http://127.0.0.1:{port}/"
     print(f"Penny web app: {url}   (Ctrl+C to stop)")
+    if service.watcher:
+        print(f"  Watched folder: {service.watcher.display()} (checked every {service.watcher.every} seconds; previews only)")
+        service.watcher.start()
     print("  New batches: " + ("ready (upload and run from the New batch page)" if service.package
                                else "upload only. To run batches, start with:  ./penny web --package <package folder>"))
     if open_browser:

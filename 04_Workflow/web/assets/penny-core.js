@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.9.0";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -75,9 +75,9 @@ const KIND = { invoice: "Invoice", pay_app: "Pay application", credit_memo: "Cre
 const CATEGORY = { construction: "Construction", stabilized: "Stabilized community", corporate: "Corporate" };
 const ROLES = {
   viewer: { name: "Viewer", can: [], blurb: "can see everything and change nothing." },
-  clerk: { name: "AP Clerk", can: ["resolve", "note", "upload", "email"], blurb: "can work holds and their blockers, recheck invoices, key unreadable invoices by hand, add notes, and upload and preview new batches." },
-  approver: { name: "Approver", can: ["approve", "note", "email"], blurb: "can approve or send back bills that are ready to import, and add notes." },
-  admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run", "users", "email"], blurb: "can do everything, including changing and testing rules and running batches for real." },
+  clerk: { name: "AP Clerk", can: ["resolve", "note", "upload", "email", "export"], blurb: "can work holds and their blockers, recheck invoices, key unreadable invoices by hand, add notes, upload and preview new batches, and mark an import file as imported." },
+  approver: { name: "Approver", can: ["approve", "note", "email", "confirm"], blurb: "can approve or send back bills that are ready to import, confirm an import someone else made, and add notes." },
+  admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run", "users", "email", "export", "confirm"], blurb: "can do everything, including changing and testing rules and running batches for real." },
 };
 /** Which permission each kind of event needs. Checked again when the event is recorded (defense in depth). */
 const EVENT_NEEDS = {
@@ -87,6 +87,7 @@ const EVENT_NEEDS = {
   "batch.upload": "upload", "batch.run": "upload",
   "blocker.update": "resolve", "blocker.clear": "resolve", "blocker.reopen": "resolve",
   "manual.keyed": "resolve", "manual.check": "resolve", "manual.saved": "resolve",
+  "export.imported": "export", "export.undo": "export", "export.confirmed": "confirm",
   "user.invited": "users", "user.updated": "users", "user.reset_sent": "users", "user.invite_resent": "users", "email.sent": "email",
 };
 const EVENT_LABEL = {
@@ -99,6 +100,8 @@ const EVENT_LABEL = {
   "recheck.preview": "Rechecked an invoice (preview)",
   "user.invited": "Invited someone", "user.updated": "Changed someone's account", "user.reset_sent": "Sent a password reset", "user.invite_resent": "Resent an invitation",
   "user.activated": "Set up their account", "user.password_reset": "Chose a new password", "user.reset_requested": "Asked for a password reset", "user.signed_in": "Signed in",
+  "watch.picked_up": "Picked up files from the watched folder",
+  "export.download": "Downloaded a file", "export.imported": "Marked a file as imported", "export.confirmed": "Confirmed an import", "export.undo": "Marked a file as not imported",
   "email.sent": "Sent an email", "email.saved": "Saved an email (not sent)", "email.failed": "An email failed to send",
 };
 
@@ -107,7 +110,7 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ESC[c]);
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
+const plural = (n, one, many) => `${typeof n === "number" ? n.toLocaleString() : n} ${n === 1 ? one : many || one + "s"}`;
 const article = (w) => `${/^[AEIOU]/i.test(w) ? "an" : "a"} ${w}`;
 
 /** Money arrives as decimal strings ("15102.07"). Work in whole cents so totals never drift. */
@@ -268,7 +271,7 @@ const can = (action) => !!user && ROLES[user.role].can.includes(action);
 
 const SANDBOX_KEY = "penny.sandbox.v1";
 let EV = [];                  // the audit log: every human action, oldest first, never edited
-let S = { holds: {}, approvals: {}, notes: {}, rules: null, revoked: new Set(), blockers: {}, manual: {} };
+let S = { holds: {}, approvals: {}, notes: {}, rules: null, revoked: new Set(), blockers: {}, manual: {}, exports: {} };
 
 function loadSandbox() {
   try {
@@ -315,7 +318,7 @@ function record(type, data) {
 /** Rebuild the current state by replaying the audit log over Penny's results. */
 function derive() {
   const revoked = new Set(EV.filter((e) => e.type === "rules.revert").map((e) => e.target));
-  const holds = {}, approvals = {}, notes = {}, blockers = {}, manual = {};
+  const holds = {}, approvals = {}, notes = {}, blockers = {}, manual = {}, exports = {};
   const rules = JSON.parse(JSON.stringify(D.rules || {}));
   for (const e of EV) {
     if (e.type === "hold.resolve") holds[e.doc] = { ...(holds[e.doc] || {}), outcome: e.outcome, by: e.user, at: e.at, note: e.note };
@@ -337,8 +340,15 @@ function derive() {
     } else if (e.type === "manual.keyed") manual[e.doc] = { id: e.id, entry: e.entry, evidence: e.evidence || [], by: e.user, at: e.at, note: e.note, checks: [], saved: null };
     else if (e.type === "manual.check" && manual[e.doc] && manual[e.doc].id === e.entry_id) manual[e.doc].checks.push({ by: e.user, at: e.at, match: e.match, invoice_no: e.invoice_no, total: e.total });
     else if (e.type === "manual.saved" && manual[e.doc]) manual[e.doc].saved = { batch: e.batch, folder: e.folder, by: e.user, at: e.at };
+    else if (e.type.startsWith("export.")) {
+      const x = (exports[`${e.run}/${e.file}`] = exports[`${e.run}/${e.file}`] || { downloads: [], imported: null, confirmed: null });
+      if (e.type === "export.download") x.downloads.push({ by: e.user, at: e.at });
+      else if (e.type === "export.imported") { x.imported = { by: e.user, at: e.at, ref: e.ref, rows: e.rows, note: e.note }; x.confirmed = null; }
+      else if (e.type === "export.confirmed") x.confirmed = { by: e.user, at: e.at, note: e.note };
+      else if (e.type === "export.undo") { x.imported = null; x.confirmed = null; }
+    }
   }
-  S = { holds, approvals, notes, rules, revoked, blockers, manual };
+  S = { holds, approvals, notes, rules, revoked, blockers, manual, exports };
   if (X) X.docs.forEach((d) => (d.status = humanStatus(d)));
   updateWorkCount();
 }
@@ -403,6 +413,47 @@ function toast(msg, action) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.remove("show"), action ? 8000 : 2600);
 }
+
+// ------------------------------------------------------------------ long lists (v1.9)
+/* Long tables show one page at a time, so the app stays quick with thousands of invoices. The page and page size
+   live in the address (?page=2&per=50), so a link or the Back button returns to the same place. Totals and counts
+   always describe the whole list, not just the page on screen. */
+const PAGE_SIZES = [25, 50, 100];
+function paged(rows, q) {
+  const per = PAGE_SIZES.includes(+q.get("per")) ? +q.get("per") : PAGE_SIZES[0];
+  const pages = Math.max(1, Math.ceil(rows.length / per));
+  const page = Math.min(pages, Math.max(1, Math.floor(+q.get("page")) || 1));
+  const from = (page - 1) * per;
+  return { per, page, pages, total: rows.length, from: rows.length ? from + 1 : 0, to: Math.min(from + per, rows.length), slice: rows.slice(from, from + per) };
+}
+function pagerHtml(pg, noun) {
+  if (pg.total <= PAGE_SIZES[0]) return "";
+  const btn = (to, label, off, aria) => `<button type="button" class="btn btn-sm" data-page="${to}" ${off ? "disabled" : ""} aria-label="${esc(aria)}">${label}</button>`;
+  return `<nav class="pager" aria-label="Pages of ${esc(noun)}">
+    <span class="pager-count" aria-live="polite">Showing ${pg.from.toLocaleString()} to ${pg.to.toLocaleString()} of ${pg.total.toLocaleString()} ${esc(noun)}</span>
+    <span class="pager-ctl">${btn(1, "First", pg.page === 1, "First page")}${btn(pg.page - 1, "← Previous", pg.page === 1, "Previous page")}
+      <span class="pager-at">Page ${pg.page} of ${pg.pages}</span>
+      ${btn(pg.page + 1, "Next →", pg.page === pg.pages, "Next page")}${btn(pg.pages, "Last", pg.page === pg.pages, "Last page")}
+      <label class="pager-per">Rows <select data-per aria-label="Rows per page">${PAGE_SIZES.map((n) => `<option${n === pg.per ? " selected" : ""}>${n}</option>`).join("")}</select></label></span></nav>`;
+}
+/** Change page or page size by changing the address, then bring the top of the table back into view. */
+function goToPage(change) {
+  const { parts, q } = parseHash();
+  Object.entries(change).forEach(([k, v]) => (v === null ? q.delete(k) : q.set(k, v)));
+  if (q.get("page") === "1") q.delete("page");
+  window.addEventListener("hashchange", () => setTimeout(() => {
+    const top = $("#main .table-wrap");
+    if (top) { top.scrollIntoView({ block: "start" }); const first = $("#main .pager [data-page]:not([disabled])"); if (first) first.focus({ preventScroll: true }); }
+  }, 0), { once: true });
+  location.hash = `#/${parts.map(encodeURIComponent).join("/")}${q.toString() ? "?" + q : ""}`;
+}
+/** For pages that stack several tables: the first rows of a long one, and a line saying where the rest are. */
+const TOP_ROWS = 50;
+function topRows(rows, rest) {
+  if (rows.length <= TOP_ROWS) return { rows, note: "" };
+  return { rows: rows.slice(0, TOP_ROWS), note: `<p class="hint list-more">Showing the first ${TOP_ROWS} of ${rows.length.toLocaleString()}. ${rest}</p>` };
+}
+let listIds = null;           // every row of the list on screen (all pages), so Previous and Next on an invoice cover the whole list
 
 // ------------------------------------------------------------------ usage insights (local, privacy-safe)
 /* What is recorded: which screens are used, which actions are taken and how long they took, whether suggestions were

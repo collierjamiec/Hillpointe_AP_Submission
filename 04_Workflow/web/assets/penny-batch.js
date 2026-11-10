@@ -50,8 +50,39 @@ function viewBatch() {
   return `${head("New batch", "Give the batch a name, add the invoice PDFs, then preview it or run it. Every step is recorded in the audit trail.")}
     ${banner}
     <div class="batch-flow" id="batch-flow">${batchBody()}</div>
+    ${watchCard()}
     ${SERVER ? `<section class="card" id="nb-waiting" aria-labelledby="nbw-h" style="margin-top:16px"><div class="card-head"><h2 id="nbw-h">Batches waiting to run</h2><p>Folders in inbox/ not yet run for real, including saved manual entries</p></div>
       <div class="card-body" id="nb-waiting-body"><p class="hint">Loading…</p></div></section>` : ""}`;
+}
+/** The watched folder on the New batch page: where it is, what it last did, and what it left alone and why. */
+function watchCard() {
+  const w = SERVER && SERVER.watch;
+  if (!SERVER) return `<section class="card card-pad watch-card" style="margin-top:16px"><h2>Watched folder</h2>
+    <p class="hint">On your own computer, Penny can watch a folder: drop invoice PDFs into it and Penny files them as a batch and previews them by itself. It needs Penny running there, so it is not part of this public demo. <a href="#/help/watched-folder">How it works</a></p></section>`;
+  if (!w || !w.enabled) return `<section class="card card-pad watch-card" style="margin-top:16px"><h2>Watched folder <span class="badge b-skip">Off</span></h2>
+    <p class="hint">Start Penny with <code>./penny web --package &lt;package folder&gt; --watch</code> and it will pick up PDFs dropped into <code>inbox/_incoming</code> and preview them. <a href="#/help/watched-folder">How it works</a></p></section>`;
+  const lp = w.last_pickup;
+  return `<section class="card card-pad watch-card" id="watch-card" style="margin-top:16px" aria-live="polite">
+    <div class="watch-head"><h2>Watched folder <span class="badge b-approved">${bIcon("check")}On</span></h2>
+      <button class="btn btn-sm" type="button" id="watch-scan">Check now</button></div>
+    <p>Drop invoice PDFs into <code>${esc(w.folder)}</code>. Penny checks every ${esc(w.every_seconds)} seconds, files them as a new batch and runs a <strong>preview</strong>. It never runs a batch for real.</p>
+    <p class="hint">${w.last_scan ? `Last checked ${esc(fmtDateTime(w.last_scan))}.` : "Not checked yet."} ${lp ? `Last pickup: ${plural(lp.count, "file")} into <code>inbox/${esc(lp.batch)}</code>, ${esc(fmtDateTime(lp.at))}${lp.preview ? `. <a href="#/runs/${esc(lp.preview)}">Open the preview</a>` : ""}.` : "Nothing picked up yet."}</p>
+    ${w.error ? `<p class="form-warn">${esc(w.error)}</p>` : ""}
+    ${(w.ignored || []).length ? `<div class="watch-ignored"><b>Left in the folder (${w.ignored.length}):</b><ul class="notes">${w.ignored.map((i) => `<li><code>${esc(i.name)}</code>: ${esc(i.why)}</li>`).join("")}</ul></div>` : ""}
+  </section>`;
+}
+async function watchScan(btn) {
+  btn.disabled = true; btn.textContent = "Checking…";
+  try {
+    const res = await api("api/watch/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: { id: user.id, name: user.name, role: user.role } }) });
+    SERVER.watch = res.watch;
+    if (res.picked_up) { await reloadData(); toast(`Picked up ${plural(res.picked_up.count, "file")} and filed ${res.picked_up.count === 1 ? "it" : "them"} as ${res.picked_up.batch}.`); }
+    else toast("Nothing new is ready. A file is taken once it has stopped changing for a few seconds.");
+    render();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Check now";
+    openDialog("Penny could not check the folder", esc(e.message), "", "", () => "", { info: true });
+  }
 }
 async function loadWaiting() {
   const box = $("#nb-waiting-body");
@@ -219,6 +250,8 @@ async function reloadData() {
   $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
 }
 function bindBatch() {
+  const scan = $("#watch-scan");
+  if (scan) scan.addEventListener("click", () => watchScan(scan));
   const wait = $("#nb-waiting");
   if (wait) { loadWaiting(); wait.addEventListener("click", (e) => { const b = e.target.closest("[data-wait-run]"); if (b) runWaiting(b); }); }
   const flow = $("#batch-flow");

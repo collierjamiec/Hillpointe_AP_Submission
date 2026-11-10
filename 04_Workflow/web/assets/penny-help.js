@@ -86,7 +86,7 @@ window.PENNY_HELP = [
 <h2>The tabs</h2>
 <ul>
   <li><strong>Checks:</strong> every check Penny ran, in order, with pass or fail.</li>
-  <li><strong>What Penny read:</strong> every field taken from the PDF, including lines, totals, pay application math and lien waivers.</li>
+  <li><strong>What Penny read:</strong> every field taken from the PDF, including lines, totals, pay application math and lien waivers. Choose <strong>Show on page</strong> next to a value to see where it came from on the PDF. See <a href="#/help/source-highlighting">Seeing where a value came from</a>.</li>
   <li><strong>Coding and approvals:</strong> the import lines Penny wrote and the sign-offs the bill needs.</li>
   <li><strong>History and activity:</strong> what people did, and every run that read this file.</li>
 </ul>
@@ -141,6 +141,8 @@ window.PENNY_HELP = [
 <h2>Batches waiting to run</h2>
 <p>On your computer, the New batch page also lists every folder in <code>inbox/</code> that has not been run for real yet, including invoices saved from <a href="#/help/manual-entry">manual entry</a>. Each shows its files, any manual entries and evidence, who created it and its last preview. Choose <strong>Preview</strong>, or <strong>Run for real</strong> as an Admin.</p>
 <p>If a <a href="#/help/updates">required update</a> is waiting, adding batches and real runs pause until Penny is updated. Previews still work.</p>
+<h2>The watched folder</h2>
+<p>Penny can also pick up PDFs dropped into a folder and preview them by itself. It never runs a batch for real. See <a href="#/help/watched-folder">The watched folder</a>.</p>
 <h2>What is recorded</h2>
 <p>Every step is written to <code>state/batch_log.jsonl</code> on the Penny computer, and shown in the <a href="#/audit">Audit trail</a> marked "On disk": who created the batch, who uploaded which files (name, size and a SHA-256 fingerprint that proves the exact file), who ran it, when, the folder, the run ID, preview or real, the results and the pre-flight check. A run that fails is recorded too.</p>
 <div class="help-note"><strong>Where this works.</strong> Reading invoices needs Penny's engine, so batches run only when the web app is started on your computer with <code>./penny web --package &lt;package folder&gt;</code>. On the public demo site you can try every step, and the last one explains what would happen. Nothing is uploaded from the demo.</div>` },
@@ -306,6 +308,69 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 </ul>
 <div class="help-note">For the maintainer: <code>./penny release 1.7.0 --summary "..." --note "..."</code> publishes a version, and <code>--required</code> makes it the minimum. Merging it to main tags the release on GitHub.</div>` },
 
+  { slug: "source-highlighting", section: "Using the web app", title: "Seeing where a value came from",
+    summary: "Highlight the invoice number, dates, totals and lines on the PDF itself.",
+    html: `
+<p><em>Added after submission, in version 1.9.0.</em></p>
+<p>Penny reads values from the PDF. Source highlighting shows you <strong>where on the page</strong> each one came from, so you can check Penny's reading with your own eyes in a second.</p>
+<h2>How to use it</h2>
+<ol>
+  <li>Open an invoice and choose the <strong>What Penny read</strong> tab.</li>
+  <li>Choose <strong>Show on page</strong> next to a value, such as the invoice number, bill date, terms, PO, vendor, bill-to, subtotal, tax, total or a line.</li>
+  <li>The PDF scrolls to that spot and draws a labeled box around it.</li>
+</ol>
+<p>To see everything at once, choose <strong>Highlight what Penny read</strong> above the PDF. Choose it again to clear the boxes.</p>
+<h2>What it can and cannot tell you</h2>
+<ul>
+  <li>Penny finds each value by searching the PDF's own text for what it read. When the same number appears more than once, it picks the one beside the right label, like "Total" or "Invoice #".</li>
+  <li>If a value is not on the page as text, Penny says so instead of guessing. That happens with scanned pages and with invoices <a href="#/help/manual-entry">keyed by hand</a>.</li>
+  <li>A highlight shows where a value is. It does not prove the value is right. The <strong>Checks</strong> tab does that work.</li>
+</ul>` },
+
+  { slug: "export-history", section: "Using the web app", title: "Export history: has this file been imported?",
+    summary: "Created, downloaded, imported, confirmed. So nobody imports a file twice.",
+    html: `
+<p><em>Added after submission, in version 1.9.0.</em></p>
+<p>Two of Penny's files get loaded into another system: the <strong>Intacct bill import file</strong> and the <strong>Entrata handoff list</strong>. On <a href="#/exports">Exports</a>, each one now shows its history, so the answer to "did someone already import this?" is on the screen.</p>
+<table class="mini"><thead><tr><th>Step</th><th>What it means</th><th>Who</th></tr></thead><tbody>
+<tr><td><strong>Created</strong></td><td>Penny wrote the file in a run.</td><td>Penny</td></tr>
+<tr><td><strong>Downloaded</strong></td><td>Someone saved a copy. Penny notes who and when, every time.</td><td>Anyone who can see it</td></tr>
+<tr><td><strong>Imported</strong></td><td>A person says they loaded it. They type the other system's reference and the number of rows it accepted.</td><td>AP Clerk or Admin</td></tr>
+<tr><td><strong>Confirmed</strong></td><td>A <em>different</em> person checked it in that system and ticked the box.</td><td>Approver or Admin</td></tr>
+</tbody></table>
+<h2>The safety checks</h2>
+<ul>
+  <li><strong>The row count must match.</strong> If the other system accepted a different number of rows than the file holds, Penny refuses the entry and tells you to find out why first.</li>
+  <li><strong>Two people.</strong> The person who imported a file cannot confirm it.</li>
+  <li><strong>A warning before a second import.</strong> Downloading a file that is already marked imported shows a warning about duplicate bills first.</li>
+  <li><strong>The exact file.</strong> Each file shows a fingerprint (SHA-256), so you can prove the copy you hold is the one Penny wrote.</li>
+  <li><strong>Mistakes can be fixed.</strong> An Admin can choose <strong>Mark as not imported</strong>, with a reason. Nothing is erased; the <a href="#/help/audit">audit trail</a> keeps every step.</li>
+</ul>
+<p>Preview runs and empty files cannot be marked as imported, and the page says why.</p>
+<p>On an invoice, a bill in an imported file shows <strong>Import recorded</strong> beside its status.</p>
+<div class="help-note"><strong>Penny still never uploads, posts or pays.</strong> This history is what people told Penny they did in the other system. "Import recorded" does not mean a bill is approved or paid.</div>` },
+
+  { slug: "watched-folder", section: "Using the web app", title: "The watched folder",
+    summary: "Drop PDFs into one folder and Penny previews them by itself.",
+    html: `
+<p><em>Added after submission, in version 1.9.0.</em></p>
+<p>On your own computer, Penny can watch a folder. Drop invoice PDFs into it (from a scanner, an email rule or by hand) and Penny files them as a new batch and runs a <strong>preview</strong>.</p>
+<h2>Turning it on</h2>
+<pre><code>./penny web --package &lt;package folder&gt; --watch            # watches inbox/_incoming
+./penny web --package &lt;package folder&gt; --watch ~/Scans    # or a folder you choose</code></pre>
+<p>Or set <code>"watch": {"enabled": true}</code> in <code>config/rules.json</code>. The <a href="#/batch">New batch</a> page then shows the folder, when it was last checked, the last pickup, and a <strong>Check now</strong> button.</p>
+<h2>What it will and will not do</h2>
+<ul>
+  <li><strong>It only previews.</strong> The register is never changed, so nothing can be entered just because a file appeared in a folder. An Admin still runs the batch for real from New batch.</li>
+  <li><strong>It waits for a file to finish.</strong> A file is taken once it has stopped changing for a few seconds, so a scan or download still being written is left alone.</li>
+  <li><strong>Only real PDFs.</strong> The name must end in .pdf, the content must be a PDF, and it must be 25 MB or less. Anything else stays in the folder, and the page lists it with the reason.</li>
+  <li><strong>It never deletes.</strong> Files are moved into the new batch folder, such as <code>inbox/2026-11-10_watched-folder</code>. Shortcuts to files elsewhere, hidden files and sub-folders are ignored.</li>
+  <li><strong>It pauses for required updates</strong>, like every other change. See <a href="#/help/updates">Versions and updates</a>.</li>
+</ul>
+<h2>What is recorded</h2>
+<p>Each pickup is in the <a href="#/audit">Audit trail</a> as "Picked up files from the watched folder", with every file's name, size and fingerprint, followed by the usual batch and preview entries. The pickup is recorded under the name <strong>Watched folder</strong>, which can only preview.</p>
+<div class="help-note"><strong>Where this works.</strong> The watched folder needs Penny running on a computer, so it is not part of the public demo site.</div>` },
+
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
     summary: "One click to resolve a hold the way it was resolved before.",
     html: `
@@ -353,6 +418,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 </tbody></table>
 <p>Downloads are named so you can tell them apart later, for example "Penny - Batch 01 - Intacct bill import file.csv".</p>
 <p>Choose <strong>Email</strong> next to any file to send it with the file attached and a note saying what it is. Penny only emails its users and the company's allowed domains. See <a href="#/help/email">Emailing exports and approval requests</a>.</p>
+<h2>Has it been imported?</h2>
+<p>The Intacct bill import file and the Entrata handoff list each show a history: Created, Downloaded, Imported and Confirmed, with who and when. It stops a file from being imported twice. See <a href="#/help/export-history">Export history</a>.</p>
 <div class="help-note"><strong>Generated is not imported.</strong> A bill in an import file still has to be uploaded and approved before it is paid.</div>` },
 
   { slug: "runs", section: "Using the web app", title: "Run history",
@@ -372,14 +439,15 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>It brings together three sources:</p>
 <ul>
   <li><strong>Penny's runs</strong>, with what each one decided.</li>
-  <li><strong>What people did in Penny:</strong> resolving and reassigning holds, blockers and their files, manual entries and second checks, approvals, notes, and rule changes (including the time zone and the company look).</li>
-  <li><strong>What the Penny computer recorded</strong>, marked "On disk": new batches, uploads with file fingerprints, runs and failures, rechecks with the fingerprints they used, saved manual entries, invitations, account changes, password resets, sign-ins, and every email with its attachments and whether it was sent.</li>
+  <li><strong>What people did in Penny:</strong> resolving and reassigning holds, blockers and their files, manual entries and second checks, approvals, notes, rule changes (including the time zone and the company look), and each step of an import file's history: downloaded, imported, confirmed.</li>
+  <li><strong>What the Penny computer recorded</strong>, marked "On disk": new batches, uploads with file fingerprints, runs and failures, rechecks with the fingerprints they used, saved manual entries, invitations, account changes, password resets, sign-ins, and every email with its attachments and whether it was sent, and each pickup from the watched folder.</li>
 </ul>
 <ul>
   <li>Entries are never edited or deleted. An undo is a new entry that points back to the one it undoes.</li>
   <li>Times show in the company time zone, and entries from the same second keep the order they happened in.</li>
   <li>Each entry shows the before and after, and the note the person wrote.</li>
-  <li>The CSV download protects against spreadsheet formula tricks, so it is safe to open in Excel.</li>
+  <li>The CSV download protects against spreadsheet formula tricks, so it is safe to open in Excel. It always holds every entry that matches your filters, not just the page on screen.</li>
+  <li>A long trail shows 25 entries at a time. Use the page buttons under the table.</li>
 </ul>` },
 
   { slug: "rules-edit", section: "Using the web app", title: "Changing rules (Admin)",
@@ -400,7 +468,10 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
     summary: "Find any invoice fast.",
     html: `
 <p>Press <kbd>/</kbd> to jump to search. You can search by vendor, invoice number, PO, file name or amount (with or without the dollar sign and commas).</p>
-<p>On <a href="#/invoices">Invoices</a>, filter by status, reason, category, vendor and bill date. Click a column title to sort. Filters live in the web address, so you can bookmark or share a filtered list.</p>` },
+<p>On <a href="#/invoices">Invoices</a>, filter by status, reason, category, vendor and bill date. Click a column title to sort. Filters live in the web address, so you can bookmark or share a filtered list.</p>
+<h2>Long lists</h2>
+<p>A long list shows 25 rows at a time, so Penny stays quick with thousands of invoices. Under the table, use <strong>First</strong>, <strong>Previous</strong>, <strong>Next</strong> and <strong>Last</strong>, or choose 50 or 100 rows. The page is part of the web address too, so the Back button returns you to the same place.</p>
+<p>Counts and totals above a table always describe the <strong>whole</strong> list, not just the page on screen. <strong>Next</strong> and <strong>Previous</strong> on an invoice also follow the whole list, across pages. On Exceptions and the By team view, a long group shows its 50 largest invoices with a link to the rest.</p>` },
 
   // ------------------------------------------------------------------ terminal
   { slug: "install", section: "Using Penny in the terminal", title: "Install and first run",
@@ -434,13 +505,14 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny reset</code></td><td>Forget everything and start fresh.</td></tr>
 <tr><td><code>./penny web-export --package &lt;folder&gt;</code></td><td>Package the saved runs and invoice PDFs for this web view.</td></tr>
 <tr><td><code>./penny web --package &lt;folder&gt;</code></td><td>Open this web app on your computer, with New batch able to upload and run invoices. Without <code>--package</code>, batches can be uploaded but not run.</td></tr>
+<tr><td><code>./penny web --package &lt;folder&gt; --watch</code></td><td>The same, and also pick up PDFs dropped into <code>inbox/_incoming</code> (or a folder you name after <code>--watch</code>) and preview them. See <a href="#/help/watched-folder">The watched folder</a>.</td></tr>
 <tr><td><code>./penny --version</code></td><td>Show which version of Penny this is.</td></tr>
 <tr><td><code>./penny update</code></td><td>Show what is new and update from GitHub. Add <code>--check</code> to only look, or <code>--skip</code> to wait on an optional version. Your register, runs and batches are never touched.</td></tr>
 <tr><td><code>./penny users invite --email &lt;email&gt; --name "Name" --role admin</code></td><td>Invite someone. The first invite turns on real accounts, so everyone signs in with their own password.</td></tr>
 <tr><td><code>./penny users list</code></td><td>List everyone with an account, their role and status.</td></tr>
 <tr><td><code>./penny email status</code></td><td>Show the mail settings Penny will use. The password is never printed.</td></tr>
 <tr><td><code>./penny email test --to &lt;email&gt;</code></td><td>Send one test email. If it fails, Penny says what to check.</td></tr>
-<tr><td><code>./penny release 1.8.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
+<tr><td><code>./penny release 1.9.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },
 
@@ -598,6 +670,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <dt>Duplicate</dt><dd>A bill already in the ERP history or an earlier import file under the same vendor and cleaned invoice number.</dd>
 <dt>Entrata</dt><dd>The property management system for apartment communities. Penny writes a handoff list for it.</dd>
 <dt>ERP history</dt><dd>Bills already entered in the accounting system before Penny ran.</dd>
+<dt>Export history</dt><dd>The record of an import file from created, to downloaded, to imported, to confirmed by a second person. See <a href="#/help/export-history">Export history</a>.</dd>
 <dt>Exception</dt><dd>A reason Penny held an invoice for a person.</dd>
 <dt>GL account</dt><dd>The general ledger account a cost is recorded to.</dd>
 <dt>Hold</dt><dd>An invoice Penny will not put in any file until a person resolves the problem.</dd>
@@ -619,8 +692,29 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <dt>Stabilized community</dt><dd>An apartment community that is built and operating. Its bills go to Entrata.</dd>
 <dt>Subcontract</dt><dd>A contract with a trade partner for part of a construction project.</dd>
 <dt>Tolerance</dt><dd>How far a bill may go over its PO before it is held.</dd>
+<dt>Watched folder</dt><dd>A folder Penny checks for new invoice PDFs. It files them as a batch and previews them, and never runs a batch for real.</dd>
 <dt>Vendor master</dt><dd>The official list of approved vendors, with their terms, addresses and phone numbers.</dd>
 </dl>` },
+
+  { slug: "accessibility", section: "Reference", title: "Accessibility",
+    summary: "What Penny does for keyboard, screen reader, low vision and motion needs, and what is still to check.",
+    html: `
+<p><em>Reviewed and improved after submission, in version 1.9.0.</em></p>
+<p>Penny aims to meet the Web Content Accessibility Guidelines (WCAG) 2.2 at level AA. Here is what that means in practice, and where the honest limits are.</p>
+<h2>What is in place</h2>
+<ul>
+  <li><strong>Keyboard:</strong> everything works without a mouse. The first Tab stop is <strong>Skip to content</strong>. Dialogs keep focus inside and return it to the button you came from. See <a href="#/help/shortcuts">Keyboard shortcuts</a>.</li>
+  <li><strong>Screen readers:</strong> pages have one main heading, named regions, labeled form fields and buttons, and messages that are announced when they appear.</li>
+  <li><strong>Color:</strong> text meets AA contrast in light and dark. A status is never shown by color alone: it has an icon and a word. Links inside sentences are underlined.</li>
+  <li><strong>Zoom and small screens:</strong> pages reflow at 200% zoom and on a phone with no sideways scrolling. A table that is too wide scrolls inside its own area, which can be reached and scrolled from the keyboard.</li>
+  <li><strong>Targets:</strong> buttons and links are at least 24 by 24 pixels.</li>
+  <li><strong>Motion:</strong> if your device asks for reduced motion, the intro is skipped and animations are turned off. You can also turn motion off in <a href="#/help/appearance">Appearance</a>, and make text larger there.</li>
+</ul>
+<h2>How it is checked</h2>
+<p>An automated suite runs on every change. It checks every main screen with the axe-core engine in light and dark, on a desktop and a phone, and then tests keyboard order, focus in dialogs, target sizes, reduced motion and reflow.</p>
+<h2>What is still to check</h2>
+<div class="help-note"><strong>Automated tools find only part of the picture.</strong> They cannot tell whether a page makes sense when read aloud. Before Penny is used by a real team, a person who uses a screen reader every day should try the main tasks. The invoice PDF itself is shown as an image of the page; the values Penny read from it are in the <strong>What Penny read</strong> tab as real text.</div>
+<p>If something gets in your way, that is a bug. Please report it on the project's GitHub page.</p>` },
 
   { slug: "security", section: "Reference", title: "Security and this demo",
     summary: "What is real, what is demo, and what production would add.",
@@ -686,7 +780,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>What if Penny cannot read an invoice?</h2>
 <p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 91 automated checks of Penny's decisions, accounts, email and server, and ten browser suites that sign in as each role and use the app the way a person would. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 97 automated checks of Penny's decisions, accounts, email and server, and 15 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen and a test with 5,000 invoices. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 

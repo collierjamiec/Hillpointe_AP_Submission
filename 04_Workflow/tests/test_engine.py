@@ -1,6 +1,10 @@
 """Penny's decisions: the assessment batches, edge cases, rule changes, the optional AI reader, and unreadable files.
 Run everything with:  ./penny test   (or: python -m unittest discover -s tests -v)"""
-from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPECTED, outcome, cli, syn)
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))      # so one file can also be run on its own
+from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPECTED, outcome, cli, syn)  # noqa: E402
 
 
 class UnitTests(unittest.TestCase):

@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 91 automated checks
+./penny test                                  # run the 97 automated checks
 python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
@@ -77,6 +77,11 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Finishing the single-user roadmap (v1.9.0):** source highlighting on the PDF ("Show on page" beside each value
+  Penny read), export history for the two import files (created, downloaded, imported, confirmed by a second person;
+  each file carries a SHA-256 from `ap_workflow/webexport.py`), the watched inbox folder (`./penny web --watch`, see
+  `ap_workflow/watcher.py`; previews only, never a real run), paging for long lists, and an accessibility pass with
+  an automated WCAG 2.2 AA check of every screen (`tests/browser/accessibility.spec.js`).
 * **Foundation (v1.8.0):** browser suites in `tests/browser/` (see its `run.py`), Python tests split into
   `tests/test_engine.py`, `test_web.py` and `test_platform.py`, the web app split into `web/assets/penny-*.js`
   (load order in `web/index.html`), a content security policy, and bundled fonts.

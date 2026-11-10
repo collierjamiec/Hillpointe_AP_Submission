@@ -21,7 +21,8 @@ where each rule lives, assumptions). Read it before changing behavior.
   rule simulator), `manual.py` (manual entry → the reader's record shape; `<file>.keyed.json` in a batch folder),
   `version.py` (VERSION + releases.json, update check, required-update gate, `./penny release`),
   `accounts.py` (real accounts once `state/users.json` exists: PBKDF2 hashes, hashed one-time links, HttpOnly session
-  cookie, Admin guards), `mailer.py` (SMTP from `PENNY_SMTP_*` env vars, else saved to `state/outbox/`).
+  cookie, Admin guards), `mailer.py` (SMTP from `PENNY_SMTP_*` env vars, else saved to `state/outbox/`),
+  `watcher.py` (the watched inbox folder behind `./penny web --watch`: picks up finished PDFs, previews only).
 - `state/users.json`, `state/tokens.json` and `state/outbox/` hold personal data and are git-ignored. Never commit them.
   With accounts on, the server ignores any user the browser sends and acts as the session's user.
 - `04_Workflow/VERSION` and `04_Workflow/releases.json`: the current version (three parts) and every release. A new
@@ -43,7 +44,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 91 checks, uses temp dirs, safe
+./penny test                                   # 97 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
