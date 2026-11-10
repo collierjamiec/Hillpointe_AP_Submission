@@ -3,7 +3,15 @@
   ./penny web --package <package folder>
 
 Why a local server: the public site is static, so it cannot run Penny's Python engine. On your own computer this
-server can. It only listens on 127.0.0.1 (this computer), and it is the only part of the web app that changes files.
+server can. By default it only listens on 127.0.0.1 (this computer), and it is the only part of the web app that
+changes files.
+
+For a team (added in v2.0, see store.py and actions.py)
+  With real accounts, this server is the single source of truth. Every action a person takes in the web app is sent
+  to POST /api/events, checked (who they are, what their role may do, what teammates already did) and saved in the
+  database, state/penny.db. GET /api/events?after=N&wait=S holds the answer until something new is saved, which is
+  how every open browser sees a teammate's work at once. Rule changes are written to config/rules.json.
+  ./penny web --host 0.0.0.0 --https opens it to the network; that is refused without real accounts and https.
 
 Batch folders
   inbox/<YYYY-MM-DD>_<short-name>/      for example inbox/2026-11-10_weekly-ap/
@@ -16,11 +24,11 @@ Permissions (from the signed-in demo account; a production server would authenti
                        test draft rules against every saved run (v1.5)
 
 Accounts and email (added in v1.7, see accounts.py and mailer.py)
-  When state/users.json has people in it, sign-in is real: the server checks passwords and keeps the session in an
+  When there are people in the database (before 2.0: state/users.json), sign-in is real: the server checks passwords and keeps the session in an
   HttpOnly cookie, every request acts as the signed-in person (anything the browser says about who it is is
   ignored), and invoices, runs and the API need a session. Admins invite people, edit them, set roles and status,
   and send password resets. Invitations, resets, approval requests and exports go out through mailer.py.
-  Without users.json, the four public demo accounts work as before.
+  With nobody invited yet, the four public demo accounts work as before.
 
 Updates (added in v1.6, see version.py)
   When a required Penny version is out, creating batches, uploading, running for real and saving manual entries are
@@ -36,7 +44,7 @@ Previews (added in v1.5, see replay.py)
                        of reading that PDF.
 
 Audit
-  Every step is appended to state/batch_log.jsonl and never rewritten: who created the batch, who uploaded which files
+  Every step is added to the audit log in the database, which refuses changes and deletions: who created the batch, who uploaded which files
   (name, size, SHA-256), who ran it, when, the folder, the run ID, preview or real, the result counts and pre-flight.
 
 Safety
@@ -127,15 +135,19 @@ class BatchService:
         self.root, self.package = Path(root), (Path(package) if package else None)
         self.inbox = self.root / "inbox"
         self.state_dir, self.runs_dir, self.web_dir, self.cfg_path = Path(state_dir), Path(runs_dir), Path(web_dir), Path(cfg_path)
-        self.log_path = self.state_dir / "batch_log.jsonl"
         self.lock = threading.Lock()
         self._ref = None                                   # reference data, loaded once on first use
         self.watcher = None                                # the watched inbox folder, when it is turned on (see watcher.py)
         self._sha = {}                                     # path -> (mtime, size, sha256): a file is hashed once until it changes
-        self._log = {"size": 0, "events": []}              # the audit log read so far; only new lines are read again
+        self._log = {"seq": 0, "events": []}               # the server's own log read so far; only newer entries are read again
+        self._runs = (None, [])                            # (file stamp, runs) from the web data, for export_file
+        self._log_lock = threading.Lock()                  # its own lock: a run holds self.lock while it reads the log
         from .accounts import Accounts
         from .mailer import Outbox
-        self.accounts = Accounts(self.state_dir, log=self.log)
+        from .store import Store
+        self.store = Store(self.state_dir)                 # state/penny.db: the audit log and accounts (v2.0)
+        self.moved = self.store.migrate()                  # the one-time move of files from before 2.0
+        self.accounts = Accounts(self.state_dir, log=self.log, store=self.store)
         self.outbox = Outbox(self.state_dir)
 
     # ---------------------------------------------------------------- time
@@ -170,29 +182,20 @@ class BatchService:
 
     # ---------------------------------------------------------------- audit log
     def log(self, event):
-        """Append one event to the audit log (state/batch_log.jsonl), stamped with the time. Never rewrites it."""
+        """Append one event to the audit log in the database, stamped with the time. The database refuses to
+        change or remove an entry afterwards."""
         event = {"at": self.now().isoformat(timespec="seconds"), **event}
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(event, sort_keys=True) + "\n")
+        self.store.append(event, "server", subject=str(event.get("doc_id") or event.get("batch") or ""))
         return event
 
     def read_log(self):
-        """Every event in the audit log, oldest first. The log only grows, so only the part added since the last
-        call is read; if the file ever shrinks or is replaced, it is read again from the start."""
-        if not self.log_path.exists():
-            return []
-        with self.lock:
-            size = self.log_path.stat().st_size
-            if size < self._log["size"]:
-                self._log = {"size": 0, "events": []}
-            if size > self._log["size"]:
-                with open(self.log_path, "rb") as f:
-                    f.seek(self._log["size"])
-                    chunk = f.read()
-                end = chunk.rfind(b"\n") + 1                # stop at the last complete line
-                new = [json.loads(line) for line in chunk[:end].decode("utf-8").splitlines() if line.strip()]
-                self._log = {"size": self._log["size"] + end, "events": self._log["events"] + new}
+        """Everything the server itself recorded, oldest first. The log only grows, so only entries newer than
+        the last call are read from the database."""
+        with self._log_lock:
+            if self.store.last() > self._log["seq"]:
+                new = self.store.events(after=self._log["seq"])
+                mine = [{k: v for k, v in e.items() if k not in ("seq", "origin")} for e in new if e["origin"] == "server"]
+                self._log = {"seq": new[-1]["seq"] if new else self._log["seq"], "events": self._log["events"] + mine}
             return list(self._log["events"])
 
     def fingerprint(self, path):
@@ -322,7 +325,7 @@ class BatchService:
             event = self.log({"event": "batch.run", "id": event_id, "batch": batch, "folder": f"inbox/{batch}", "by": who,
                               "run_id": run_id, "dry_run": bool(dry_run), "documents": len(decisions), "counts": counts,
                               "preflight": "passed" if not errs else f"failed ({len(errs)} errors)", "seconds": round(time.time() - started, 1)})
-            webexport.build(self.runs_dir, self.cfg_path, self.web_dir / "data", self.package, root=self.root, batch_log=self.log_path)
+            webexport.build(self.runs_dir, self.cfg_path, self.web_dir / "data", self.package, root=self.root, batch_log=self.read_log())
         return event
 
     def list(self):
@@ -444,6 +447,22 @@ class BatchService:
                 from .replay import data_fingerprint
                 self._ref = (load_package(self.package), data_fingerprint(self.package))
         return self._ref
+
+    def export_file(self, run_id, name):
+        """What the server knows about one file a run wrote: its row count and whether the run was a preview.
+        None when there is no such file. Used to check "mark as imported" against the real file."""
+        path = self.web_dir / "data" / "penny-data.json"
+        try:
+            st = path.stat()
+            if self._runs[0] != (st.st_mtime_ns, st.st_size):
+                self._runs = ((st.st_mtime_ns, st.st_size), json.loads(path.read_text(encoding="utf-8")).get("runs", []))
+        except (OSError, ValueError):
+            return None
+        for r in self._runs[1]:
+            if r.get("id") == run_id:
+                f = next((f for f in r.get("files", []) if f.get("name") == name), None)
+                return {"rows": f.get("rows"), "dry_run": bool(r.get("dry_run"))} if f else None
+        return None
 
     def cfg(self, rules=None):
         """The rules to use: the ones the person sees on the Rules page if sent, else config/rules.json."""
@@ -621,6 +640,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", CSP)
+        if getattr(self.server, "secure", False):          # over https: tell the browser to never fall back to http
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
         super().end_headers()
 
     def send_json(self, obj, status=200, cookie=None):
@@ -630,9 +651,11 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         if cookie is not None:
-            # HttpOnly: page scripts cannot read it. SameSite=Strict: other sites cannot send it. (Secure needs https.)
+            # HttpOnly: page scripts cannot read it. SameSite=Strict: other sites cannot send it.
+            # Secure (over https): the browser never sends it over plain http.
             life = "" if cookie else "; Max-Age=0"
-            self.send_header("Set-Cookie", f"penny_session={cookie}; HttpOnly; SameSite=Strict; Path=/{life}")
+            secure = "; Secure" if getattr(self.server, "secure", False) else ""
+            self.send_header("Set-Cookie", f"penny_session={cookie}; HttpOnly; SameSite=Strict; Path=/{secure}{life}")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         try:
@@ -672,7 +695,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
 
     def base_url(self):
         """The address people open Penny at, for links in emails."""
-        return (os.environ.get("PENNY_PUBLIC_URL") or f"http://{self.headers.get('Host') or '127.0.0.1'}").rstrip("/")
+        scheme = "https" if getattr(self.server, "secure", False) else "http"
+        return (os.environ.get("PENNY_PUBLIC_URL") or f"{scheme}://{self.headers.get('Host') or '127.0.0.1'}").rstrip("/")
 
     def status(self):
         """What the web app needs to know about this server: engine, version, update, accounts and email."""
@@ -681,7 +705,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         return {"mode": "local", "engine": bool(self.service.package), "max_mb": MAX_FILE // (1024 * 1024), "version": current(),
                 "update": {k: info[k] for k in ("version", "latest", "minimum", "state", "newer", "note")},
                 "watch": self.service.watcher.status() if self.service.watcher else {"enabled": False},
-                "accounts": self.service.accounts.enabled(), "email": __import__("ap_workflow.mailer", fromlist=["describe"]).describe(),
+                "accounts": self.service.accounts.enabled(), "team": self.service.accounts.enabled(), "last": self.service.store.last(),
+                "secure": bool(getattr(self.server, "secure", False)), "email": __import__("ap_workflow.mailer", fromlist=["describe"]).describe(),
                 "inbox": "inbox/", "today": self.service.today(),
                 "time_zone": getattr(self.service.zone(), "key", None)}
 
@@ -716,6 +741,22 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
                 # Anyone signed in may see who can be emailed: name, email and role of active people only.
                 self.actor(None)
                 return self.send_json({"people": [{k: u[k] for k in ("name", "email", "role")} for u in self.service.accounts.list() if u["status"] == "active"]})
+            if url.path == "/api/events":
+                # The team's audit log since a number. With wait=N the answer is held back until something new
+                # arrives (or N seconds pass), which is how every open browser learns of a teammate's work at once.
+                if not self.service.accounts.enabled():
+                    return self.send_json({"team": False, "events": [], "last": 0})
+                self.actor(None)
+                q = parse_qs(url.query)
+                num = lambda k: int(v) if (v := (q.get(k) or ["0"])[0]).isdigit() else 0
+                after, wait = num("after"), min(25, num("wait"))
+                if wait and self.service.store.last() <= after:
+                    self.service.store.wait(after, wait)
+                events = self.service.store.events(after=after)
+                return self.send_json({"team": True, "events": events, "last": events[-1]["seq"] if events else after})
+            if url.path == "/api/rules":
+                self.actor({"role": "viewer"})
+                return self.send_json({"rules": self.service.cfg()[0]})
             if url.path == "/api/log":
                 self.actor({"role": "viewer"})
                 return self.send_json({"log": self.service.read_log()})
@@ -727,6 +768,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
                 data = json.loads((Path(self.web_dir) / "data" / "penny-data.json").read_text(encoding="utf-8"))
                 data["server"] = self.status()
                 data["batch_log"] = self.service.read_log()          # the live audit log, not the copy from the last export
+                if self.service.accounts.enabled():
+                    data["rules"] = self.service.cfg()[0]            # the rules Penny runs with now, not the copy from the last export
                 return self.send_json(data)
             if url.path == "/api/update":
                 # "Check for updates" in the web app: ask GitHub now instead of using today's cached answer.
@@ -748,7 +791,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         if parts == ["api", "auth", "login"]:
             if not acc.enabled():
                 raise BatchError("This copy of Penny uses the demo accounts.", 409)
-            token, user = acc.sign_in(body.get("email"), body.get("password"))
+            token, user = acc.sign_in(body.get("email"), body.get("password"), addr=self.client_address[0])
             return self.send_json({"user": user}, cookie=token)
         if parts == ["api", "auth", "logout"]:
             acc.sign_out(self.session_token())
@@ -782,6 +825,25 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
     def work_routes(self, parts, url, raw):
         """Email, batches, rechecks, the rule simulator and manual entry. Returns a response, or None when the
         path is not one of these. Each call acts as the signed-in person (see actor)."""
+        if parts == ["api", "events"]:
+            # One action from the web app: checked here, then added to the audit log (see actions.py).
+            if not self.service.accounts.enabled():
+                raise BatchError("This Penny has no real accounts yet, so actions stay in the browser.", 409)
+            from . import actions
+            try:
+                saved = actions.record(self.service, self.actor(None), json.loads(raw or b"{}").get("event"))
+            except actions.ActionError as e:
+                raise BatchError(str(e), e.status)
+            out = {"event": saved}
+            if saved["type"].startswith("rules."):
+                out["rules"] = self.service.cfg()[0]
+            return self.send_json(out)
+        if parts == ["api", "events", "import"]:
+            from . import actions
+            try:
+                return self.send_json(actions.bring_in(self.service, self.actor(None), json.loads(raw or b"{}").get("events")))
+            except actions.ActionError as e:
+                raise BatchError(str(e), e.status)
         if parts == ["api", "watch", "scan"]:
             # "Check now" on the New batch page: look at the watched folder right away instead of waiting.
             check_user(self.actor(json.loads(raw or b"{}").get("user")), "upload")
@@ -831,6 +893,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length") or 0)
             limit = (MAX_EVIDENCE * MAX_EVIDENCE_FILES * 4 // 3 + 1024 * 1024) if parts == ["api", "manual"] else MAX_FILE + 1024
+            if parts[:2] == ["api", "events"]:
+                limit = 8 * 1024 * 1024 if parts[2:] == ["import"] else 512 * 1024
             if length > limit:
                 self.close_connection = True              # do not read an oversized body; answer and hang up
                 raise BatchError("That upload is too large.", 413)
@@ -859,12 +923,67 @@ def make_handler(service, web_dir):
     """The request handler class for one BatchService: PennyHandler with its service and web folder filled in."""
     return type("Handler", (PennyHandler,), {"service": service, "web_dir": web_dir})
 
-def serve(service, web_dir, port, open_browser=True):
-    """Run the web app on this computer only (127.0.0.1) until Ctrl+C."""
+LOOPBACK = ("127.0.0.1", "localhost", "::1")
+
+
+class QuietServer(http.server.ThreadingHTTPServer):
+    """The web server. A connection that drops, or that is not https when https is expected, is not worth a
+    stack trace in the terminal; anything else still is."""
+    def handle_error(self, request, client_address):
+        import ssl, sys
+        if not isinstance(sys.exc_info()[1], (ssl.SSLError, ConnectionError, TimeoutError)):
+            super().handle_error(request, client_address)
+
+
+def network_problem(service, host, cert, key, allow_http):
+    """Why Penny will not listen on this address, or '' when it may. Other computers can only reach Penny when
+    people sign in with real accounts and the connection is encrypted."""
+    if host in LOOPBACK:
+        return ""
+    if not service.accounts.enabled():
+        return ("Penny will not open to other computers until people sign in with real accounts.\n"
+                'Create the first Admin:  ./penny users invite --email you@company.com --name "Your Name" --role admin')
+    if not (cert and key) and not allow_http:
+        return ("Penny will not open to other computers without https, because passwords and invoices would cross the network in the clear.\n"
+                "Make a certificate:   ./penny cert --host <this computer's name>\n"
+                "Then start with:      ./penny web --host 0.0.0.0 --https\n"
+                "(If a proxy in front of Penny already provides https, add --allow-http and set PENNY_PUBLIC_URL to the https address.)")
+    return ""
+
+
+def make_server(service, web_dir, port, host="127.0.0.1", cert=None, key=None):
+    """The web server, listening on `host`. With a certificate and key it speaks https (TLS 1.2 or newer)."""
+    httpd = QuietServer((host, port), make_handler(service, web_dir))
+    httpd.secure = str(os.environ.get("PENNY_PUBLIC_URL", "")).startswith("https://")     # https provided by a proxy in front
+    if cert and key:
+        import ssl
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_cert_chain(str(cert), str(key))
+        # The handshake happens on the connection's own thread, so one slow client cannot hold up everyone else.
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True, do_handshake_on_connect=False)
+        httpd.secure = True
+    return httpd
+
+
+def serve(service, web_dir, port, open_browser=True, host="127.0.0.1", cert=None, key=None, allow_http=False):
+    """Run the web app until Ctrl+C. By default only this computer can reach it (127.0.0.1). With --host it is
+    open to the network, which needs real accounts and https (see network_problem)."""
     import webbrowser
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), make_handler(service, web_dir))
-    url = f"http://127.0.0.1:{port}/"
+    problem = network_problem(service, host, cert, key, allow_http)
+    if problem:
+        raise SystemExit(problem)
+    httpd = make_server(service, web_dir, port, host, cert, key)
+    scheme = "https" if cert and key else "http"
+    url = f"{scheme}://{'127.0.0.1' if host in ('0.0.0.0', '::') else host}:{port}/"
     print(f"Penny web app: {url}   (Ctrl+C to stop)")
+    if host not in LOOPBACK:
+        import socket
+        print(f"  Open to the network. Teammates use:  {os.environ.get('PENNY_PUBLIC_URL') or f'{scheme}://{socket.gethostname()}:{port}/'}")
+    if service.moved:
+        print("  Moved into the database (state/penny.db): " + ", ".join(f"{n} {what}" for what, n in service.moved.items()) + ". The old files were renamed with .moved on the end.")
+    print("  Team mode: " + ("on. Everything people do is checked and saved on this computer." if service.accounts.enabled()
+                             else "off (no real accounts yet, so the demo accounts are used and actions stay in each browser)."))
     if service.watcher:
         print(f"  Watched folder: {service.watcher.display()} (checked every {service.watcher.every} seconds; previews only)")
         service.watcher.start()

@@ -141,7 +141,9 @@ def build(runs_dir, cfg_path, out_dir, package=None, root=None, batch_log=None):
 
     cfg = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
     log = []
-    if batch_log and Path(batch_log).exists():
+    if isinstance(batch_log, list):                       # from the database (v2.0)
+        log = batch_log
+    elif batch_log and Path(batch_log).exists():           # a log file from before 2.0
         log = [json.loads(line) for line in Path(batch_log).read_text(encoding="utf-8").splitlines() if line.strip()]
     data = {"generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "runs": runs,
             "results": results, "documents": documents, "rules": cfg, "batch_log": log}

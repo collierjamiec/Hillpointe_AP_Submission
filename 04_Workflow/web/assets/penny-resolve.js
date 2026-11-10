@@ -158,11 +158,11 @@ function openDialog(title, lede, body, submitLabel, onSubmit, opts = {}) {
     <h2 id="dialog-title">${esc(title)}</h2>${lede ? `<p class="lede">${lede}</p>` : ""}
     ${body}
     <p class="form-error" id="dlg-error" role="alert" hidden></p>
-    <div class="dialog-actions"><button type="button" class="btn" value="cancel" id="dlg-cancel">${opts.info ? "Close" : "Cancel"}</button>
+    <div class="dialog-actions"><button type="button" class="btn" value="cancel" id="dlg-cancel">${esc(opts.cancelLabel || (opts.info ? "Close" : "Cancel"))}</button>
       ${opts.info ? "" : `<button type="submit" class="btn ${opts.danger ? "btn-danger" : "btn-accent"}" value="ok">${esc(submitLabel)}</button>`}</div>
   </form>`;
   const form = $("form", dlg);
-  $("#dlg-cancel", dlg).addEventListener("click", () => dlg.close());
+  $("#dlg-cancel", dlg).addEventListener("click", () => { if (opts.onCancel) opts.onCancel(new FormData(form)); dlg.close(); });
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const err = onSubmit(new FormData(form));

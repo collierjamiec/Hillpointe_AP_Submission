@@ -1371,3 +1371,9 @@ main p a:not(.btn), main .prose li a, main .notes li a, .mode-banner a, #dialog 
   .queue-bar .segmented, .queue-bar .segmented button { flex: 1 1 auto; }
   .queue-bar .segmented { display: flex; }
 }
+
+/* ---------------------------------------------------------------- v2.0: working as a team */
+.team-note { position: fixed; left: 50%; top: 68px; transform: translateX(-50%); z-index: 60; min-height: 40px; padding: 8px 16px; border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--surface); color: var(--accent-strong); font: inherit; font-weight: 550; font-size: 13.5px; box-shadow: var(--shadow-lg); cursor: pointer; }
+.team-note:hover { background: var(--accent-soft); }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--text-2); }

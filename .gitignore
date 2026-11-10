@@ -10,3 +10,9 @@ __pycache__/
 04_Workflow/state/tokens.json
 04_Workflow/state/*.tmp
 04_Workflow/state/outbox/
+# v2.0: the database holds the audit log and accounts (personal data), and https keys are private
+04_Workflow/state/penny.db*
+04_Workflow/state/*.moved
+04_Workflow/state/tls/
+04_Workflow/state/rules_history/
+04_Workflow/config/rules.json.tmp

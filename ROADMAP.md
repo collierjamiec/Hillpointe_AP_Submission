@@ -1,13 +1,13 @@
 # Roadmap to Penny 2.0
 
-This is the plan from version 1.7.0 to 2.0.0. It is kept up to date as work lands: each item is marked
+This was the plan from version 1.7.0 to 2.0.0, which is now finished. It is kept up to date as work lands: each item is marked
 **Done**, **In progress** or **Planned**. What has already shipped, version by version, is in [`SCOPE.md`](SCOPE.md).
 
 **The goal of 2.0:** Penny for a real team. Today, even with real accounts, what people do in Penny (resolving holds,
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 1.9.1 was finished.
+Last updated: November 2026, when 2.0.0 was finished.
 
 ---
 
@@ -47,28 +47,37 @@ designed for it.
 | A phone test suite | Every main screen checked on an emulated iPhone on every pull request | Done |
 | Real devices | A try on a range of real phones and tablets | **Still open:** an emulator is not a hand. Carried into 2.0. |
 
-## 2.0.0: Penny for a real team (Planned)
+## 2.0.0: Penny for a real team (Done)
 
-| Item | What it adds |
-|---|---|
-| The server is the source of truth | Every action and rule change is saved on the server and checked there. Rule changes made in the web app are the rules Penny runs with. |
-| A real database: SQLite | One file, no setup, built into Python. The audit log only allows new entries. |
-| Live updates | Teammates see each other's work as it happens, and two people cannot resolve the same hold at once. |
-| Run over the network with https | The whole team can reach Penny, with session cookies marked Secure. |
-| A one-time move of existing data | The register, runs, accounts and browser history are carried over. |
-| Required update | 2.0.0 is marked required, so every copy moves together. |
-| The public demo stays | A browser-only showcase with example data, as it is today. |
-| Real phones and tablets | Carried from 1.9.1: the phone layout is tried on real devices, and what is found is fixed. |
-| Screen reader session | Carried from 1.9.0: a person who uses a screen reader every day tries the main tasks, and what they find is fixed. |
-| Export history and paging move to the server | In 1.9.0 the import history is saved in each browser and lists are paged in the browser. With the server as the source of truth, both are shared by the team and paged by the database. |
+| Item | What it adds | Status |
+|---|---|---|
+| The server is the source of truth | Every action and rule change is saved on the server and checked there. Rule changes made in the web app are the rules Penny runs with. | Done |
+| A real database: SQLite | One file, no setup, built into Python. The audit log only allows new entries. | Done: the database refuses changes and deletions with triggers |
+| Live updates | Teammates see each other's work as it happens, and two people cannot resolve the same hold at once. | Done |
+| Run over the network with https | The whole team can reach Penny, with session cookies marked Secure. | Done: refused without real accounts and https |
+| A one-time move of existing data | The register, runs, accounts and browser history are carried over. | Done for the audit log, accounts and browser history. **Changed:** the register and run folders stay as files on purpose (see below). |
+| Required update | 2.0.0 is marked required, so every copy moves together. | Done |
+| The public demo stays | A browser-only showcase with example data, as it is today. | Done |
+| Export history moves to the server | Carried from 1.9.0. | Done: it is part of the team's audit log |
+| Sign-in lockouts by network address | Was listed for after 2.0. Moved up, because opening Penny to a network makes it matter. | Done |
+
+**One decision changed along the way.** The plan said the register would move into the database. It stays a file
+(`state/processed_register.csv`). The engine also runs from the terminal with no server, the submitted evidence
+compares those files, and a CSV is what an auditor opens. The server takes a lock around every run, so two runs
+cannot write it at once.
 
 ## After 2.0 (intended, not scheduled)
 
 | Item | Note |
 |---|---|
 | **Single sign-on** | Sign in with the company's identity provider (OpenID Connect or SAML) instead of a Penny password. We intend to add this in 2.1. It is not in 2.0 because it needs a real identity provider to build and test against. Until then, Penny's own accounts stay: invitations, password rules, lockouts and resets. |
+| Real phones and tablets | Carried from 1.9.1: the phone layout is tried on real devices, and what is found is fixed. Needs a person with the devices. |
+| Screen reader session | Carried from 1.9.0: a person who uses a screen reader every day tries the main tasks, and what they find is fixed. Needs that person. |
+| An outside security review | 2.0 opens Penny to a network. The checks are tested on every change, but nobody outside the project has tried to break them. |
+| Sign-ins that survive a restart | Sessions are kept in memory, so restarting Penny signs everyone out. |
+| Paging by the database | Lists are still paged in the browser, which loads the whole audit log at sign-in. Fine for thousands of entries; a very long history should be paged by the server. |
 | Argon2id password hashing | A stronger hash than today's PBKDF2, moved to on next sign-in. |
-| Sign-in lockouts by network address | Today a lockout is per email, so someone who knows an email can keep that person locked out. Once Penny runs over a network (2.0), lock by address as well. |
+| More than one server | 2.0 is one Penny on one computer. Running several copies against one database is not supported. |
 
 ---
 

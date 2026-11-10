@@ -1,6 +1,8 @@
 """User accounts for Penny on a computer. (Added after submission, v1.7.)
 
-Turned on when state/users.json has at least one user. Create the first Admin from the terminal:
+Turned on when there is at least one person. Since v2.0 people and links live in the database (state/penny.db,
+see store.py); the files named below are where they lived before, and are moved in the first time 2.0 starts.
+Turned on when state/users.json (now the database) has at least one user. Create the first Admin from the terminal:
   ./penny users invite --email you@company.com --name "Your Name" --role admin
 Without that file, ./penny web keeps the four public demo accounts (browser-only), exactly as before.
 
@@ -36,6 +38,7 @@ ITERATIONS = 200_000
 INVITE_HOURS, RESET_HOURS = 72, 1
 IDLE_SECONDS = 30 * 60
 MAX_TRIES = 5
+MAX_TRIES_ADDR = 20          # wrong tries from one network address, across any emails, before that address waits five minutes
 MAX_TRACKED = 2000          # emails remembered for lockouts; beyond this the oldest are forgotten, so memory stays bounded
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
 COMMON = {"password", "password1", "password123", "1234567890", "qwertyuiop", "letmein123", "welcome123", "penny12345",
@@ -87,8 +90,10 @@ def clean_email(v):
 
 
 class Accounts:
-    def __init__(self, state_dir, log=None, clock=time.time):
-        """Accounts stored under state_dir. `log` receives audit events; `clock` can be replaced in tests."""
+    def __init__(self, state_dir, log=None, clock=time.time, store=None):
+        """Accounts for one Penny. With `store` (the database, v2.0) people and links live there; without it they
+        are the JSON files under state_dir, as before 2.0. `log` receives audit events; `clock` can be replaced in tests."""
+        self.store = store
         self.dir = Path(state_dir)
         self.users_path = self.dir / "users.json"
         self.tokens_path = self.dir / "tokens.json"
@@ -97,6 +102,7 @@ class Accounts:
         self.lock = threading.RLock()
         self.sessions = {}          # sha256(token) -> {"user": id, "seen": time}
         self.tries = {}             # email -> {"fails", "until", "lockouts"}
+        self.addrs = {}             # network address -> {"fails", "until"} (v2.0)
         self._cache = (None, [])    # (file stamp, users) so users.json is parsed once per change
 
     # ------------------------------------------------------------------ storage
@@ -107,6 +113,11 @@ class Accounts:
     def _users(self):
         """Everyone, read from users.json. The parsed file is reused until the file changes on disk, because every
         request looks up the signed-in person. Callers get their own copy and may change it before saving."""
+        if self.store:
+            key = ("db", self.store.doc_rev("users"))
+            if self._cache[0] != key:
+                self._cache = (key, (self.store.doc("users") or {}).get("users", []))
+            return json.loads(json.dumps(self._cache[1]))
         try:
             st = self.users_path.stat()
             key = (st.st_mtime_ns, st.st_size)
@@ -117,7 +128,12 @@ class Accounts:
             return []
 
     def _save_users(self, users):
-        """Write users.json through a temp file, so a crash can never leave it half written."""
+        """Save everyone in one step (the database, or users.json through a temp file), so a crash can never
+        leave the list half written."""
+        if self.store:
+            self.store.set_doc("users", {"users": users})
+            self._cache = (None, [])
+            return
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.users_path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"users": users}, indent=2), encoding="utf-8")
@@ -126,6 +142,8 @@ class Accounts:
 
     def _tokens(self):
         """Every invitation and reset link on file, keyed by the SHA-256 of its token."""
+        if self.store:
+            return self.store.doc("tokens") or {}
         try:
             return json.loads(self.tokens_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -136,6 +154,8 @@ class Accounts:
         self.dir.mkdir(parents=True, exist_ok=True)
         now = self.clock()
         keep = {k: v for k, v in tokens.items() if v["expires"] > now - 7 * 86400}   # forget old links after a week
+        if self.store:
+            return self.store.set_doc("tokens", keep)
         tmp = self.tokens_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(keep, indent=2), encoding="utf-8")
         tmp.replace(self.tokens_path)
@@ -340,11 +360,16 @@ class Accounts:
         return prefs
 
     # ------------------------------------------------------------------ sign in and sessions
-    def sign_in(self, email, password):
+    def sign_in(self, email, password, addr=""):
         """Check an email and password and start a session. Five wrong tries lock that email for a minute, doubling
-        each time; the message is the same whether or not the email exists. Returns (session token, person)."""
+        each time; the message is the same whether or not the email exists. Returns (session token, person).
+        `addr` is the computer asking (v2.0): 20 wrong tries from one address, across any emails, lock that address
+        for five minutes, so guessing many accounts from one place is slowed down too."""
         e = str(email or "").strip().lower()
         now = self.clock()
+        seat = self.addrs.get(addr, {"fails": 0, "until": 0}) if addr else None
+        if seat and seat["until"] > now:
+            raise AccountError(f"Too many wrong tries from this computer. Try again in {int(seat['until'] - now) + 1} seconds.", 429)
         st = self.tries.get(e, {"fails": 0, "until": 0, "lockouts": 0})
         if st["until"] > now:
             raise AccountError(f"Too many wrong tries. Try again in {int(st['until'] - now) + 1} seconds.", 429)
@@ -358,6 +383,14 @@ class Accounts:
                 st["until"] = now + 60 * 2 ** (st["lockouts"] - 1)
                 st["fails"] = 0
             self.tries[e] = st
+            if seat is not None:
+                seat["fails"] += 1
+                if seat["fails"] >= MAX_TRIES_ADDR:
+                    seat.update(fails=0, until=now + 300)
+                self.addrs[addr] = seat
+                if len(self.addrs) > MAX_TRACKED:
+                    for old in sorted(self.addrs, key=lambda k: self.addrs[k]["until"])[:len(self.addrs) - MAX_TRACKED]:
+                        self.addrs.pop(old, None)
             if len(self.tries) > MAX_TRACKED:           # typed emails are untrusted input: never let them grow without limit
                 for old in sorted(self.tries, key=lambda k: self.tries[k]["until"])[:len(self.tries) - MAX_TRACKED]:
                     self.tries.pop(old, None)
