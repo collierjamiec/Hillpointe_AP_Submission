@@ -10,7 +10,7 @@ function auditRows() {
   const serverLog = (D.batch_log || []).map((e) => ({ ...e, type: e.event === "batch.uploaded" ? "batch.upload" : e.event, user: { id: e.by.id, name: e.by.name, role: e.by.role, initials: e.by.name.split(" ").map((w) => w[0]).join("").slice(0, 2) },
     count: e.count, sort: iso(e.at), server: true }));
   const onServer = new Set(serverLog.map((e) => e.id).filter(Boolean));
-  const people = [...EV.filter((e) => !onServer.has(e.id)).map((e) => ({ ...e, sort: iso(e.at) })), ...serverLog];
+  const people = [...EV.filter((e) => !onServer.has(e.id) && !e.mirror).map((e) => ({ ...e, sort: iso(e.at) })), ...serverLog];
   const runs = D.runs.map((r) => ({ id: `run-${r.id}`, type: "run", at: r.started_at || "", run: r, sort: iso(r.started_at) || `0000-${String(r.order).padStart(4, "0")}`,
     user: { id: "penny", name: "Penny", role: "system", initials: "P" } }));
   // Newest first. The disk log keeps whole seconds, so entries from the same second fall back to the order the

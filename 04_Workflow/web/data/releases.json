@@ -2,6 +2,22 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.0.0",
+      "date": "2026-11-10",
+      "required": true,
+      "summary": "Penny for a real team: one server checks and saves everyone's work, teammates see it live, and Penny can run over a network with https.",
+      "notes": [
+        "With real accounts, everything people do is saved on the server, not in each browser. Sign in anywhere and your work is there.",
+        "Live updates: a teammate's work shows up without a reload, and two people cannot resolve the same hold at once.",
+        "The server checks every action: your role, what teammates already did, and second-person rules.",
+        "Rule changes made on the Rules page are the rules Penny runs with.",
+        "The audit log lives in a database that refuses changes and deletions.",
+        "Run for a team with ./penny web --host 0.0.0.0 --https. Penny refuses the network without real accounts and https.",
+        "Older files are moved into the database the first time 2.0 starts. Nothing is deleted.",
+        "The public demo is unchanged."
+      ]
+    },
+    {
       "version": "1.9.1",
       "date": "2026-11-10",
       "required": false,

@@ -17,19 +17,26 @@ where each rule lives, assumptions). Read it before changing behavior.
   `outputs.py` (files + Intacct pre-flight), `register.py` (processed-invoice register), `cli.py` (commands),
   `llm_extract.py` (optional Claude extraction, never run live), `webexport.py` (runs → `web/data/penny-data.json`),
   `webserver.py` (local server behind `./penny web`: batch upload/run, recheck, simulate and manual-entry API,
-  permissions, `state/batch_log.jsonl`), `replay.py` (re-decide saved readings on a scratch register: recheck and the
+  permissions, the audit log; `--host`/`--https` for a team), `store.py` (v2.0: `state/penny.db`, SQLite; an `events`
+  table that triggers make append-only, plus accounts), `actions.py` (v2.0: every web action checked on the server:
+  role, conflicts, second-person rules; rule changes written to `config/rules.json`), `replay.py` (re-decide saved readings on a scratch register: recheck and the
   rule simulator), `manual.py` (manual entry → the reader's record shape; `<file>.keyed.json` in a batch folder),
   `version.py` (VERSION + releases.json, update check, required-update gate, `./penny release`),
-  `accounts.py` (real accounts once `state/users.json` exists: PBKDF2 hashes, hashed one-time links, HttpOnly session
+  `accounts.py` (real accounts once someone is invited; stored in the database since v2.0: PBKDF2 hashes, hashed one-time links, HttpOnly session
   cookie, Admin guards), `mailer.py` (SMTP from `PENNY_SMTP_*` env vars, else saved to `state/outbox/`),
   `watcher.py` (the watched inbox folder behind `./penny web --watch`: picks up finished PDFs, previews only).
-- `state/users.json`, `state/tokens.json` and `state/outbox/` hold personal data and are git-ignored. Never commit them.
+- `state/penny.db*`, `state/*.moved`, `state/tls/` and `state/outbox/` hold personal data or private keys and are
+  git-ignored. Never commit them. The register (`processed_register.csv`, `run_log.csv`) stays a file on purpose.
+- Team mode (v2.0): with real accounts the server is the source of truth. The browser sends each action to
+  `POST /api/events` and keeps nothing in localStorage; `web/assets/penny-team.js` handles sending, rollback and live
+  updates. The public demo and demo-account mode still use the browser sandbox. `ROLE_CAN` and `NEEDS` in
+  `actions.py` must match `ROLES` and `EVENT_NEEDS` in `penny-core.js`; a test checks it.
   With accounts on, the server ignores any user the browser sends and acts as the session's user.
 - `04_Workflow/VERSION` and `04_Workflow/releases.json`: the current version (three parts) and every release. A new
   release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
   `web/data/releases.json` and `APP_VERSION` in `web/assets/penny-core.js`; a test checks all four agree.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
-- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (13 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
+- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (14 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
   (design tokens at the top). It never re-decides an invoice: human actions are events in a browser-only audit log.
   Labels must stay honest: ENTER_INTACCT is "Ready for Intacct import", never "entered" or "paid".
@@ -44,7 +51,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 97 checks, uses temp dirs, safe
+./penny test                                   # 108 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 

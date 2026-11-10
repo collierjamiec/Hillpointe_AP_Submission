@@ -246,6 +246,7 @@ async function reloadData() {
   D = await res.json();
   SERVER = D.server && D.server.mode === "local" ? D.server : SERVER;
   X = buildIndex(D);
+  if (teamMode()) D.batch_log = TEAM.log;        // the live log from the server, not the copy inside the data file
   derive();
   $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
 }

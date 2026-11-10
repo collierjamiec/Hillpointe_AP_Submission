@@ -35,7 +35,7 @@ def service(name, package=None, state=False):
     shutil.copytree(ROOT / "web", home / "web")
     shutil.copytree(ROOT / "runs", home / "runs")
     if state:
-        shutil.copytree(ROOT / "state", home / "state", ignore=shutil.ignore_patterns("users.json", "tokens.json", "outbox", "update_*", "batch_log.jsonl"))
+        shutil.copytree(ROOT / "state", home / "state", ignore=shutil.ignore_patterns("users.json", "tokens.json", "outbox", "update_*", "batch_log.jsonl", "penny.db*", "*.moved", "tls", "rules_history"))
     else:
         (home / "state").mkdir(parents=True)
     shutil.copy2(ROOT / "config" / "rules.json", home / "rules.json")
@@ -62,6 +62,9 @@ def main():
     accounts = service("accounts")
     user, token, _ = accounts.accounts.invite(None, "sam@hillpointe.com", "Sam Rivera", "admin", "AP manager", bootstrap=True)
     accounts.accounts.use_token(token, ADMIN_PASSWORD)
+    for email, name, role, title in (("avery@hillpointe.com", "Avery Chen", "clerk", "AP specialist"), ("jordan@hillpointe.com", "Jordan Patel", "approver", "Project manager")):
+        _, tok, _ = accounts.accounts.invite(user, email, name, role, title)      # teammates for the team suite, same password
+        accounts.accounts.use_token(tok, ADMIN_PASSWORD)
     from ap_workflow.watcher import Watcher
     accounts.watcher = Watcher(accounts)                  # on, but only looks when a suite presses Check now
     serve(accounts, 8782)

@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 97 automated checks
+./penny test                                  # run the 108 automated checks
 python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
@@ -71,12 +71,19 @@ A browser view of everything Penny decided, for people who would rather not use 
 * **Help center (v1.3):** a searchable knowledge base for the web app, the terminal, the rules and every exception code.
 * **New batch (v1.4):** upload PDFs into `inbox/<YYYY-MM-DD>_<name>/` and preview (AP Clerk, Admin) or run for real
   (Admin). Needs the local server (`./penny web --package <package>`, see `ap_workflow/webserver.py`). Every step is
-  appended to `state/batch_log.jsonl` and shown in the audit trail.
+  added to the audit log (since v2.0 in `state/penny.db`) and shown in the audit trail.
 * **Blockers, recheck and manual entry (v1.5):** each reason for a hold is tracked with an owner, target date, notes
   and fingerprinted files; Recheck and "Test on saved invoices" run Penny's engine on saved readings against a copy of
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Penny for a team (v2.0.0):** with real accounts the server is the single source of truth. `ap_workflow/store.py`
+  keeps the audit log and accounts in `state/penny.db` (SQLite; triggers refuse UPDATE and DELETE on the log).
+  `ap_workflow/actions.py` checks every web action on the server (role, conflicts, second-person rules) and writes
+  rule changes to `config/rules.json`. Browsers hold `GET /api/events?wait=25` open to see teammates' work live
+  (`web/assets/penny-team.js`). `./penny web --host 0.0.0.0 --https` opens it to a network and is refused without
+  real accounts and https; `./penny cert` makes a certificate; `./penny migrate` moves the files from before 2.0.
+  The register and run folders stay files on purpose.
 * **Made for phones (v1.9.1):** under 640 pixels wide, page tables (`table.data`) are laid out as cards by
   `web/assets/penny.css`, filters fold behind one button, dialogs rise from the bottom, and controls are 44 pixels
   tall. `tests/browser/phone.spec.js` checks it on an emulated iPhone.

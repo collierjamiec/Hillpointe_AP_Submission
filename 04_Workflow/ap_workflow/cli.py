@@ -59,22 +59,13 @@ def resolve_batch(package, arg):
     return Path(arg)
 
 
-def latest_run(out_dir):
-    """The name of the most recently written run folder."""
-    runs = [p for p in Path(out_dir).glob("*/decisions.json")]
-    if not runs:
-        sys.exit("No runs yet. Run one first, for example: python3 ap.py run 1")
-    return max(runs, key=lambda p: p.stat().st_mtime).parent.name
-
-
-BATCH_SHORTCUTS = {"1": "01_Invoice_Batch_01", "2": "07_Invoice_Batch_02_Rerun"}
-
-
-def resolve_batch(package, arg):
-    """Accept a folder path, or the shortcuts 1 and 2 for the two assessment batches."""
-    if arg in BATCH_SHORTCUTS:
-        return Path(package) / BATCH_SHORTCUTS[arg]
-    return Path(arg)
+def saved_log(state_dir):
+    """The server's audit log for the web export: from the database (v2.0), else the log file from before 2.0."""
+    state_dir = Path(state_dir)
+    if (state_dir / "penny.db").exists():
+        from .store import Store
+        return [{k: v for k, v in e.items() if k not in ("seq", "origin")} for e in Store(state_dir).events(origins=("server",))]
+    return state_dir / "batch_log.jsonl"
 
 
 def latest_run(out_dir):
@@ -300,7 +291,7 @@ def explain(out_dir, run_id, doc_id):
 def web_export(package, out_dir, web_dir):
     """Package the saved runs and invoice PDFs for the web app."""
     from . import webexport
-    r = webexport.build(out_dir, CFG_PATH, Path(web_dir) / "data", package, root=ROOT, batch_log=ROOT / "state" / "batch_log.jsonl")
+    r = webexport.build(out_dir, CFG_PATH, Path(web_dir) / "data", package, root=ROOT, batch_log=saved_log(ROOT / "state"))
     print(f"Packaged {r['runs']} runs, {r['documents']} invoices and {r['results']} results for the web view.")
     print(f"  Data: {r['path']}")
     if package:
@@ -315,7 +306,30 @@ def web_export(package, out_dir, web_dir):
     print("Next:  ./penny web")
 
 
-def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_browser=True, watch=None):
+def make_cert(state_dir, hosts):
+    """(added after submission, v2.0) Make a self-signed certificate for https in state/tls/, using openssl.
+    Browsers warn about a self-signed certificate the first time; a certificate from your IT team avoids that."""
+    import subprocess
+    tls = Path(state_dir) / "tls"
+    tls.mkdir(parents=True, exist_ok=True)
+    hosts = hosts or ["localhost"]
+    alt = ",".join(("IP:" if h.replace(".", "").isdigit() or ":" in h else "DNS:") + h for h in dict.fromkeys(hosts + ["localhost", "127.0.0.1"]))
+    cmd = ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "365", "-keyout", str(tls / "key.pem"), "-out", str(tls / "cert.pem"),
+           "-subj", f"/CN={hosts[0]}", "-addext", f"subjectAltName={alt}"]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+    except FileNotFoundError:
+        sys.exit("openssl is not installed, so Penny cannot make a certificate. Ask your IT team for one, then use:\n"
+                 "  ./penny web --host 0.0.0.0 --cert <certificate file> --key <key file>")
+    except subprocess.CalledProcessError as e:
+        sys.exit("openssl could not make the certificate:\n" + e.stderr.decode("utf-8", "replace")[-400:])
+    os.chmod(tls / "key.pem", 0o600)
+    print(f"Made a certificate for {', '.join(hosts)}, good for one year:\n  {tls / 'cert.pem'}\n  {tls / 'key.pem'}  (keep this one private)")
+    print("Start Penny for your team with:  ./penny web --host 0.0.0.0 --https")
+
+
+def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_browser=True, watch=None, host="127.0.0.1", cert=None, key=None,
+              https=False, allow_http=False):
     """Serve the web app on this computer, with the batch upload and run API (see webserver.py)."""
     from .webserver import BatchService, serve
     web_dir = Path(web_dir)
@@ -326,7 +340,12 @@ def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_br
     if watch is not None or cfg.get("enabled"):          # --watch on the command line, or "enabled": true in rules.json
         from .watcher import Watcher
         service.watcher = Watcher(service, watch or cfg.get("folder"), cfg.get("every_seconds", 15))
-    serve(service, web_dir, port, open_browser)
+    if https and not (cert and key):                     # --https: the certificate ./penny cert made
+        tls = Path(state_dir or ROOT / "state") / "tls"
+        cert, key = tls / "cert.pem", tls / "key.pem"
+        if not (cert.exists() and key.exists()):
+            sys.exit("No certificate yet. Make one first:  ./penny cert --host <this computer's name>")
+    serve(service, web_dir, port, open_browser and host in ("127.0.0.1", "localhost"), host, cert, key, allow_http)
 
 
 # ------------------------------------------------------------------ versions and updates (added after submission, v1.6)
@@ -497,7 +516,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 97 automated checks")
+    t = sub.add_parser("test", help="run the 108 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
@@ -509,6 +528,15 @@ def main(argv=None):
     v.add_argument("--package"); v.add_argument("--state", default=str(ROOT / "state")); v.add_argument("--out", default=str(ROOT / "runs"))
     v.add_argument("--watch", nargs="?", const="", default=None, metavar="FOLDER",
                    help="(added after submission) pick up PDFs dropped into a folder (inbox/_incoming unless you name one) and preview them")
+    v.add_argument("--host", default="127.0.0.1", help="(v2.0) the address to listen on. 0.0.0.0 opens Penny to your network; that needs real accounts and https")
+    v.add_argument("--https", action="store_true", help="(v2.0) use the certificate made by ./penny cert")
+    v.add_argument("--cert", help="(v2.0) a certificate file for https"); v.add_argument("--key", help="(v2.0) its private key file")
+    v.add_argument("--allow-http", action="store_true", help="(v2.0) only when a proxy in front of Penny already provides https")
+    ce = sub.add_parser("cert", help="(added after submission, v2.0) make a self-signed certificate so Penny can use https")
+    ce.add_argument("--host", action="append", help="this computer's name or address, as teammates will type it (repeat for more than one)")
+    ce.add_argument("--state", default=str(ROOT / "state"))
+    mg = sub.add_parser("migrate", help="(added after submission, v2.0) move the audit log and accounts from before 2.0 into the database")
+    mg.add_argument("--state", default=str(ROOT / "state"))
     s = sub.add_parser("status")
     s.add_argument("--state", default=str(ROOT / "state"))
     u = sub.add_parser("update", help="check for a new Penny version and update to it")
@@ -567,7 +595,15 @@ def main(argv=None):
         web_export(find_package(pkg_arg) if pkg_arg else None, a.out, a.web)
     elif a.cmd == "web":
         pkg_arg = a.package or os.environ.get("HILLPOINTE_PACKAGE")
-        serve_web(a.web, a.port, find_package(pkg_arg) if pkg_arg else None, a.state, a.out, watch=a.watch)
+        serve_web(a.web, a.port, find_package(pkg_arg) if pkg_arg else None, a.state, a.out, watch=a.watch, host=a.host, cert=a.cert, key=a.key,
+                  https=a.https, allow_http=a.allow_http)
+    elif a.cmd == "cert":
+        make_cert(a.state, a.host)
+    elif a.cmd == "migrate":
+        from .store import Store
+        moved = Store(a.state).migrate()
+        print("Moved into the database (state/penny.db): " + ", ".join(f"{n} {what}" for what, n in moved.items()) + ". The old files were renamed with .moved on the end."
+              if moved else "Nothing to move. The audit log and accounts are already in the database (state/penny.db).")
     elif a.cmd == "status":
         status(a.state)
 

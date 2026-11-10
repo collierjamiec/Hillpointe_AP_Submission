@@ -565,14 +565,96 @@ on a computer.
 
 ---
 
-## What comes next (planned, not built)
+## Version 2.0.0: Penny for a real team (November 2026, after submission)
 
-The plan to 2.0, with the status of each item, is in [`ROADMAP.md`](ROADMAP.md). In short:
+Until now, even with real accounts, what people did in Penny was saved in each person's own browser. In 2.0 the
+server is the single source of truth, so a team shares one picture. **This release is required:** older copies
+become read-only until they update, so a team never runs two versions with two ideas of where work is saved.
+Nothing here changes how Penny decides an invoice.
+
+### The server is the source of truth
+
+* Every action (resolving a hold, a blocker, an approval, a note, import history, a manual entry, a rule change) is
+  sent to the server, checked there and saved there. The browser keeps nothing of its own.
+* The server decides who is acting from the sign-in, never from what the browser says, and checks:
+  the role may do it; nobody got there first; a second person where one is needed (confirming an import, the second
+  check of a manual entry); the row count matches the real file; a rule is changed only from the value the person
+  was looking at. See `04_Workflow/ap_workflow/actions.py`.
+* A browser cannot claim things the server does itself: batches, runs, account changes and emails.
+* **Rule changes are the rules Penny runs with.** A saved change is written to `config/rules.json`, and the file as
+  it was is kept in `state/rules_history/`. Undo puts the old value back.
+* The role table the web app uses to show buttons and the one the server enforces are kept equal by a test.
+
+### A real database
+
+* `state/penny.db` (SQLite: one file, nothing to install). It holds the audit log and the accounts. See
+  `04_Workflow/ap_workflow/store.py`.
+* **The audit log only allows new entries, and the database enforces it.** Two triggers refuse every UPDATE and
+  DELETE on the log. A test tries both and checks they fail.
+* Checks run inside the database's write lock. A test has eight requests resolve the same hold at the same moment:
+  exactly one is saved.
+
+### Live updates
+
+* Each open browser keeps one request waiting on the server, which answers the moment anything new is saved. A
+  teammate's work shows up without a reload, with a short message saying who did what.
+* An action shows on screen at once and is confirmed by the server a moment later. If the server refuses it, Penny
+  takes it back and explains, for example "Avery Chen already resolved this hold."
+* A live update never wipes out what someone is typing. Penny offers "Your team made changes. Show them" instead.
+
+### Over the network, with https
+
+* `./penny web --host 0.0.0.0 --https` opens Penny to other computers. `./penny cert` makes a self-signed
+  certificate; `--cert` and `--key` use one from an IT team.
+* Penny **refuses** to open to a network without real accounts, and without https (unless a proxy in front
+  provides it). Over https the session cookie is marked Secure and browsers are told to always use https.
+* Twenty wrong passwords from one computer lock that computer out for five minutes, on top of the per-email lock.
+  (This was planned for after 2.0 and moved up, because a network makes it matter.)
+
+### A one-time move of existing data
+
+* The first time 2.0 starts it moves `batch_log.jsonl`, `users.json` and `tokens.json` into the database and says
+  what it moved. The old files are renamed with `.moved` on the end, never deleted. `./penny migrate` does the same.
+* An Admin whose browser still holds earlier work is offered to move it into the team's audit log. Each action
+  keeps its original time and person and is marked as moved. Moved rule changes are history only.
+* **A decision that changed:** the plan said the register would move into the database too. It stays a file. The
+  engine also runs from the terminal with no server, the submitted evidence compares those files, and a CSV is what
+  an auditor opens. The server locks around every run.
+
+### What did not change
+
+* The public demo is still a browser-only showcase, and Penny on a computer with only the demo accounts still keeps
+  actions in the browser.
+
+### Honest limits
+
+* One Penny on one computer. Several copies against one database is not supported.
+* Restarting Penny signs everyone out (sign-ins are kept in memory). Nothing else is lost.
+* The browser loads the whole audit log at sign-in. Fine for thousands of entries, not built for millions.
+* Changing a rule in the web app rewrites `config/rules.json` in plain two-space JSON, so its layout changes.
+* Not yet done by a person: an outside security review, a session with a screen reader user, and a try on real
+  phones and tablets. Single sign-on is intended for 2.1.
+
+### Documentation and testing
+
+* Two new help articles ("Working as a team", "Running Penny for your team") and updates to the security, audit,
+  roles, commands, new batch, glossary and FAQ articles.
+* 108 Python tests; 73 run without the assessment package. Eleven are new: the role tables, who is acting, the
+  eight-way race, import and second-person rules, rule changes on disk, the waiting request, moving browser history,
+  moving old files, https and the network refusals, the address lockout, and demo mode.
+* 17 browser suites (16 without the package). The new one signs in three people at once.
+
+---
+
+## What comes next (intended, not scheduled)
+
+The plan to 2.0 is finished. What is intended next is in [`ROADMAP.md`](ROADMAP.md). In short:
 
 | Next step | What it adds |
 |---|---|
-| 2.0.0: Penny for a real team | The server becomes the single source of truth (SQLite): every action and rule change is saved and checked there, teammates see each other's work live, and Penny runs over the network with https. |
-| After 2.0: single sign-on | Sign in with the company's identity provider. Intended for 2.1; it needs a real identity provider to build and test against. |
+| Single sign-on (intended for 2.1) | Sign in with the company's identity provider. It needs a real identity provider to build and test against. |
+| Checks that need a person | An outside security review, a screen reader session, and a try on real phones and tablets. |
+| Smaller items | Sign-ins that survive a restart, paging by the database, Argon2id password hashing. |
 
 These grow out of two ideas I recorded during the assessment: a full audit trail, and a safe way to handle new invoice
 types and vendors.

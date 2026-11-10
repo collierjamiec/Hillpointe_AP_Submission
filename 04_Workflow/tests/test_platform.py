@@ -300,18 +300,23 @@ class FoundationTests(unittest.TestCase):
         self.assertEqual(changed, (24, hashlib.sha256(b"%PDF-1.4 two, and longer").hexdigest()))
         self.assertNotEqual(first[1], changed[1])
 
-    def test_audit_log_reads_only_what_is_new_and_recovers_if_replaced(self):
+    def test_audit_log_reads_only_what_is_new_and_cannot_be_changed(self):
         self.svc.log({"event": "one"})
         self.assertEqual([e["event"] for e in self.svc.read_log()], ["one"])
         self.svc.log({"event": "two"})
-        with open(self.svc.log_path, "a") as f:
-            f.write('{"event": "half-written')                                    # a line still being written is left for next time
+        with unittest.mock.patch.object(self.svc.store, "events", wraps=self.svc.store.events) as read:
+            self.assertEqual([e["event"] for e in self.svc.read_log()], ["one", "two"])
+            self.assertEqual([e["event"] for e in self.svc.read_log()], ["one", "two"])
+        self.assertEqual(read.call_count, 1)                                     # the second look read nothing from the database
+        self.assertEqual(read.call_args.kwargs["after"], 1)                      # and the first read only the new entry
+        import sqlite3
+        db = sqlite3.connect(str(self.svc.store.path))
+        for sql in ("UPDATE events SET body = '{}'", "DELETE FROM events"):      # the database itself refuses to rewrite history
+            with self.assertRaises(sqlite3.DatabaseError) as e:
+                db.execute(sql)
+            self.assertIn("only allows new entries", str(e.exception))
+        db.close()
         self.assertEqual([e["event"] for e in self.svc.read_log()], ["one", "two"])
-        with open(self.svc.log_path, "a") as f:
-            f.write('"}\n')
-        self.assertEqual([e["event"] for e in self.svc.read_log()], ["one", "two", "half-written"])
-        self.svc.log_path.write_text('{"event": "fresh"}\n')                     # replaced by a shorter file: start over
-        self.assertEqual([e["event"] for e in self.svc.read_log()], ["fresh"])
 
     def test_export_copies_only_changed_files(self):
         from ap_workflow import webexport
@@ -612,6 +617,291 @@ class AccountServerTests(unittest.TestCase):
         self.assertEqual(code, 404)
         events = [x["event"] for x in self.svc.read_log()]
         self.assertEqual(events.count("email.saved"), 2)
+
+
+class TeamTests(unittest.TestCase):
+    """(added after submission, v2.0) The server is the source of truth: a database that only allows new audit
+    entries, actions checked on the server, live updates, rule changes written to the rules file, the one-time
+    move of older files, and https."""
+
+    def setUp(self):
+        import threading
+        from ap_workflow import webserver
+        self.tmp = Path(tempfile.mkdtemp())
+        (self.tmp / "web" / "data").mkdir(parents=True)
+        (self.tmp / "web" / "data" / "penny-data.json").write_text(json.dumps({"runs": [
+            {"id": "run1", "dry_run": False, "files": [{"name": "intacct_bill_import.csv", "rows": 11}]},
+            {"id": "preview1", "dry_run": True, "files": [{"name": "intacct_bill_import.csv", "rows": 3}]}]}))
+        (self.tmp / "web" / "data" / "releases.json").write_text('{"releases": []}')
+        (self.tmp / "runs").mkdir()
+        shutil.copy2(ROOT / "config" / "rules.json", self.tmp / "rules.json")       # a copy: these tests change rules
+        self.svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        sam, tok, _ = self.svc.accounts.invite(None, "sam@hillpointe.com", "Sam Rivera", "admin", bootstrap=True)
+        self.svc.accounts.use_token(tok, AccountTests.GOOD)
+        for email, name, role in (("avery@hillpointe.com", "Avery Chen", "clerk"), ("jordan@hillpointe.com", "Jordan Patel", "approver"), ("riley@hillpointe.com", "Riley Brooks", "viewer")):
+            _, tok, _ = self.svc.accounts.invite(sam, email, name, role)
+            self.svc.accounts.use_token(tok, AccountTests.GOOD)
+        self.httpd = webserver.make_server(self.svc, self.tmp / "web", 0)
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+        self.n = 0
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    call = AccountServerTests.call
+    login = AccountServerTests.login
+
+    def act(self, cookie, kind, **data):
+        """Send one action as the signed-in person. Returns (status, body)."""
+        self.n += 1
+        code, body, _ = self.call("/api/events", {"event": {"id": f"{self.n:016x}", "type": kind, **data}}, cookie=cookie)
+        return code, body
+
+    def test_the_two_role_tables_are_the_same(self):
+        """The web app shows or hides buttons from its table; the server enforces its own. They must agree."""
+        import re
+        from ap_workflow import actions
+        js = (ROOT / "web" / "assets" / "penny-core.js").read_text()
+        roles = {m.group(1): json.loads(m.group(2)) for m in re.finditer(r'^  (\w+): \{ name: "[^"]+", can: (\[[^\]]*\])', js, re.M)}
+        self.assertEqual(roles, actions.ROLE_CAN)
+        block = js[js.index("const EVENT_NEEDS = {"):js.index("};", js.index("const EVENT_NEEDS = {"))]
+        needs = dict(re.findall(r'"([a-z_.]+)": "(\w+)"', block))
+        for kind, need in actions.NEEDS.items():
+            if need is not None:
+                self.assertEqual(needs.get(kind), need, kind)
+        owned = {k for k in needs if k.startswith(actions.SERVER_OWNED)}
+        self.assertEqual(set(needs) - owned, {k for k, v in actions.NEEDS.items() if v})    # every other action is checked here
+
+    def test_the_server_decides_who_is_acting_and_what_they_may_do(self):
+        avery, riley = self.login("avery@hillpointe.com"), self.login("riley@hillpointe.com")
+        self.assertEqual(self.call("/api/events", {"event": {"id": "a" * 16, "type": "note.add", "doc": "INV1", "note": "x"}})[0], 401)   # no session
+        code, body = self.act(avery, "hold.resolve", doc="INV1", outcome="cleared", note="ok", user={"id": "x", "name": "Sam Rivera", "role": "admin"}, at="1999-01-01")
+        self.assertEqual(code, 200, body)
+        e = body["event"]
+        self.assertEqual((e["user"]["name"], e["user"]["role"], e["seq"] > 0, e["at"].startswith("1999")), ("Avery Chen", "clerk", True, False))
+        self.assertEqual(self.act(riley, "note.add", doc="INV1", note="hi")[0], 403)                 # a Viewer changes nothing
+        self.assertEqual(self.act(avery, "bill.approve", doc="INV2", step="Project Manager")[0], 403)
+        self.assertEqual(self.act(avery, "rules.update", changes=[{"path": "thresholds.overpo_tolerance", "before": 500.0, "after": 1}])[0], 403)
+        code, body = self.act(avery, "batch.run", batch="x")
+        self.assertEqual(code, 400)
+        self.assertIn("records that itself", body["error"])
+        self.assertEqual(self.act(avery, "made.up")[0], 400)
+        self.assertEqual(self.act(avery, "note.add", doc="../../etc", note="x")[0], 422)
+        self.assertEqual(self.call("/api/events", {"event": {"id": "not hex", "type": "note.add", "doc": "INV1"}}, cookie=avery)[0], 400)
+        code, body, _ = self.call("/api/events?after=0", cookie=riley)                                # a Viewer may read
+        self.assertEqual((code, body["team"]), (200, True))
+        self.assertEqual([x["type"] for x in body["events"] if x["origin"] == "web"], ["hold.resolve"])
+
+    def test_two_people_cannot_both_resolve_the_same_hold(self):
+        import threading
+        people = [self.login("avery@hillpointe.com"), self.login("sam@hillpointe.com")]
+        results, won, gate = [], [], threading.Barrier(8)
+
+        def go(i):
+            gate.wait()
+            code, body, _ = self.call("/api/events", {"event": {"id": f"{i + 100:016x}", "type": "hold.resolve", "doc": "INV9", "outcome": "cleared"}}, cookie=people[i % 2])
+            results.append((code, body.get("error", "")))
+            if code == 200:
+                won.append(i)
+        threads = [threading.Thread(target=go, args=(i,)) for i in range(8)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        self.assertEqual(sorted(c for c, _ in results), [200] + [409] * 7)
+        self.assertTrue(all("already resolved this hold" in m for c, m in results if c == 409))
+        avery = people[0]
+        self.assertEqual(self.act(avery, "hold.reopen", doc="INV9", note="again")[0], 200)
+        self.assertEqual(self.act(avery, "hold.reopen", doc="INV9")[0], 409)
+        self.assertEqual(self.act(avery, "hold.resolve", doc="INV9", outcome="maybe")[0], 422)
+        code, body, _ = self.call("/api/events", {"event": {"id": f"{won[0] + 100:016x}", "type": "hold.resolve", "doc": "INV9", "outcome": "cleared"}}, cookie=people[won[0] % 2])
+        self.assertEqual((code, body["event"].get("repeat")), (200, True))                           # the same action sent twice is stored once
+
+    def test_import_history_and_second_person_rules_are_checked_on_the_server(self):
+        avery, sam, jordan = (self.login(f"{n}@hillpointe.com") for n in ("avery", "sam", "jordan"))
+        f = {"run": "run1", "file": "intacct_bill_import.csv"}
+        self.assertEqual(self.act(avery, "export.imported", **f, ref="IMP-1", rows=10)[0], 422)       # the file has 11 rows
+        self.assertEqual(self.act(avery, "export.imported", **f, ref="", rows=11)[0], 422)
+        self.assertEqual(self.act(avery, "export.imported", run="preview1", file=f["file"], ref="IMP-1", rows=3)[0], 422)   # a preview
+        self.assertEqual(self.act(avery, "export.imported", run="run1", file="nope.csv", ref="IMP-1", rows=1)[0], 422)
+        self.assertEqual(self.act(jordan, "export.confirmed", **f)[0], 409)                           # nothing imported yet
+        self.assertEqual(self.act(sam, "export.imported", **f, ref="IMP-1", rows=11)[0], 200)
+        self.assertEqual(self.act(avery, "export.imported", **f, ref="IMP-2", rows=11)[0], 409)       # already imported
+        code, body = self.act(sam, "export.confirmed", **f)
+        self.assertEqual(code, 403)
+        self.assertIn("different person", body["error"])
+        self.assertEqual(self.act(avery, "export.confirmed", **f)[0], 403)                            # a Clerk cannot confirm
+        self.assertEqual(self.act(jordan, "export.confirmed", **f)[0], 200)
+        self.assertEqual(self.act(jordan, "export.confirmed", **f)[0], 409)
+        self.assertEqual(self.act(avery, "manual.keyed", doc="INV3", entry={"total": "10.00"})[0], 200)
+        keyed = f"{self.n:016x}"
+        code, body = self.act(avery, "manual.check", doc="INV3", entry_id=keyed, match=True)
+        self.assertEqual(code, 403)
+        self.assertIn("different person", body["error"])
+        self.assertEqual(self.act(sam, "manual.check", doc="INV3", entry_id=keyed, match=True)[0], 200)
+        self.assertEqual(self.act(sam, "bill.approve", doc="INV4", step="Controller")[0], 200)
+        self.assertEqual(self.act(jordan, "bill.approve", doc="INV4", step="Controller")[0], 409)
+        self.assertEqual(self.act(jordan, "bill.approve", doc="INV4", step="Project Manager")[0], 200)    # a different sign-off
+
+    def test_rule_changes_are_written_to_the_rules_file_and_stale_ones_are_refused(self):
+        sam = self.login("sam@hillpointe.com")
+        rules = lambda: json.loads((self.tmp / "rules.json").read_text())
+        before = rules()["thresholds"]["overpo_tolerance"]
+        code, body = self.act(sam, "rules.update", changes=[{"path": "thresholds.overpo_tolerance", "before": before, "after": 750}], note="agreed")
+        self.assertEqual((code, body["rules"]["thresholds"]["overpo_tolerance"]), (200, 750))
+        first = f"{self.n:016x}"
+        self.assertEqual(rules()["thresholds"]["overpo_tolerance"], 750)                              # the engine's own file
+        self.assertEqual(self.svc.cfg()[0]["thresholds"]["overpo_tolerance"], 750)
+        kept = list((self.tmp / "state" / "rules_history").glob("*.json"))
+        self.assertEqual(json.loads(kept[0].read_text())["thresholds"]["overpo_tolerance"], before)   # the old file is kept
+        code, body = self.act(sam, "rules.update", changes=[{"path": "thresholds.overpo_tolerance", "before": before, "after": 900}])
+        self.assertEqual(code, 409)
+        self.assertIn("changed while you were working", body["error"])
+        for bad in ("lots", -5, None if False else [1]):
+            self.assertEqual(self.act(sam, "rules.update", changes=[{"path": "thresholds.overpo_tolerance", "before": 750, "after": bad}])[0], 422, bad)
+        for path in ("_readme", "thresholds._comment", "", "thresholds..x", 7):
+            self.assertEqual(self.act(sam, "rules.update", changes=[{"path": path, "before": None, "after": 1}])[0], 422, path)
+        self.assertEqual(self.act(sam, "rules.update", changes=[{"path": "thresholds", "before": rules()["thresholds"], "after": None}])[0], 422)
+        self.assertEqual(rules()["thresholds"]["overpo_tolerance"], 750)                              # nothing refused touched the file
+        self.assertEqual(self.act(sam, "rules.revert", target=first, note="back")[0], 200)
+        self.assertEqual(rules()["thresholds"]["overpo_tolerance"], before)
+        self.assertEqual(self.act(sam, "rules.revert", target=first)[0], 409)                         # already undone
+        self.assertEqual(self.act(sam, "rules.revert", target="f" * 16)[0], 422)
+        self.assertEqual(self.act(sam, "rules.update", changes=[{"path": "display.banner", "after": "Month end closes Friday"}])[0], 200)    # a rule that did not exist yet
+        added = f"{self.n:016x}"
+        self.assertEqual(rules()["display"]["banner"], "Month end closes Friday")
+        self.assertEqual(self.act(sam, "rules.revert", target=added)[0], 200)
+        self.assertNotIn("banner", rules()["display"])                                                # undoing it takes it out again
+        code, data, _ = self.call("/data/penny-data.json", cookie=sam)
+        self.assertEqual(data["rules"]["thresholds"]["overpo_tolerance"], before)                     # browsers start from the live rules
+
+    def test_a_waiting_browser_hears_about_new_work_at_once(self):
+        import threading, time
+        avery, sam = self.login("avery@hillpointe.com"), self.login("sam@hillpointe.com")
+        last = self.call("/api/events?after=0", cookie=sam)[1]["last"]
+        heard = {}
+
+        def listen():
+            start = time.time()
+            heard["body"] = self.call(f"/api/events?after={last}&wait=20", cookie=sam)[1]
+            heard["took"] = time.time() - start
+        t = threading.Thread(target=listen)
+        t.start()
+        time.sleep(0.4)
+        self.assertEqual(self.act(avery, "note.add", doc="INV1", note="hello team")[0], 200)
+        t.join(10)
+        self.assertLess(heard["took"], 5)                                                             # answered when the note arrived, not after 20 seconds
+        self.assertEqual([(e["type"], e["user"]["name"]) for e in heard["body"]["events"]], [("note.add", "Avery Chen")])
+        start = time.time()
+        quiet = self.call(f"/api/events?after={heard['body']['last']}&wait=1", cookie=sam)[1]
+        self.assertEqual(quiet["events"], [])
+        self.assertGreaterEqual(time.time() - start, 0.9)                                             # nothing new: it waits, then answers empty
+        self.assertEqual(self.call("/api/events?after=abc&wait=x", cookie=sam)[0], 200)               # nonsense numbers are treated as 0
+
+    def test_an_admin_can_move_a_browsers_earlier_work_in_once(self):
+        sam, avery = self.login("sam@hillpointe.com"), self.login("avery@hillpointe.com")
+        old = [{"id": "c" * 16, "at": "2026-10-30T15:00:00.000Z", "type": "note.add", "doc": "INV1", "note": "from before", "user": {"id": "avery", "name": "Avery Chen", "role": "clerk"}},
+               {"id": "d" * 16, "at": "2026-10-30T16:00:00.000Z", "type": "rules.update", "changes": [{"path": "thresholds.overpo_tolerance", "before": 500, "after": 9999}], "user": {"id": "sam", "name": "Sam Rivera", "role": "admin"}},
+               {"type": "note.add"}, "junk"]
+        self.assertEqual(self.call("/api/events/import", {"events": old}, cookie=avery)[0], 403)
+        code, body, _ = self.call("/api/events/import", {"events": old}, cookie=sam)
+        self.assertEqual((code, body), (200, {"added": 2, "skipped": 2}))
+        self.assertEqual(self.call("/api/events/import", {"events": old}, cookie=sam)[1], {"added": 0, "skipped": 4})    # moving twice adds nothing
+        moved = [e for e in self.svc.store.events() if e["origin"] == "import"]
+        self.assertEqual([(e["at"], e["moved_by"]["name"]) for e in moved], [("2026-10-30T15:00:00.000Z", "Sam Rivera"), ("2026-10-30T16:00:00.000Z", "Sam Rivera")])
+        self.assertNotEqual(json.loads((self.tmp / "rules.json").read_text())["thresholds"]["overpo_tolerance"], 9999)   # history only
+        self.assertEqual([e["event"] for e in self.svc.read_log()][-2:], ["history.moved", "history.moved"])
+
+    def test_older_files_are_moved_into_the_database_once_and_nothing_is_lost(self):
+        from ap_workflow import accounts, webserver
+        from ap_workflow.store import Store
+        old = self.tmp / "old"
+        acc = accounts.Accounts(old)                                                                  # Penny before 2.0: plain files
+        u, tok, _ = acc.invite(None, "pat@hillpointe.com", "Pat Lee", "admin", bootstrap=True)
+        acc.use_token(tok, AccountTests.GOOD)
+        (old / "batch_log.jsonl").write_text('{"at": "2026-11-01T09:00:00-05:00", "event": "batch.created", "batch": "b1", "by": {"id": "x", "name": "Pat Lee", "role": "admin"}}\n'
+                                             '{"at": "2026-11-01T09:01:00-05:00", "event": "batch.run", "batch": "b1", "by": {"id": "x", "name": "Pat Lee", "role": "admin"}}\n{"half": ')
+        svc = webserver.BatchService(self.tmp, None, old, self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        self.assertEqual(svc.moved, {"audit log entries": 2, "people": 1, "invitation and reset links": 1})
+        self.assertEqual([(e["event"], e["at"]) for e in svc.read_log()], [("batch.created", "2026-11-01T09:00:00-05:00"), ("batch.run", "2026-11-01T09:01:00-05:00")])
+        self.assertIn("Pat Lee", json.dumps(svc.accounts.sign_in("pat@hillpointe.com", AccountTests.GOOD)))     # the same password still works
+        for name in ("batch_log.jsonl", "users.json", "tokens.json"):
+            self.assertFalse((old / name).exists())
+            self.assertTrue((old / (name + ".moved")).exists())                                       # renamed, not deleted
+        again = webserver.BatchService(self.tmp, None, old, self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        self.assertEqual((again.moved, len(again.read_log()), len(again.accounts.list())), ({}, 3, 1))  # starting again moves nothing twice (the third entry is Pat signing in)
+        store = Store(old)
+        self.assertEqual(store.append({"event": "x", "at": "t"}, "server", uid="same")["seq"], store.append({"event": "y", "at": "t"}, "server", uid="same")["seq"])
+        self.assertNotIn(AccountTests.GOOD, (old / "penny.db").read_bytes().decode("latin-1"))        # still only a hash
+
+    def test_network_use_needs_real_accounts_and_https(self):
+        import ssl, subprocess, threading, urllib.request
+        from ap_workflow import webserver
+        empty = webserver.BatchService(self.tmp, None, self.tmp / "none", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        self.assertEqual(webserver.network_problem(empty, "127.0.0.1", None, None, False), "")
+        self.assertIn("real accounts", webserver.network_problem(empty, "0.0.0.0", "c", "k", False))
+        self.assertIn("without https", webserver.network_problem(self.svc, "0.0.0.0", None, None, False))
+        self.assertEqual(webserver.network_problem(self.svc, "0.0.0.0", "c", "k", False), "")
+        self.assertEqual(webserver.network_problem(self.svc, "0.0.0.0", None, None, True), "")       # https from a proxy in front
+        with self.assertRaises(SystemExit):
+            webserver.serve(self.svc, self.tmp / "web", 0, False, host="0.0.0.0")
+        plain = self.call("/api/auth/login", {"email": "sam@hillpointe.com", "password": AccountTests.GOOD})[2]
+        self.assertNotIn("Secure", plain)                                                             # plain http on this computer: no Secure flag
+        cert, key = self.tmp / "cert.pem", self.tmp / "key.pem"
+        try:
+            subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-keyout", str(key), "-out", str(cert),
+                            "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"], check=True, capture_output=True)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            self.skipTest("openssl is not available to make a test certificate")
+        httpd = webserver.make_server(self.svc, self.tmp / "web", 0, "127.0.0.1", cert, key)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            ctx = ssl.create_default_context(cafile=str(cert))
+            req = urllib.request.Request(f"https://127.0.0.1:{httpd.server_address[1]}/api/auth/login", data=json.dumps({"email": "sam@hillpointe.com", "password": AccountTests.GOOD}).encode(),
+                                         headers={"X-Penny": "1", "Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, context=ctx) as r:
+                cookie, hsts = r.headers.get("Set-Cookie"), r.headers.get("Strict-Transport-Security")
+            self.assertIn("; Secure", cookie)
+            self.assertIn("HttpOnly", cookie)
+            self.assertIn("max-age=", hsts)
+            with self.assertRaises(Exception):                                                        # plain http to the https port gets nowhere
+                urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_address[1]}/api/status", timeout=3)
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    def test_many_wrong_passwords_from_one_address_lock_that_address(self):
+        from ap_workflow import accounts
+        t = [1000.0]
+        self.svc.accounts.clock = lambda: t[0]
+        for i in range(accounts.MAX_TRIES_ADDR):                                    # 20 guesses spread over 20 emails: no single email locks
+            with self.assertRaises(accounts.AccountError) as e:
+                self.svc.accounts.sign_in(f"guess{i}@hillpointe.com", "wrong", addr="10.0.0.9")
+            self.assertEqual(e.exception.status, 401)
+        with self.assertRaises(accounts.AccountError) as e:
+            self.svc.accounts.sign_in("sam@hillpointe.com", AccountTests.GOOD, addr="10.0.0.9")       # even the right password waits
+        self.assertEqual(e.exception.status, 429)
+        self.assertIn("from this computer", str(e.exception))
+        self.assertTrue(self.svc.accounts.sign_in("sam@hillpointe.com", AccountTests.GOOD, addr="10.0.0.7")[0])   # other computers are not affected
+        t[0] += 301
+        self.assertTrue(self.svc.accounts.sign_in("sam@hillpointe.com", AccountTests.GOOD, addr="10.0.0.9")[0])   # and it ends after five minutes
+
+    def test_without_real_accounts_actions_stay_in_the_browser(self):
+        from ap_workflow import webserver
+        demo = webserver.BatchService(self.tmp, None, self.tmp / "demo", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        import threading
+        httpd = webserver.make_server(demo, self.tmp / "web", 0)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        base, self.base = self.base, f"http://127.0.0.1:{httpd.server_address[1]}"
+        try:
+            self.assertEqual(self.call("/api/events?after=0")[1], {"team": False, "events": [], "last": 0})
+            self.assertEqual(self.call("/api/events", {"event": {"id": "a" * 16, "type": "note.add", "doc": "INV1"}})[0], 409)
+            self.assertFalse(self.call("/api/status")[1]["team"])
+        finally:
+            self.base = base
+            httpd.shutdown()
+            httpd.server_close()
 
 
 if __name__ == "__main__":

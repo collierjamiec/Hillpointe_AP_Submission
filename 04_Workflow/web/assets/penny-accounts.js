@@ -43,6 +43,7 @@ function linkRoute() {
 }
 async function refreshLog() {
   if (!SERVER) return;
+  if (teamMode()) { try { await teamPull(); derive(); } catch (e) { /* the next live update catches up */ } return; }
   try { D.batch_log = (await api("api/log")).log; } catch (e) { /* the audit trail refreshes on the next load */ }
 }
 const msgOf = (e) => (e && (e.userMessage || e.message)) || "Something went wrong.";
@@ -224,6 +225,11 @@ async function showAccountLink(purpose, token) {
 }
 /** A demo event recorded for someone who is not signed in (activating an invitation). */
 function logEvent(type, who, data) {
+  if (teamMode()) {                                // sent to the server like any other action
+    const ev = { id: newId(), at: new Date().toISOString(), type, pending: true, user: { id: who.id, name: who.name, role: who.role, initials: who.initials || "" }, ...data };
+    if (!SERVER_OWNED.test(type)) { EV.push(ev); teamPush(ev); }
+    return;
+  }
   EV.push({ id: newId(), at: new Date().toISOString(), type, user: { id: who.id, name: who.name, role: who.role, initials: who.initials || "" }, ...data });
   saveSandbox();
 }

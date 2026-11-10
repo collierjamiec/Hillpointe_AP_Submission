@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "1.9.1";
+const APP_VERSION = "2.0.0";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -280,6 +280,7 @@ function loadSandbox() {
   } catch (e) { EV = []; }
 }
 function saveSandbox() {
+  if (teamMode()) return;                 // the server keeps the team's work; this browser keeps nothing of its own
   if (!store.set(SANDBOX_KEY, JSON.stringify({ version: 1, events: EV }))) {
     toast("This browser blocked saving, so your changes last only until you reload.");
   }
@@ -306,9 +307,17 @@ function record(type, data) {
   AUTH().touch();
   const ev = { id: newId(), at: new Date().toISOString(), type,
     user: { id: user.id, name: user.name, role: user.role, initials: user.initials }, ...data };
-  EV.push(ev);
-  saveSandbox();
-  derive();
+  if (teamMode()) {
+    if (SERVER_OWNED.test(type)) return ev;       // the server records this itself; it arrives with the next live update
+    ev.pending = true;                            // on screen now, confirmed (or taken back) when the server answers
+    EV.push(ev);
+    derive();
+    teamPush(ev);
+  } else {
+    EV.push(ev);
+    saveSandbox();
+    derive();
+  }
   track("action", { kind: type, code: data.doc && X.docById[data.doc] ? X.docById[data.doc].primary : undefined,
     seconds: data.doc && openedAt[data.doc] ? Math.round((Date.now() - openedAt[data.doc]) / 1000) : undefined,
     suggestion: data.suggestion ? data.suggestion.source : undefined });
@@ -327,7 +336,8 @@ function derive() {
     else if (e.type === "bill.approve" || e.type === "bill.sendback") {
       (approvals[e.doc] = approvals[e.doc] || {})[e.step] = { status: e.type === "bill.approve" ? "approved" : "sent back", by: e.user, at: e.at, note: e.note };
     } else if (e.type === "note.add") (notes[e.doc] = notes[e.doc] || []).push(e);
-    else if (e.type === "rules.update" && !revoked.has(e.id)) e.changes.forEach((c) => setPath(rules, c.path, c.after));
+    else if (e.type === "rules.update" && !revoked.has(e.id) && (!teamMode() || e.pending)) e.changes.forEach((c) => setPath(rules, c.path, c.after));
+    else if (e.type === "rules.revert" && teamMode() && e.pending) ((EV.find((x) => x.id === e.target) || {}).changes || []).forEach((c) => setPath(rules, c.path, c.before));
     else if (e.type.startsWith("blocker.")) {
       const m = ((blockers[e.doc] = blockers[e.doc] || {})[e.code] = blockers[e.doc][e.code] || { notes: [], files: [] });
       if (e.status) m.status = e.status;

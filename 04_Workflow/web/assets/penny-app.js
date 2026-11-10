@@ -42,6 +42,7 @@ function rememberList(a, b, title) {
 }
 function render() {
   listIds = null;
+  if (TEAM.stale) { TEAM.stale = false; paintTeamNote(); }
   const link = linkRoute();
   if (link) return showAccountLink(link.purpose, link.token);
   if (!user) return showLogin();
@@ -253,16 +254,19 @@ function enterApp(u) {
   $("[data-needs=email]").hidden = !can("email");
   const pill = $(".demo-pill");
   if (pill && SERVER) { pill.textContent = "Local"; pill.title = "Connected to Penny on this computer. Batches run with the real engine; demo sign-in and actions still stay in this browser."; }
+  if (pill && teamMode()) { pill.textContent = "Team"; pill.title = "Connected to your team's Penny. Everything you do is checked and saved on the server, and teammates see it right away."; }
   track("session_start");
   $("#auth").hidden = true;
   $("#shell").hidden = false;
   lastPath = null;
   updateWorkCount();
   render();
+  if (teamMode()) { teamLoop(); offerEarlierWork(); }
 }
 function endSession(reason) {
   AUTH().signOut(reason);
   user = null;
+  teamStop();
   ruleDraft = {};
   Object.assign(MAN, { doc: null, entry: null, files: [], editing: false, error: "" });
   MYPREFS = { follow: true, look: { ...LOOK_DEFAULT }, ...FEEL_DEFAULT, mode: MYPREFS.mode };
@@ -450,7 +454,9 @@ async function loadData() {
   SERVER = D.server && D.server.mode === "local" ? D.server : null;   // added by ./penny web; absent on the public site
   X = buildIndex(D);
   loaded(75);
-  loadSandbox();
+  if (SERVER && SERVER.team) {
+    try { await teamLoad(); } catch (e) { loaded(100); return false; }   // the team's audit log, from the server
+  } else { TEAM.on = false; loadSandbox(); }
   derive();
   loaded(92);
   $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
