@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up Penny</title>
+  <meta name="description" content="A few screens that get Penny ready on this computer.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <!-- The same content security policy as the app: scripts and data only from this site, no inline scripts. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="assets/penny.css">
+  <script src="assets/penny-boot.js"></script>
+</head>
+<body class="setup-page">
+  <!-- The penny, the same artwork as the app. -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="pc-face" cx="34%" cy="28%" r="78%">
+        <stop offset="0" stop-color="#f9cfa4"/><stop offset=".38" stop-color="#dc8b4a"/><stop offset=".78" stop-color="#a95522"/><stop offset="1" stop-color="#7d3a12"/>
+      </radialGradient>
+      <linearGradient id="pc-rim" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffd7b0"/><stop offset=".5" stop-color="#b8642a"/><stop offset="1" stop-color="#6b300d"/>
+      </linearGradient>
+      <linearGradient id="pc-shine" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <path id="pc-ring" d="M100,100 m-70,0 a70,70 0 1,1 140,0 a70,70 0 1,1 -140,0"/>
+    </defs>
+    <symbol id="coin-front" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="99" fill="url(#pc-rim)"/>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-face)"/>
+      <circle cx="100" cy="100" r="74.5" fill="none" stroke="#5a2709" stroke-opacity=".55" stroke-width="17"/>
+      <circle cx="100" cy="100" r="86" fill="none" stroke="#ffd9b5" stroke-opacity=".35" stroke-width="1"/>
+      <text font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1.7" fill="#fff4e6"><textPath href="#pc-ring">AI READS • CODE DECIDES • PEOPLE APPROVE •</textPath></text>
+      <circle cx="100" cy="100" r="56" fill="none" stroke="#6e3210" stroke-opacity=".35" stroke-width="1.5"/>
+      <text x="100" y="128" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700" fill="#5a2709" fill-opacity=".9">P</text>
+      <text x="99" y="126" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700" fill="#ffe3c7" fill-opacity=".35">P</text>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-shine)"/>
+    </symbol>
+    <symbol id="coin-back" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="99" fill="url(#pc-rim)"/>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-face)"/>
+      <circle cx="100" cy="100" r="74.5" fill="none" stroke="#5a2709" stroke-opacity=".55" stroke-width="17"/>
+      <circle cx="100" cy="100" r="86" fill="none" stroke="#ffd9b5" stroke-opacity=".35" stroke-width="1"/>
+      <text font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="2.2" fill="#fff4e6"><textPath href="#pc-ring">PENNY • CHECKED • NEVER BILLED TWICE •</textPath></text>
+      <path d="M70 102 l20 20 l42 -46" fill="none" stroke="#5a2709" stroke-opacity=".9" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M69 100 l20 20 l42 -46" fill="none" stroke="#ffe3c7" stroke-opacity=".35" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-shine)"/>
+    </symbol>
+  </svg>
+  <a class="skip-link" href="#wizard">Skip to the setup steps</a>
+  <div class="setup-wrap">
+    <header class="setup-top">
+      <svg class="setup-coin" aria-hidden="true"><use href="#coin-front"/></svg>
+      <div><p class="setup-brand">Penny</p><p class="setup-sub">Setup</p></div>
+    </header>
+    <div class="setup-card">
+      <nav class="setup-steps" aria-label="Setup steps"><ol id="steps"></ol></nav>
+      <main id="wizard" class="setup-main" tabindex="-1">
+        <h1>Getting Penny ready</h1>
+        <p class="hint" role="status">Checking this computer…</p>
+        <noscript><p class="auth-error">The setup wizard needs JavaScript. Turn it on in your browser, then reload this page.</p></noscript>
+      </main>
+    </div>
+    <p class="setup-credit">Designed and built by <strong>Jamie Collier</strong> · <span id="setup-version"></span></p>
+  </div>
+  <script src="assets/penny-setup.js" defer></script>
+</body>
+</html>

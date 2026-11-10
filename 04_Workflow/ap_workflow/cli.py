@@ -49,16 +49,6 @@ def resolve_batch(package, arg):
     return Path(arg)
 
 
-BATCH_SHORTCUTS = {"1": "01_Invoice_Batch_01", "2": "07_Invoice_Batch_02_Rerun"}
-
-
-def resolve_batch(package, arg):
-    """Accept a folder path, or the shortcuts 1 and 2 for the two assessment batches."""
-    if arg in BATCH_SHORTCUTS:
-        return Path(package) / BATCH_SHORTCUTS[arg]
-    return Path(arg)
-
-
 def saved_log(state_dir):
     """The server's audit log for the web export: from the database (v2.0), else the log file from before 2.0."""
     state_dir = Path(state_dir)
@@ -309,23 +299,61 @@ def web_export(package, out_dir, web_dir):
 def make_cert(state_dir, hosts):
     """(added after submission, v2.0) Make a self-signed certificate for https in state/tls/, using openssl.
     Browsers warn about a self-signed certificate the first time; a certificate from your IT team avoids that."""
-    import subprocess
-    tls = Path(state_dir) / "tls"
-    tls.mkdir(parents=True, exist_ok=True)
+    from . import setup
     hosts = hosts or ["localhost"]
-    alt = ",".join(("IP:" if h.replace(".", "").isdigit() or ":" in h else "DNS:") + h for h in dict.fromkeys(hosts + ["localhost", "127.0.0.1"]))
-    cmd = ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "365", "-keyout", str(tls / "key.pem"), "-out", str(tls / "cert.pem"),
-           "-subj", f"/CN={hosts[0]}", "-addext", f"subjectAltName={alt}"]
     try:
-        subprocess.run(cmd, check=True, capture_output=True)
-    except FileNotFoundError:
-        sys.exit("openssl is not installed, so Penny cannot make a certificate. Ask your IT team for one, then use:\n"
-                 "  ./penny web --host 0.0.0.0 --cert <certificate file> --key <key file>")
-    except subprocess.CalledProcessError as e:
-        sys.exit("openssl could not make the certificate:\n" + e.stderr.decode("utf-8", "replace")[-400:])
-    os.chmod(tls / "key.pem", 0o600)
-    print(f"Made a certificate for {', '.join(hosts)}, good for one year:\n  {tls / 'cert.pem'}\n  {tls / 'key.pem'}  (keep this one private)")
+        cert, key = setup.make_certificate(state_dir, hosts)
+    except setup.SetupError as e:
+        sys.exit(str(e))
+    print(f"Made a certificate for {', '.join(hosts)}, good for one year:\n  {cert}\n  {key}  (keep this one private)")
     print("Start Penny for your team with:  ./penny web --host 0.0.0.0 --https")
+
+
+def setup_wizard(web_dir, port, state_dir, out_dir, open_browser=True):
+    """(added after submission, v2.1) Open the setup wizard in the browser. It runs on this computer only, and
+    only this run's one-time key (in the address the browser is opened with) can use it. See setup.py."""
+    import secrets
+    import webbrowser
+    from .webserver import BatchService, make_server
+    web_dir = Path(web_dir)
+    if not (web_dir / "setup.html").exists():
+        sys.exit("The setup wizard's page is missing (web/setup.html). Update Penny with ./penny update.")
+    service = BatchService(ROOT, None, state_dir, out_dir, web_dir, CFG_PATH)
+    service.setup_key = secrets.token_urlsafe(24)
+    try:
+        httpd = make_server(service, web_dir, port)
+    except OSError:
+        sys.exit(f"Port {port} is in use. If Penny is already running, stop it first (Ctrl+C in its window), or use:  ./penny setup --port 8770")
+    url = f"http://127.0.0.1:{httpd.server_address[1]}/setup.html#key={service.setup_key}"
+    print("Penny setup wizard\n")
+    print(f"  Opening your browser. If it does not open, copy this address into it:\n  {url}\n")
+    print("  Leave this window open while you use the wizard. Press Ctrl+C here when you are done.")
+    if open_browser:
+        webbrowser.open(url)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nSetup closed. Start Penny any time with:  ./penny start")
+    finally:
+        httpd.server_close()
+
+
+def start(web_dir, state_dir, out_dir, open_browser=True):
+    """(added after submission, v2.1) Start Penny the way the setup wizard was told to: with the invoice package,
+    the watched folder and the network choice saved in state/setup.json."""
+    from . import setup
+    choices = setup.load(state_dir)
+    if not choices["done"]:
+        print("Penny has not been set up yet, so it starts with the example data on this computer only.\nTo set it up:  ./penny setup\n")
+    package = None
+    if choices["package"]:
+        found = setup.check_package(choices["package"])
+        if found["ok"]:
+            package = Path(found["path"])
+        else:
+            print(f"The invoice package saved by setup is no longer at {choices['package']}, so new batches cannot be read.\nTo choose it again:  ./penny setup\n")
+    serve_web(web_dir, choices["port"], package, state_dir, out_dir, open_browser, watch="" if choices["watch"] else None,
+              host=choices["host"], https=choices["https"])
 
 
 def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_browser=True, watch=None, host="127.0.0.1", cert=None, key=None,
@@ -516,7 +544,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 114 automated checks")
+    t = sub.add_parser("test", help="run the 121 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
@@ -537,6 +565,12 @@ def main(argv=None):
     ce.add_argument("--state", default=str(ROOT / "state"))
     mg = sub.add_parser("migrate", help="(added after submission, v2.0) move the audit log and accounts from before 2.0 into the database")
     mg.add_argument("--state", default=str(ROOT / "state"))
+    sw = sub.add_parser("setup", help="(added after submission, v2.1) open the setup wizard in your browser")
+    st = sub.add_parser("start", help="(added after submission, v2.1) start Penny the way the setup wizard was told to")
+    for x in (sw, st):
+        x.add_argument("--web", default=str(ROOT / "web")); x.add_argument("--state", default=str(ROOT / "state")); x.add_argument("--out", default=str(ROOT / "runs"))
+        x.add_argument("--no-browser", action="store_true", help="do not open the browser")
+    sw.add_argument("--port", type=int, default=8765)
     s = sub.add_parser("status")
     s.add_argument("--state", default=str(ROOT / "state"))
     u = sub.add_parser("update", help="check for a new Penny version and update to it")
@@ -597,6 +631,10 @@ def main(argv=None):
         pkg_arg = a.package or os.environ.get("HILLPOINTE_PACKAGE")
         serve_web(a.web, a.port, find_package(pkg_arg) if pkg_arg else None, a.state, a.out, watch=a.watch, host=a.host, cert=a.cert, key=a.key,
                   https=a.https, allow_http=a.allow_http)
+    elif a.cmd == "setup":
+        setup_wizard(a.web, a.port, a.state, a.out, not a.no_browser)
+    elif a.cmd == "start":
+        start(a.web, a.state, a.out, not a.no_browser)
     elif a.cmd == "cert":
         make_cert(a.state, a.host)
     elif a.cmd == "migrate":

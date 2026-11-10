@@ -35,7 +35,7 @@ def main(argv):
     lab = subprocess.Popen([sys.executable, str(HERE / "lab.py")])
     failed = []
     try:
-        ports = [8781, 8782, 8783, 8784] + ([8785] if has_package else [])
+        ports = [8781, 8782, 8783, 8784, 8786] + ([8785] if has_package else [])
         if not all(wait_for(p) for p in ports):
             sys.exit("The lab servers did not start.")
         for suite in suites:

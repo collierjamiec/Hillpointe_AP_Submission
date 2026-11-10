@@ -7,7 +7,7 @@ This was the plan from version 1.7.0 to 2.0.0, which is now finished. It is kept
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.0.1 was finished.
+Last updated: November 2026, when 2.1.0 was finished.
 
 ---
 
@@ -81,11 +81,26 @@ before anything else was built.
 | Wrong-password lockout behind a proxy locked everyone out | Fixed |
 | A review by someone outside the project | **Still open.** This review was done by the project's own author. |
 
+## 2.1.0: setup wizard (Done)
+
+Not on the original plan. Setting Penny up for a team took six terminal commands in the right order. Now it is a
+double-click and five screens.
+
+| Item | Status |
+|---|---|
+| Double-click installers for Mac and Windows that install Penny and open the wizard | Done. **Not yet tried on a real Mac or Windows computer.** |
+| A wizard in the browser: this computer, the invoice package, who signs in, settings, summary | Done |
+| The first Admin is created in the wizard, with a real password | Done |
+| The network choice makes a certificate and keeps the two rules (real accounts, https) | Done |
+| `./penny start` and a Start Penny file that use what the wizard saved | Done |
+| The wizard is closed unless Penny opens it with a one-time key | Done |
+
 ## After 2.0 (intended, not scheduled)
 
 | Item | Note |
 |---|---|
-| **Single sign-on** | Sign in with the company's identity provider (OpenID Connect or SAML) instead of a Penny password. We intend to add this in 2.1. It is not in 2.0 because it needs a real identity provider to build and test against. Until then, Penny's own accounts stay: invitations, password rules, lockouts and resets. |
+| **Single sign-on** | Sign in with the company's identity provider (OpenID Connect or SAML) instead of a Penny password. It needs a real identity provider to build and test against, so it waits for one. Until then, Penny's own accounts stay: invitations, password rules, lockouts and resets. |
+| The installers on real computers | Carried from 2.1.0: the double-click files are tried on a real Mac and a real Windows computer. Needs those computers. |
 | Real phones and tablets | Carried from 1.9.1: the phone layout is tried on real devices, and what is found is fixed. Needs a person with the devices. |
 | Screen reader session | Carried from 1.9.0: a person who uses a screen reader every day tries the main tasks, and what they find is fixed. Needs that person. |
 | An outside security review | 2.0 opens Penny to a network. The 2.0.1 review by the author found a real way around sign-in, which is the best argument for a second pair of eyes. Nobody outside the project has tried to break it yet. |

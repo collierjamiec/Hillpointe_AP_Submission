@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "2.0.1";
+const APP_VERSION = "2.1.0";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },

@@ -24,7 +24,11 @@ where each rule lives, assumptions). Read it before changing behavior.
   `version.py` (VERSION + releases.json, update check, required-update gate, `./penny release`),
   `accounts.py` (real accounts once someone is invited; stored in the database since v2.0: PBKDF2 hashes, hashed one-time links, HttpOnly session
   cookie, Admin guards), `mailer.py` (SMTP from `PENNY_SMTP_*` env vars, else saved to `state/outbox/`),
-  `watcher.py` (the watched inbox folder behind `./penny web --watch`: picks up finished PDFs, previews only).
+  `watcher.py` (the watched inbox folder behind `./penny web --watch`: picks up finished PDFs, previews only),
+  `setup.py` (v2.1: the setup wizard behind `./penny setup`; `web/setup.html` + `assets/penny-setup.js`; every
+  `/api/setup` request needs that run's one-time key; choices saved to `state/setup.json` and used by `./penny start`).
+- `Install Penny.command` / `.bat` and `Start Penny.command` / `.bat` in `04_Workflow/`: double-click launchers that
+  run `ap.py install` + `./penny setup`, and `./penny start`. Keep the `.command` files executable.
 - `state/penny.db*`, `state/*.moved`, `state/tls/` and `state/outbox/` hold personal data or private keys and are
   git-ignored. Never commit them. The register (`processed_register.csv`, `run_log.csv`) stays a file on purpose.
 - Team mode (v2.0): with real accounts the server is the source of truth. The browser sends each action to
@@ -54,7 +58,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 114 checks, uses temp dirs, safe
+./penny test                                   # 121 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 

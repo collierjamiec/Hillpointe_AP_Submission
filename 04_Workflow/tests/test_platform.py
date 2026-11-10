@@ -1015,5 +1015,171 @@ class TeamTests(unittest.TestCase):
             httpd.server_close()
 
 
+class SetupWizardTests(unittest.TestCase):
+    """(added after submission, v2.1) The setup wizard: closed without its one-time key, honest about what this
+    computer has, careful about the first Admin, and saving choices that ./penny start then uses."""
+    KEY = "test-setup-key-0123456789"
+
+    def setUp(self):
+        import threading
+        from ap_workflow import webserver
+        self.tmp = Path(tempfile.mkdtemp())
+        (self.tmp / "web" / "data").mkdir(parents=True)
+        (self.tmp / "web" / "data" / "penny-data.json").write_text('{"runs": []}')
+        (self.tmp / "web" / "data" / "releases.json").write_text('{"releases": []}')
+        (self.tmp / "web" / "setup.html").write_text("<html>setup</html>")
+        (self.tmp / "runs").mkdir()
+        shutil.copy2(ROOT / "config" / "rules.json", self.tmp / "rules.json")
+        self.pkg = self.tmp / "somewhere" / "Hillpointe_AP_Technical_Screen"
+        (self.pkg / "02_Reference_Data").mkdir(parents=True)
+        (self.pkg / "02_Reference_Data" / "vendor_master.csv").write_text("Vendor ID\n")
+        (self.pkg / "01_Invoice_Batch_01").mkdir()
+        (self.pkg / "01_Invoice_Batch_01" / "a.pdf").write_bytes(b"%PDF-1.4")
+        self.svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        self.svc.setup_key = self.KEY
+        self.httpd = webserver.make_server(self.svc, self.tmp / "web", 0)
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def ask(self, path, body=None, key=KEY):
+        import urllib.request, urllib.error
+        headers = {"X-Penny": "1", "Content-Type": "application/json"}
+        if key:
+            headers["X-Penny-Setup"] = key
+        req = urllib.request.Request(self.base + path, data=None if body is None else json.dumps(body).encode(), headers=headers, method="GET" if body is None else "POST")
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_the_wizard_is_closed_without_this_runs_key(self):
+        admin = {"name": "Mallory", "email": "m@evil.test", "password": AccountTests.GOOD}
+        for key in ("", "wrong", self.KEY[:-1], self.KEY + "x"):
+            self.assertEqual(self.ask("/api/setup", key=key)[0], 404, key)
+            self.assertEqual(self.ask("/api/setup/admin", admin, key=key)[0], 404, key)
+            self.assertEqual(self.ask("/api/setup/finish", {"mode": "solo"}, key=key)[0], 404, key)
+        self.assertFalse(self.svc.accounts.enabled())                                  # nobody was created
+        self.svc.setup_key = None                                                      # Penny started normally: the wizard does not exist
+        self.assertEqual(self.ask("/api/setup")[0], 404)
+        self.assertEqual(self.ask("/api/setup/admin", admin)[0], 404)
+        import urllib.request
+        self.assertEqual(urllib.request.urlopen(self.base + "/setup.html").status, 200)    # the page itself is only a page
+
+    def test_it_reports_what_this_computer_has(self):
+        code, st = self.ask("/api/setup")
+        self.assertEqual(code, 200)
+        rows = {r["name"]: r for r in st["check"]["rows"]}
+        self.assertTrue(st["check"]["ready"])
+        self.assertTrue(all(rows[n]["ok"] for n in ("Python", "pdfplumber", "openpyxl", "A place to save", "Database", "Example data")))
+        self.assertFalse(rows["reportlab"]["need"])                                    # only the tests use it, so it never blocks setup
+        self.assertEqual((st["people"], st["choices"]["mode"], st["choices"]["done"]), (0, "solo", ""))
+        self.assertNotIn("password", json.dumps(st).lower())
+        (self.tmp / "web" / "data" / "penny-data.json").unlink()
+        st = self.ask("/api/setup")[1]
+        missing = next(r for r in st["check"]["rows"] if r["name"] == "Example data")
+        self.assertEqual((st["check"]["ready"], missing["ok"]), (False, False))
+        self.assertIn("web-export", missing["fix"])                                    # says what to do about it
+
+    def test_it_finds_the_invoice_package_and_explains_a_wrong_folder(self):
+        from ap_workflow import setup
+        ok = self.ask("/api/setup/package", {"path": str(self.pkg)})[1]
+        self.assertEqual((ok["ok"], ok["reference_files"], ok["batches"], ok["pdfs"]), (True, ["vendor_master.csv"], ["01_Invoice_Batch_01"], 1))
+        self.assertEqual(self.ask("/api/setup/package", {"path": f'  "{self.pkg.parent}"  '})[1]["path"], str(self.pkg.resolve()))    # quotes, spaces, the folder above
+        for bad, word in (("", "Type or paste"), ("/no/such/place", "no folder at that path"), (str(self.pkg / "02_Reference_Data" / "vendor_master.csv"), "That is a file"),
+                          (str(self.tmp / "runs"), "not the invoice package")):
+            r = self.ask("/api/setup/package", {"path": bad})[1]
+            self.assertFalse(r["ok"])
+            self.assertIn(word, r["problem"])
+        with unittest.mock.patch.dict(os.environ, {"HILLPOINTE_PACKAGE": str(self.pkg)}):
+            self.assertIn(str(self.pkg.resolve()), setup.package_candidates(self.tmp))
+
+    def test_the_first_admin_gets_a_real_password_and_there_is_only_one_first(self):
+        weak = [({"name": "Sam Rivera", "email": "sam@hillpointe.com", "password": "short"}, "10 characters"),
+                ({"name": "Sam Rivera", "email": "sam@hillpointe.com", "password": "sam rivera is here"}, "name"),
+                ({"name": "", "email": "sam@hillpointe.com", "password": AccountTests.GOOD}, "Type your name"),
+                ({"name": "Sam Rivera", "email": "not an email", "password": AccountTests.GOOD}, "email")]
+        for body, word in weak:
+            code, r = self.ask("/api/setup/admin", body)
+            self.assertEqual(code, 422, body)
+            self.assertIn(word, r["error"])
+        self.assertFalse(self.svc.accounts.enabled())                                  # a refused try leaves nobody half made
+        code, r = self.ask("/api/setup/admin", {"name": "Sam Rivera", "email": "Sam@Hillpointe.com", "password": AccountTests.GOOD})
+        self.assertEqual((code, r["user"], r["state"]["people"]), (200, {"name": "Sam Rivera", "email": "sam@hillpointe.com"}, 1))
+        token, who = self.svc.accounts.sign_in("sam@hillpointe.com", AccountTests.GOOD)
+        self.assertEqual((who["role"], who["status"]), ("admin", "active"))
+        self.assertNotIn(AccountTests.GOOD, (self.tmp / "state" / "penny.db").read_bytes().decode("latin-1"))
+        code, r = self.ask("/api/setup/admin", {"name": "Second One", "email": "two@hillpointe.com", "password": AccountTests.GOOD})
+        self.assertEqual(code, 422)
+        self.assertIn("already set up", r["error"])
+        self.assertIn("setup.first_admin", [e["event"] for e in self.svc.read_log()])   # in the audit trail
+
+    def test_finishing_saves_choices_and_keeps_the_network_rules(self):
+        from ap_workflow import setup
+        code, r = self.ask("/api/setup/finish", {"mode": "team", "https": True})
+        self.assertEqual(code, 422)
+        self.assertIn("first Admin", r["error"])                                       # a team needs someone who can invite the others
+        self.ask("/api/setup/admin", {"name": "Sam Rivera", "email": "sam@hillpointe.com", "password": AccountTests.GOOD})
+        code, r = self.ask("/api/setup/finish", {"mode": "team", "https": True})
+        self.assertEqual(code, 422)
+        self.assertIn("certificate first", r["error"])                                 # the network only ever with https
+        self.assertEqual(self.ask("/api/setup/finish", {"mode": "team", "package": "/no/such/place"})[0], 422)
+        self.assertEqual(self.ask("/api/setup/finish", {"mode": "team", "time_zone": "Mars/Olympus"})[0], 422)
+        self.assertFalse((self.tmp / "state" / "setup.json").exists())                 # nothing refused was saved
+        code, r = self.ask("/api/setup/finish", {"mode": "team", "package": str(self.pkg), "watch": True, "time_zone": "America/Chicago", "port": 99})
+        self.assertEqual(code, 200, r)
+        saved = setup.load(self.tmp / "state")
+        self.assertEqual((saved["mode"], saved["https"], saved["host"], saved["watch"], saved["package"], saved["port"]),
+                         ("team", False, "127.0.0.1", True, str(self.pkg.resolve()), 8765))
+        self.assertTrue(saved["done"])
+        self.assertEqual(self.svc.package, self.pkg.resolve())                         # the engine is ready with no restart
+        self.assertEqual(json.loads((self.tmp / "rules.json").read_text())["display"]["time_zone"], "America/Chicago")
+        self.assertTrue(list((self.tmp / "state" / "rules_history").glob("before-setup-*.json")))    # the rules as they were are kept
+        self.assertEqual(setup.save(self.tmp / "state", {"mode": "solo", "https": True})["host"], "127.0.0.1")    # "just me" can never be opened to the network
+        self.assertEqual(setup.load(self.tmp / "nowhere")["mode"], "solo")             # no file yet: the safe defaults
+
+    def test_a_certificate_needs_a_sensible_name(self):
+        import subprocess
+        from ap_workflow import setup
+        for bad in ("bad host!", "a b", "-x.example", "x" * 300, "$(reboot)", "name;rm"):
+            code, r = self.ask("/api/setup/certificate", {"host": bad})
+            self.assertEqual(code, 422, bad)
+        self.assertFalse((self.tmp / "state" / "tls").exists() and list((self.tmp / "state" / "tls").iterdir()))
+        if not shutil.which("openssl"):
+            self.skipTest("openssl is not available")
+        code, r = self.ask("/api/setup/certificate", {"host": "ap-server.hillpointe.local"})
+        self.assertEqual((code, r["state"]["certificate"]["exists"]), (200, True))
+        key = self.tmp / "state" / "tls" / "key.pem"
+        self.assertEqual(oct(key.stat().st_mode & 0o777), "0o600")                     # only the owner can read the private key
+        names = subprocess.run(["openssl", "x509", "-in", str(self.tmp / "state" / "tls" / "cert.pem"), "-noout", "-text"], capture_output=True, text=True).stdout
+        self.assertIn("DNS:ap-server.hillpointe.local", names)
+        self.assertIn("IP Address:127.0.0.1", names)
+
+    def test_penny_start_uses_what_the_wizard_saved(self):
+        from ap_workflow import setup
+        state = self.tmp / "state"
+        setup.save(state, {"mode": "solo", "package": str(self.pkg), "watch": True})
+        with unittest.mock.patch.object(cli, "serve_web") as served:
+            cli.start(self.tmp / "web", state, self.tmp / "runs", open_browser=False)
+        args, kw = served.call_args
+        self.assertEqual((args[1], args[2], kw["watch"], kw["host"], kw["https"]), (8765, self.pkg.resolve(), "", "127.0.0.1", False))
+        shutil.rmtree(self.pkg)                                                        # the folder was moved away since setup
+        with unittest.mock.patch.object(cli, "serve_web") as served, unittest.mock.patch("builtins.print") as said:
+            cli.start(self.tmp / "web", state, self.tmp / "runs", open_browser=False)
+        self.assertIsNone(served.call_args[0][2])                                      # Penny still starts, with the example data
+        self.assertIn("no longer at", " ".join(str(c.args[0]) for c in said.call_args_list))
+        with unittest.mock.patch.object(cli, "serve_web") as served, unittest.mock.patch("builtins.print") as said:
+            cli.start(self.tmp / "web", self.tmp / "never-set-up", self.tmp / "runs", open_browser=False)
+        self.assertIn("./penny setup", " ".join(str(c.args[0]) for c in said.call_args_list))
+        for name in ("Install Penny.command", "Start Penny.command", "Install Penny.bat", "Start Penny.bat"):
+            self.assertTrue((ROOT / name).exists(), name)                              # the double-click files are in the Penny folder
+        self.assertTrue(os.access(ROOT / "Install Penny.command", os.X_OK))
+
+
 if __name__ == "__main__":
     unittest.main()
