@@ -397,11 +397,19 @@ class UnreadableFiles(unittest.TestCase):
 class WebExportTests(unittest.TestCase):
     """The web view reads one JSON file built from the saved runs. It must carry every run, document and result."""
 
+    OFFICIAL_RUNS = ["run1_batch01", "run2_batch01_RERUN", "run3_batch02", "run4_batch02_RERUN", "run5_edge_tests", "run6_t5_retest"]
+
     def test_export_of_saved_runs(self):
+        """Uses only the official runs saved in the repo, so extra runs made on this computer do not change the result."""
         from ap_workflow import webexport
+        missing = [r for r in self.OFFICIAL_RUNS if not (ROOT / "runs" / r / "decisions.json").exists()]
+        self.assertEqual(missing, [], "These saved runs are missing from 04_Workflow/runs (./penny reset or demo deletes them). "
+                                      "Restore them with:  git restore 04_Workflow/runs")
         tmp = Path(tempfile.mkdtemp())
         try:
-            r = webexport.build(ROOT / "runs", ROOT / "config" / "rules.json", tmp)
+            for r in self.OFFICIAL_RUNS:
+                shutil.copytree(ROOT / "runs" / r, tmp / "saved_runs" / r)
+            r = webexport.build(tmp / "saved_runs", ROOT / "config" / "rules.json", tmp / "web")
             data = json.loads(r["path"].read_text())
             self.assertEqual([x["id"] for x in data["runs"]], ["run1_batch01", "run2_batch01_RERUN", "run3_batch02", "run4_batch02_RERUN", "run5_edge_tests", "run6_t5_retest"])
             self.assertEqual([x["label"] for x in data["runs"]], ["Batch 01", "Batch 01 rerun", "Batch 02", "Batch 02 rerun", "Edge-case tests", "T5 retest after fix"])
@@ -416,7 +424,7 @@ class WebExportTests(unittest.TestCase):
             self.assertEqual(data["rules"]["thresholds"]["overpo_tolerance"], 500.0)
             first = {f["name"]: f for f in data["runs"][0]["files"]}
             self.assertEqual(first["intacct_bill_import.csv"]["rows"], 11)            # matches the submitted Batch 01 import file
-            self.assertTrue((tmp / "runs" / "run1_batch01" / "intacct_bill_import.csv").exists())
+            self.assertTrue((tmp / "web" / "runs" / "run1_batch01" / "intacct_bill_import.csv").exists())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
