@@ -120,3 +120,36 @@ def make_waiver_only(path):
     c.drawString(48, 674, "Through date: 09/30/2026 Amount of progress payment: $57,600.00")
     c.drawString(48, 640, "Signature: ______________________ Title: Controller Date: 10/02/2026")
     c.save()
+
+
+# ---- files that are not usable invoices (corrupt, wrong type, locked, scanned) ------------------------------
+# name -> (builder, words the plain-language reason must contain)
+def _good_bytes():
+    import io
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    c.drawString(48, 740, "INVOICE  Invoice No. 1  Date 10/01/2026")
+    c.showPage(); c.save()
+    return buf.getvalue()
+
+
+def _image_only(path):
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.rect(48, 400, 500, 300, fill=1)          # shapes only, no text layer: stands in for a scanned page
+    c.showPage(); c.save()
+
+
+def _locked(path):
+    c = canvas.Canvas(str(path), pagesize=letter, encrypt="secret")
+    c.drawString(48, 740, "INVOICE  Invoice No. 1")
+    c.showPage(); c.save()
+
+
+BAD_FILES = {
+    "empty": (lambda p: p.write_bytes(b""), "empty"),
+    "not_a_pdf": (lambda p: p.write_text("Thanks for your business! (a note saved with the wrong file name)"), "not a PDF"),
+    "truncated": (lambda p: p.write_bytes(_good_bytes()[:400]), "damaged"),
+    "garbled": (lambda p: p.write_bytes(b"%PDF-1.4\n" + bytes(range(256)) * 20), "damaged"),
+    "password": (_locked, "password protected"),
+    "scanned": (_image_only, "scanned image"),
+}

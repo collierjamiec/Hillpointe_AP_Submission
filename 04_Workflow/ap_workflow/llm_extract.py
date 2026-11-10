@@ -12,7 +12,7 @@ import os
 import re
 from pathlib import Path
 
-from .extract import extract_with_rules, validate_extraction, PO_RE, SC_RE, SA_RE, OF_RE
+from .extract import extract_with_rules, unreadable_doc, UnreadableFile, validate_extraction, PO_RE, SC_RE, SA_RE, OF_RE
 from .util import D
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,7 +63,14 @@ def merge(doc, j):
 
 
 def extract(path: Path, cfg: dict, mode: str):
-    doc = extract_with_rules(path, cfg)
+    """Read one file. Never raises for a bad file: a file that cannot be read comes back as kind 'unreadable'
+    with a plain-language reason, so one corrupt attachment cannot stop the whole batch."""
+    try:
+        doc = extract_with_rules(path, cfg)
+    except UnreadableFile as e:
+        return unreadable_doc(path, str(e))
+    except Exception as e:   # anything unexpected while reading the layout: hold this file, keep the batch going
+        return unreadable_doc(path, f"Penny could not read the invoice details from this file ({type(e).__name__}: {e}).")
     if mode == "rules":
         return doc
     problems = validate_extraction(doc)

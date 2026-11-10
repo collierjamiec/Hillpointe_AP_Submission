@@ -27,7 +27,7 @@ Candidate: Jamie Collier  |  Submitted: October 2026
 cd 04_Workflow
 ./penny install
 ./penny demo --package /path/to/Hillpointe_AP_Technical_Screen   # or ./run_demo.sh
-./penny test                              # 33 checks
+./penny test                              # 37 checks
 ```
 
 Python 3.9 or newer. No API key and no internet are needed for the default mode. See `04_Workflow/README.md` for how
