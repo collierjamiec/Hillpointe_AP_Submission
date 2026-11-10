@@ -1,6 +1,6 @@
 # Run report: run6_t5_retest
 
-Batch folder: `t5batch`
+Batch folder: `new-tests` (T5 only, re-read after the fix)
 Documents read: 1
 
 | Result | Count |
@@ -19,4 +19,4 @@ PASS: no validation errors.
 
 ## Register
 
-Register: `t5state/processed_register.csv`. Entered keys now on file: 0. DRY RUN: register was not saved.
+Register: a temporary copy. DRY RUN: the real register was not changed.

@@ -29,10 +29,10 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 41 automated checks
+./penny test                                  # run the 48 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
-./penny web                                   # (added after submission) open the web view in your browser
+./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
 ```
 
 `./penny install` needs Python 3.9 or newer and an internet connection, and it touches nothing outside this folder. It ends with a check that says "Penny is ready". On Windows type `penny` instead of `./penny`. If `./penny` says permission denied, type `bash penny run 1`.
@@ -62,6 +62,11 @@ A browser view of everything Penny decided, for people who would rather not use 
   preview and undo. Every action needs a reason and goes to the audit trail. In this static site the actions are saved
   in the visitor's browser only; the help center explains the security habits and what a server would add.
 * **Help center (v1.3):** a searchable knowledge base for the web app, the terminal, the rules and every exception code.
+* **New batch (v1.4):** upload PDFs into `inbox/<YYYY-MM-DD>_<name>/` and preview (AP Clerk, Admin) or run for real
+  (Admin). Needs the local server (`./penny web --package <package>`, see `ap_workflow/webserver.py`). Every step is
+  appended to `state/batch_log.jsonl` and shown in the audit trail.
+* **Suggested fixes and Insights (v1.4):** one-click resolutions learned from past resolutions plus a playbook, and an
+  Admin page of usage signals. Both run in the browser and never change Penny's decisions.
 
 `./penny web-export` reads `runs/` and writes `web/data/penny-data.json` (and copies the PDFs into `web/data/pdfs/` when
 given `--package`). The web view only displays saved results; it never makes a decision, so it cannot disagree with the

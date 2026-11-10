@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-10T16:59:25Z",
+ "generated_at": "2026-11-10T17:37:25Z",
  "runs": [
   {
    "id": "run1_batch01",
@@ -236,7 +236,7 @@
      "name": "run_report.md",
      "path": "data/runs/run6_t5_retest/run_report.md",
      "rows": null,
-     "bytes": 494
+     "bytes": 495
     }
    ]
   }

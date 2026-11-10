@@ -114,7 +114,11 @@ def run(package, batch, run_id, state_dir, out_dir, extractor="rules", dry_run=F
     pdfs = sorted(Path(batch).glob("*.pdf")) if Path(batch).is_dir() else [Path(batch)]
     out = Path(out_dir) / run_id
     (out / "extracted").mkdir(parents=True, exist_ok=True)
-    (out / "run_info.json").write_text(json.dumps({"run_id": run_id, "batch": Path(batch).name, "extractor": extractor, "dry_run": dry_run,
+    try:
+        batch_dir = Path(batch).resolve().relative_to(ROOT.resolve()).as_posix()    # never an absolute path from this computer
+    except ValueError:
+        batch_dir = ""
+    (out / "run_info.json").write_text(json.dumps({"run_id": run_id, "batch": Path(batch).name, "batch_dir": batch_dir, "extractor": extractor, "dry_run": dry_run,
                                                    "started_at": datetime.now().astimezone().isoformat(timespec="seconds")}, indent=2), encoding="utf-8")
     docs = []
     for p in pdfs:
@@ -258,7 +262,7 @@ def explain(out_dir, run_id, doc_id):
 
 def web_export(package, out_dir, web_dir):
     from . import webexport
-    r = webexport.build(out_dir, CFG_PATH, Path(web_dir) / "data", package)
+    r = webexport.build(out_dir, CFG_PATH, Path(web_dir) / "data", package, root=ROOT, batch_log=ROOT / "state" / "batch_log.jsonl")
     print(f"Packaged {r['runs']} runs, {r['documents']} invoices and {r['results']} results for the web view.")
     print(f"  Data: {r['path']}")
     if package:
@@ -273,23 +277,14 @@ def web_export(package, out_dir, web_dir):
     print("Next:  ./penny web")
 
 
-def serve_web(web_dir, port):
-    """Serve the web view on this computer and open it in the browser."""
-    import functools
-    import http.server
-    import webbrowser
+def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_browser=True):
+    """Serve the web app on this computer, with the batch upload and run API (see webserver.py)."""
+    from .webserver import BatchService, serve
     web_dir = Path(web_dir)
     if not (web_dir / "data" / "penny-data.json").exists():
         sys.exit("No web data yet. Run this first:  ./penny web-export --package <package folder>")
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(web_dir))
-    with http.server.ThreadingHTTPServer(("127.0.0.1", port), handler) as httpd:
-        url = f"http://127.0.0.1:{port}/"
-        print(f"Penny web view: {url}   (Ctrl+C to stop)")
-        webbrowser.open(url)
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print()
+    service = BatchService(ROOT, package, state_dir or ROOT / "state", out_dir or ROOT / "runs", web_dir, CFG_PATH)
+    serve(service, web_dir, port, open_browser)
 
 
 def status(state_dir):
@@ -315,15 +310,16 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 41 automated checks")
+    t = sub.add_parser("test", help="run the 48 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
     w = sub.add_parser("web-export", help="package finished runs (and invoice PDFs) for the web view")
     w.add_argument("--package", help="assessment package folder, to include the invoice PDFs"); w.add_argument("--out", default=str(ROOT / "runs"))
     w.add_argument("--web", default=str(ROOT / "web"))
-    v = sub.add_parser("web", help="open the web view in your browser")
+    v = sub.add_parser("web", help="open the web app in your browser (add --package to run new batches from it)")
     v.add_argument("--web", default=str(ROOT / "web")); v.add_argument("--port", type=int, default=8765)
+    v.add_argument("--package"); v.add_argument("--state", default=str(ROOT / "state")); v.add_argument("--out", default=str(ROOT / "runs"))
     s = sub.add_parser("status")
     s.add_argument("--state", default=str(ROOT / "state"))
     a = ap.parse_args(argv)
@@ -351,7 +347,8 @@ def main(argv=None):
         pkg_arg = a.package or os.environ.get("HILLPOINTE_PACKAGE")
         web_export(find_package(pkg_arg) if pkg_arg else None, a.out, a.web)
     elif a.cmd == "web":
-        serve_web(a.web, a.port)
+        pkg_arg = a.package or os.environ.get("HILLPOINTE_PACKAGE")
+        serve_web(a.web, a.port, find_package(pkg_arg) if pkg_arg else None, a.state, a.out)
     elif a.cmd == "status":
         status(a.state)
 

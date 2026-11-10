@@ -34,8 +34,9 @@
     <symbol id="coin-front" viewBox="0 0 200 200">
       <circle cx="100" cy="100" r="99" fill="url(#pc-rim)"/>
       <circle cx="100" cy="100" r="89" fill="url(#pc-face)"/>
-      <circle cx="100" cy="100" r="82" fill="none" stroke="#6e3210" stroke-opacity=".45" stroke-width="2" stroke-dasharray="1.5 4.2"/>
-      <text font-family="Inter, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="2.2" fill="#5a2709" fill-opacity=".85"><textPath href="#pc-ring">AI READS • CODE DECIDES • PEOPLE APPROVE •</textPath></text>
+      <circle cx="100" cy="100" r="74.5" fill="none" stroke="#5a2709" stroke-opacity=".55" stroke-width="17"/>
+      <circle cx="100" cy="100" r="86" fill="none" stroke="#ffd9b5" stroke-opacity=".35" stroke-width="1"/>
+      <text font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1.7" fill="#fff4e6"><textPath href="#pc-ring">AI READS • CODE DECIDES • PEOPLE APPROVE •</textPath></text>
       <circle cx="100" cy="100" r="56" fill="none" stroke="#6e3210" stroke-opacity=".35" stroke-width="1.5"/>
       <text x="100" y="128" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700" fill="#5a2709" fill-opacity=".9">P</text>
       <text x="99" y="126" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700" fill="#ffe3c7" fill-opacity=".35">P</text>
@@ -44,23 +45,30 @@
     <symbol id="coin-back" viewBox="0 0 200 200">
       <circle cx="100" cy="100" r="99" fill="url(#pc-rim)"/>
       <circle cx="100" cy="100" r="89" fill="url(#pc-face)"/>
-      <circle cx="100" cy="100" r="82" fill="none" stroke="#6e3210" stroke-opacity=".45" stroke-width="2" stroke-dasharray="1.5 4.2"/>
-      <text font-family="Inter, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="2.4" fill="#5a2709" fill-opacity=".85"><textPath href="#pc-ring">PENNY • ENTERED ONCE • NEVER TWICE •</textPath></text>
+      <circle cx="100" cy="100" r="74.5" fill="none" stroke="#5a2709" stroke-opacity=".55" stroke-width="17"/>
+      <circle cx="100" cy="100" r="86" fill="none" stroke="#ffd9b5" stroke-opacity=".35" stroke-width="1"/>
+      <text font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="2.2" fill="#fff4e6"><textPath href="#pc-ring">PENNY • CHECKED • NEVER BILLED TWICE •</textPath></text>
       <path d="M70 102 l20 20 l42 -46" fill="none" stroke="#5a2709" stroke-opacity=".9" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M69 100 l20 20 l42 -46" fill="none" stroke="#ffe3c7" stroke-opacity=".35" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="100" cy="100" r="89" fill="url(#pc-shine)"/>
     </symbol>
   </svg>
 
-  <!-- Intro: a penny is tossed, flips, and lands; then a welcome fades in and out. Skippable; plays once per visit. -->
+  <!-- Intro: a penny is tossed, flips and lands while a progress bar tracks real loading; then a welcome fades in and out. Skippable; plays once per visit. -->
   <div class="splash" id="splash" aria-hidden="true">
-    <div class="splash-stage">
-      <div class="coin-shadow"></div>
-      <div class="coin-toss"><div class="coin">
-        <span class="coin-edge" aria-hidden="true"></span>
-        <svg class="coin-face coin-front"><use href="#coin-front"/></svg>
-        <svg class="coin-face coin-back"><use href="#coin-back"/></svg>
-      </div></div>
+    <div class="splash-center">
+      <div class="splash-stage">
+        <div class="coin-shadow"></div>
+        <div class="coin-toss"><div class="coin">
+          <span class="coin-edge" aria-hidden="true"></span>
+          <svg class="coin-face coin-front"><use href="#coin-front"/></svg>
+          <svg class="coin-face coin-back"><use href="#coin-back"/></svg>
+        </div></div>
+      </div>
+      <div class="splash-load" id="splash-load">
+        <div class="splash-bar" role="progressbar" aria-label="Loading Penny" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="splash-fill"></span></div>
+        <p class="splash-status"><span id="splash-status">Getting started…</span><span class="splash-pct" id="splash-pct">0%</span></p>
+      </div>
     </div>
     <div class="splash-welcome">
       <p class="splash-hello">Welcome to Penny</p>
@@ -84,6 +92,7 @@
           <li class="nav-label" aria-hidden="true">Workspace</li>
           <li><a href="#/" data-nav="dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h6v8H3zM11 3h6v5h-6zM11 10h6v7h-6zM3 13h6v4H3z"/></svg>Overview</a></li>
           <li data-needs="work"><a href="#/work" data-nav="work"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14v10H3z"/><path d="M7 6V4h6v2M3 10h14"/></svg>My work<span class="nav-count" id="work-count" hidden></span></a></li>
+          <li data-needs="upload" hidden><a href="#/batch" data-nav="batch"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 14V4M6 8l4-4 4 4"/><path d="M3 13v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"/></svg>New batch</a></li>
           <li><a href="#/invoices" data-nav="invoices"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z"/><path d="M8 9h4M8 12h4"/></svg>Invoices</a></li>
           <li><a href="#/exceptions" data-nav="exceptions"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l7.5 13h-15z"/><path d="M10 8v3.5M10 13.8v.1"/></svg>Exceptions</a></li>
           <li class="nav-label" aria-hidden="true">Records</li>
@@ -92,6 +101,7 @@
           <li><a href="#/audit" data-nav="audit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l6 2.2v4.6c0 3.9-2.6 6.7-6 8.2-3.4-1.5-6-4.3-6-8.2V4.7z"/><path d="M7.5 10h5M7.5 12.8h3.5M7.5 7.2h5"/></svg>Audit trail</a></li>
           <li class="nav-label" aria-hidden="true">Settings and help</li>
           <li><a href="#/rules" data-nav="rules"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12"/><circle cx="8" cy="5" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/></svg>Rules</a></li>
+          <li data-needs="insights" hidden><a href="#/insights" data-nav="insights"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17h14"/><path d="M5 14V9M9 14V5M13 14v-3M17 14V7"/></svg>Insights</a></li>
           <li><a href="#/help" data-nav="help"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M7.8 7.6a2.3 2.3 0 0 1 4.4.9c0 1.6-2.2 1.9-2.2 3.3M10 14.2v.1"/></svg>Help center</a></li>
         </ul>
       </nav>
