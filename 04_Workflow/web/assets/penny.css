@@ -929,7 +929,7 @@ a.hbar:hover { background: var(--surface-2); text-decoration: none; color: var(-
 .file-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--text-3) !important; font-size: 12.5px !important; margin-top: 6px !important; }
 .file-meta code { font-size: 11.5px; }
 .file-actions { display: flex; gap: var(--s2); align-self: center; }
-@media (max-width: 720px) { .file-row { grid-template-columns: 48px minmax(0, 1fr); } .file-actions { grid-column: 2; } }
+@media (max-width: 720px) { .file-row { grid-template-columns: 56px minmax(0, 1fr); } .file-actions { grid-column: 2; } .file-type { font-size: 9.5px; letter-spacing: .02em; } }
 .dialog.dialog-wide { width: min(900px, calc(100vw - 32px)); }
 .summary-body { max-height: 65vh; overflow: auto; display: flex; flex-direction: column; gap: var(--s3); font-size: 14px; color: var(--text-2); }
 .summary-body .sub-h { margin: var(--s3) 0 0; }
@@ -1284,3 +1284,90 @@ body.reduce-motion .pdf-hl.on { animation: none; }
 main p a:not(.btn), main .prose li a, main .notes li a, .mode-banner a, #dialog p a, .login-foot a { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .back-link, .pdf-bar a, .card-head a { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; }   /* WCAG 2.2 target size */
 .table-wrap[tabindex]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* ---------------------------------------------------------------- v1.9.1: made for phones */
+.filters-toggle { display: none; }
+.table-wrap.scrolls { background: linear-gradient(to left, var(--surface-2), transparent 28px) right / 28px 100% no-repeat local, none; box-shadow: inset -10px 0 8px -8px rgba(15, 23, 42, .18); }
+
+/* Touch: every control is at least 44 pixels, the size Apple and Google recommend for a thumb. */
+@media (max-width: 860px), (pointer: coarse) {
+  .btn, .btn-sm { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .user-btn { min-height: 44px; }
+  .field input, .field select, .pager-per select, .num-input, .text-input { height: 44px; min-height: 44px; }
+  .segmented button { min-height: 40px; padding: 8px 14px; }
+  th button.sort { min-height: 44px; }
+  .src-btn { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; font-size: 13px; }
+  .back-link, .pdf-bar a, .card-head a, .help-toc a, .toc-home { min-height: 44px; }
+  .help-toc a { display: flex; align-items: center; }
+  .chip-x { min-width: 36px; min-height: 36px; }
+  .order-btns .icon-btn { width: 40px; height: 40px; }
+  .map-row .icon-btn { width: 40px; height: 40px; }
+  .map-head, .map-row { grid-template-columns: minmax(0, 1fr) 96px 40px; }
+  .nav a { min-height: 44px; }
+  .nb-names .chip, button.chip { min-height: 40px; padding-left: 14px; padding-right: 14px; }
+  .record-step { gap: 8px; }
+}
+
+@media (max-width: 640px) {
+  /* iPhones zoom the whole page when a field's text is under 16 pixels. Keep fields at 16. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+
+  /* ---- page tables become cards: no sideways scrolling, and the amount is always in view */
+  table.data, table.data tbody, table.data tfoot { display: block; }
+  table.data thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  table.data tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  table.data tbody tr:last-child { border-bottom: 0; }
+  table.data td { display: block; grid-column: 1 / -1; padding: 0; border: 0; min-width: 0; white-space: normal !important; }
+  table.data td:empty { display: none; }
+  table.data tbody tr:hover td { background: transparent; }
+  table.data tbody tr:active { background: var(--surface-2); }
+  table.data .hide-sm { display: block; }
+  table.data tfoot .hide-sm { display: none; }
+  /* cells other than the first say which column they are */
+  table.data:not(.docs) td[data-label]:not(:first-child) { position: relative; padding-left: 116px; min-height: 24px; }
+  table.data:not(.docs) td[data-label]:not(:first-child)::before { content: attr(data-label); position: absolute; left: 0; top: 3px; width: 108px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+  table.data:not(.docs) tr { gap: 8px 12px; }
+  table.data:not(.docs) td:first-child { font-weight: 550; }
+  table.data.audit td:first-child { font-weight: 400; color: var(--text-2); font-size: 13.5px; }
+  /* the invoice list: vendor on the left, amount on the right, then the date and the status */
+  table.data.docs td:first-child { grid-column: 1; grid-row: 1; }
+  table.data.docs td.num { grid-column: 2; grid-row: 1; text-align: right; font-weight: 600; white-space: nowrap !important; }
+  table.data.docs td.hide-sm { color: var(--text-3); font-size: 13px; }
+  table.data.docs td .main-link { display: inline-block; padding: 2px 0; font-size: 15.5px; }
+  table.data.docs tr.tfoot td:first-child { grid-column: 1; }
+  /* sorting: the column headers become a row of buttons above the cards */
+  table.data.sortable thead { position: static; width: auto; height: auto; overflow: visible; clip: auto; display: block; }
+  table.data.sortable thead tr { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; align-items: center; background: var(--th-bg); }
+  table.data.sortable thead tr::before { content: "Sort by"; font-size: 12px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+  table.data.sortable th { display: block; padding: 0; border: 0; background: none; border-radius: 0; }
+  table.data.sortable th button.sort { min-height: 36px; padding: 0 12px; border: 1px solid var(--control-border); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 12.5px; text-transform: none; letter-spacing: 0; }
+  table.data.sortable th[aria-sort] button.sort { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+
+  /* ---- filters: two columns, full-width fields, folded behind one button on the Invoices page */
+  .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+  .filters .field { min-width: 0; }
+  .filters .field input, .filters .field select { width: 100%; min-width: 0; }
+  .filters .field-grow { grid-column: 1 / -1; }
+  #inv-filters .filters-toggle { display: inline-flex; justify-content: center; grid-column: 1 / -1; }
+  #inv-filters:not(.open) .field:not(.field-grow), #inv-filters:not(.open) #f-clear { display: none; }
+  .filter-summary { flex-wrap: wrap; gap: 4px 12px; }
+
+  /* ---- dialogs rise from the bottom, where thumbs are */
+  .dialog { width: 100vw; max-width: 100vw; margin: auto 0 0; border-radius: 16px 16px 0 0; border-width: 1px 0 0; max-height: 92dvh; overflow-y: auto; }
+  .dialog form { padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .dialog-actions { flex-direction: column-reverse; align-items: stretch; }
+  .dialog-actions .btn { justify-content: center; }
+
+  /* ---- the pager and record steps spread across the width */
+  .pager { justify-content: center; text-align: center; }
+  .pager-ctl { justify-content: center; }
+  .record-nav { row-gap: 8px; }
+  .record-step { width: 100%; justify-content: space-between; }
+  .record-step .btn { flex: 1; justify-content: center; }
+  .record-step .hint { flex: 0 0 auto; }
+  .card-head { flex-wrap: wrap; gap: 6px 12px; }
+  .team-head { flex-wrap: wrap; gap: 4px 12px; }
+  .queue-bar .segmented, .queue-bar .segmented button { flex: 1 1 auto; }
+  .queue-bar .segmented { display: flex; }
+}

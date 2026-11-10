@@ -77,6 +77,9 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Made for phones (v1.9.1):** under 640 pixels wide, page tables (`table.data`) are laid out as cards by
+  `web/assets/penny.css`, filters fold behind one button, dialogs rise from the bottom, and controls are 44 pixels
+  tall. `tests/browser/phone.spec.js` checks it on an emulated iPhone.
 * **Finishing the single-user roadmap (v1.9.0):** source highlighting on the PDF ("Show on page" beside each value
   Penny read), export history for the two import files (created, downloaded, imported, confirmed by a second person;
   each file carries a SHA-256 from `ap_workflow/webexport.py`), the watched inbox folder (`./penny web --watch`, see

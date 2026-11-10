@@ -371,6 +371,30 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>Each pickup is in the <a href="#/audit">Audit trail</a> as "Picked up files from the watched folder", with every file's name, size and fingerprint, followed by the usual batch and preview entries. The pickup is recorded under the name <strong>Watched folder</strong>, which can only preview.</p>
 <div class="help-note"><strong>Where this works.</strong> The watched folder needs Penny running on a computer, so it is not part of the public demo site.</div>` },
 
+  { slug: "phone", section: "Using the web app", title: "Using Penny on a phone",
+    summary: "What changes on a small screen, and what is easier on a computer.",
+    html: `
+<p><em>Added after submission, in version 1.9.1.</em></p>
+<p>Penny is laid out for a phone, not just squeezed onto one. Nothing scrolls sideways, and everything you can do on a computer you can do here.</p>
+<h2>What changes on a phone</h2>
+<ul>
+  <li><strong>The menu</strong> is behind the button with three lines, at the top left. Choosing a page closes it.</li>
+  <li><strong>Lists become cards.</strong> Each invoice shows the vendor and the amount side by side, then the date and the status. Tap anywhere on a card to open it.</li>
+  <li><strong>Sorting</strong> moves to a row of <strong>Sort by</strong> buttons above the cards.</li>
+  <li><strong>Filters fold away.</strong> On Invoices, the search box stays and the rest is behind <strong>Filters</strong>. The button counts the filters in use, like "Filters (2)".</li>
+  <li><strong>Other tables</strong>, like the audit trail and Users, name each value on the card: Who, Action, Details.</li>
+  <li><strong>Dialogs rise from the bottom</strong> of the screen, with full-width buttons where your thumb is.</li>
+  <li><strong>Buttons and fields are larger</strong>, at least 44 pixels tall, and typing in a field does not zoom the page.</li>
+</ul>
+<h2>What is easier on a computer</h2>
+<ul>
+  <li><strong>Reading the invoice PDF.</strong> On a phone the page is small. Pinch to zoom, or choose <strong>Open in new tab</strong>. Reviewing a PDF beside Penny's checks needs a wider screen.</li>
+  <li><strong>Line item tables</strong> (lines, coding) keep their columns and scroll sideways inside their own box, because the numbers need to line up. A shadow on the right edge shows there is more.</li>
+  <li><strong>Editing rules</strong> works, but it is a long page on a phone.</li>
+  <li><strong>Keyboard shortcuts</strong> need a keyboard.</li>
+</ul>
+<div class="help-note"><strong>How it is checked.</strong> An automated suite uses the app on an emulated iPhone on every change. An emulator is not a hand: it has not yet been tried on a range of real phones and tablets.</div>` },
+
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
     summary: "One click to resolve a hold the way it was resolved before.",
     html: `
@@ -512,7 +536,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny users list</code></td><td>List everyone with an account, their role and status.</td></tr>
 <tr><td><code>./penny email status</code></td><td>Show the mail settings Penny will use. The password is never printed.</td></tr>
 <tr><td><code>./penny email test --to &lt;email&gt;</code></td><td>Send one test email. If it fails, Penny says what to check.</td></tr>
-<tr><td><code>./penny release 1.9.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
+<tr><td><code>./penny release 1.9.1 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },
 
@@ -707,7 +731,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li><strong>Screen readers:</strong> pages have one main heading, named regions, labeled form fields and buttons, and messages that are announced when they appear.</li>
   <li><strong>Color:</strong> text meets AA contrast in light and dark. A status is never shown by color alone: it has an icon and a word. Links inside sentences are underlined.</li>
   <li><strong>Zoom and small screens:</strong> pages reflow at 200% zoom and on a phone with no sideways scrolling. A table that is too wide scrolls inside its own area, which can be reached and scrolled from the keyboard.</li>
-  <li><strong>Targets:</strong> buttons and links are at least 24 by 24 pixels.</li>
+  <li><strong>Targets:</strong> buttons and links are at least 24 by 24 pixels, and at least 44 pixels tall on a phone or touch screen. See <a href="#/help/phone">Using Penny on a phone</a>.</li>
   <li><strong>Motion:</strong> if your device asks for reduced motion, the intro is skipped and animations are turned off. You can also turn motion off in <a href="#/help/appearance">Appearance</a>, and make text larger there.</li>
 </ul>
 <h2>How it is checked</h2>
@@ -780,7 +804,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>What if Penny cannot read an invoice?</h2>
 <p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 97 automated checks of Penny's decisions, accounts, email and server, and 15 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen and a test with 5,000 invoices. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 97 automated checks of Penny's decisions, accounts, email and server, and 16 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, and a run on an emulated <a href="#/help/phone">phone</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 
