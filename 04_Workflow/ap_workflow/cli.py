@@ -118,7 +118,9 @@ def run(package, batch, run_id, state_dir, out_dir, extractor="rules", dry_run=F
         batch_dir = Path(batch).resolve().relative_to(ROOT.resolve()).as_posix()    # never an absolute path from this computer
     except ValueError:
         batch_dir = ""
+    from .version import current as penny_version
     (out / "run_info.json").write_text(json.dumps({"run_id": run_id, "batch": Path(batch).name, "batch_dir": batch_dir, "extractor": extractor, "dry_run": dry_run,
+                                                   "penny_version": penny_version(),
                                                    "started_at": datetime.now().astimezone().isoformat(timespec="seconds")}, indent=2), encoding="utf-8")
     docs = []
     keyed = {p.name[:-len(".keyed.json")]: p for p in Path(batch).glob("*.keyed.json")} if Path(batch).is_dir() else {}
@@ -304,6 +306,92 @@ def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_br
     serve(service, web_dir, port, open_browser)
 
 
+# ------------------------------------------------------------------ versions and updates (added after submission, v1.6)
+USER_DATA = ("04_Workflow/state/", "04_Workflow/runs/", "04_Workflow/inbox/", "04_Workflow/web/data/")
+
+
+def changed_code_files(porcelain):
+    """Files a person changed in Penny's own code, from `git status --porcelain`. Their own data (the register, runs,
+    uploaded batches and the web data) does not count, because an update never touches it."""
+    out = []
+    for line in porcelain.splitlines():
+        path = line[3:].split(" -> ")[-1].strip('"')
+        if line.startswith("??") or not path or path.startswith(USER_DATA):
+            continue
+        out.append(path)
+    return out
+
+
+def update_notice(state_dir, quiet=False):
+    """A one-line notice before a command, and the status (used to pause real runs on a required update)."""
+    from .version import check
+    info = check(state_dir)
+    if quiet:
+        return info
+    if info["state"] == "required":
+        print(_style(f"Update required: Penny {info['minimum']} is out (this is {info['version']}). Real runs are paused until you run ./penny update. "
+                     "Reading results, help and dry runs still work.", "33;1"))
+    elif info["state"] == "optional":
+        print(_style(f"Penny {info['latest']} is ready (this is {info['version']}). See what's new:  ./penny update --check   "
+                     f"Update:  ./penny update   Skip it:  ./penny update --skip", "36"))
+    return info
+
+
+def update(state_dir, check_only=False, skip_it=False):
+    import subprocess
+    from .version import check, skip, current
+    info = check(state_dir, force=True)
+    if info["note"]:
+        print(info["note"])
+    print(f"This copy: Penny {info['version']}.  Newest: {info['latest']}." + (f"  Minimum allowed: {info['minimum']}." if info["minimum"] else ""))
+    for r in info["newer"]:
+        tag = "required" if r.get("required") else "optional"
+        print(f"\n  {r['version']} ({tag}, {r.get('date', '')})  {r.get('summary', '')}")
+        for n in r.get("notes", []):
+            print(textwrap.fill(n, width=96, initial_indent="    - ", subsequent_indent="      "))
+    if info["state"] == "current":
+        print("\nYou are up to date.")
+        return
+    if skip_it:
+        if info["state"] == "required":
+            sys.exit(f"\n{info['minimum']} is required, so it cannot be skipped. Run:  ./penny update")
+        skip(state_dir, info["latest"])
+        print(f"\nSkipped {info['latest']}. Penny will remind you again when a newer version is out.")
+        return
+    if check_only:
+        print("\nUpdate:  ./penny update" + ("" if info["state"] == "required" else "    Skip this version:  ./penny update --skip"))
+        return
+    repo = ROOT.parent
+    if not (repo / ".git").exists():
+        sys.exit("\nThis copy of Penny is not a git checkout, so it cannot update itself. Download the newest version from GitHub.")
+    git = lambda *a: subprocess.run(["git", *a], cwd=repo, capture_output=True, text=True)
+    mine = changed_code_files(git("status", "--porcelain").stdout)
+    if mine:
+        sys.exit("\nPenny's own files have changes on this computer, so the update was not started:\n  " + "\n  ".join(mine)
+                 + "\nSave them somewhere else (or commit them), then run ./penny update again. Your register, runs and batches are never touched.")
+    branch = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    if branch != "main":
+        sys.exit(f"\nThis copy is on the branch {branch!r}, not main. Switch to main to take the published update:  git checkout main")
+    print("\nUpdating from GitHub...")
+    r = git("pull", "--ff-only", "origin", "main")
+    if r.returncode != 0:
+        sys.exit("The update did not finish, and nothing was changed:\n" + (r.stderr or r.stdout).strip())
+    print(f"Updated to Penny {current()}. Checking everything works...\n")
+    sys.exit(subprocess.run([sys.executable, str(ROOT / "ap.py"), "check"]).returncode)
+
+
+def publish_release(version, summary, notes, required):
+    from .version import release, VersionError
+    try:
+        entry = release(version, summary, notes, required)
+    except VersionError as e:
+        sys.exit(str(e))
+    print(f"Release {entry['version']} written ({'required' if entry['required'] else 'optional'}): VERSION, releases.json, "
+          "web/data/releases.json and the web app's version.")
+    print("Next: run ./penny test, commit, and merge to main. GitHub then tags the release, and every copy of Penny "
+          + ("must update before real runs or changes." if entry["required"] else "is told it is ready and may skip it."))
+
+
 def status(state_dir):
     reg = Register(state_dir)
     print(f"{len(reg.rows)} keys in {reg.path}")
@@ -312,8 +400,10 @@ def status(state_dir):
 
 
 def main(argv=None):
+    from .version import current as penny_version
     ap = argparse.ArgumentParser(prog="penny", description="Penny: reads vendor invoices, applies the AP rules, and tells you what to enter and what to hold.",
                                  epilog="First time:  ./penny install   |   Examples:  ./penny run 1   |   ./penny run ~/Desktop/new_invoices -n   |   ./penny explain 6   |   ./penny status   |   ./penny test   |   ./penny reset   |   ./penny demo")
+    ap.add_argument("--version", action="version", version=f"Penny {penny_version()}")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("batch", nargs="?", help="folder of PDFs, or 1 or 2 for the assessment batches")
@@ -327,7 +417,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 65 automated checks")
+    t = sub.add_parser("test", help="run the 73 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
@@ -339,7 +429,21 @@ def main(argv=None):
     v.add_argument("--package"); v.add_argument("--state", default=str(ROOT / "state")); v.add_argument("--out", default=str(ROOT / "runs"))
     s = sub.add_parser("status")
     s.add_argument("--state", default=str(ROOT / "state"))
+    u = sub.add_parser("update", help="check for a new Penny version and update to it")
+    u.add_argument("--check", action="store_true", help="only show what is new"); u.add_argument("--skip", action="store_true", help="skip an optional version until the next one")
+    u.add_argument("--state", default=str(ROOT / "state"))
+    rl = sub.add_parser("release", help="(maintainer) publish a new version: VERSION, releases.json and the web app")
+    rl.add_argument("version", help="like 1.7.0"); rl.add_argument("--summary", required=True); rl.add_argument("--note", action="append", default=[])
+    rl.add_argument("--required", action="store_true", help="older copies must update before real runs or changes")
     a = ap.parse_args(argv)
+    if a.cmd in ("run", "demo", "web", "check"):
+        info = update_notice(a.state)
+        if a.cmd == "demo" or (a.cmd == "run" and not a.dry_run):
+            from .version import gate, UpdateRequired
+            try:
+                gate(info, "Running a batch for real")
+            except UpdateRequired as e:
+                sys.exit(str(e))
     if a.cmd == "run":
         pkg = find_package(a.package)
         batch_arg = a.batch_opt or a.batch
@@ -358,6 +462,10 @@ def main(argv=None):
         check(a.state)
     elif a.cmd == "test":
         run_tests(a.package)
+    elif a.cmd == "update":
+        update(a.state, a.check, a.skip)
+    elif a.cmd == "release":
+        publish_release(a.version, a.summary, a.note, a.required)
     elif a.cmd == "reset":
         reset(a.state, a.out)
     elif a.cmd == "web-export":

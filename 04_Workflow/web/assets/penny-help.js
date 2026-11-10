@@ -191,6 +191,31 @@ window.PENNY_HELP = [
 </ul>
 <div class="help-note">In this public demo you can key and check entries. Checking with Penny and saving for the next run need Penny on your computer.</div>` },
 
+  { slug: "updates", section: "Using the web app", title: "Versions and updates",
+    summary: "Which version you are on, and what required and optional updates mean.",
+    html: `
+<p>The version of Penny you are using is at the bottom of every screen, like <strong>Penny v1.6.0</strong>. Select it to see <a href="#/whats-new">What's new</a>: every version, when it came out, and whether it is required.</p>
+<h2>Check for updates</h2>
+<p>Open the menu with your name at the top right and choose <strong>Check for updates</strong> (it is also on the What's new page). Penny checks right away and shows your version beside the newest one, whether the update is required or optional, and what changed. From there you can update, skip an optional version, or check again.</p>
+<h2>When a new version is out</h2>
+<ul>
+  <li><strong>Optional:</strong> a banner says the new version is ready. Choose <strong>Update now</strong>, read <strong>What's new</strong>, or choose <strong>Skip this version</strong>. Penny reminds you again when a newer version comes out.</li>
+  <li><strong>Required:</strong> a warning banner stays at the top. Until you update, Penny is read-only: you can open every invoice, run, report and help article, but changes and real runs are paused. A required update cannot be skipped.</li>
+</ul>
+<h2>How to update</h2>
+<ul>
+  <li><strong>On this website:</strong> choose <strong>Update now</strong>. The page reloads with the new version. Everything you did in this browser is kept.</li>
+  <li><strong>On your own computer:</strong> in Terminal, run <code>./penny update</code>. It shows what is new, updates from GitHub, and checks that everything works. Your register, runs and batches are never touched. To see what is new without updating, run <code>./penny update --check</code>; to wait on an optional version, run <code>./penny update --skip</code>.</li>
+</ul>
+<h2>Good to know</h2>
+<ul>
+  <li>Penny checks for a new version at most once a day. It only downloads the public list of releases and sends nothing about you. Set <code>PENNY_NO_UPDATE_CHECK=1</code> to turn the check off.</li>
+  <li>If Penny cannot check (for example, you are offline), it says so and keeps working.</li>
+  <li>Every run records which version of Penny made its decisions, so an auditor can tell later.</li>
+  <li>Version numbers have three parts: major, minor, and small fixes. For example, 1.6.1 is a small fix to 1.6.0.</li>
+</ul>
+<div class="help-note">For the maintainer: <code>./penny release 1.7.0 --summary "..." --note "..."</code> publishes a version, and <code>--required</code> makes it the minimum. Merging it to main tags the release on GitHub.</div>` },
+
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
     summary: "One click to resolve a hold the way it was resolved before.",
     html: `

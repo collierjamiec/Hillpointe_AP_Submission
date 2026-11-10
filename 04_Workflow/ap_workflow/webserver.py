@@ -15,6 +15,11 @@ Permissions (from the signed-in demo account; a production server would authenti
   Admin only           run for real (the register is updated, so those bills can never be entered twice),
                        test draft rules against every saved run (v1.5)
 
+Updates (added in v1.6, see version.py)
+  When a required Penny version is out, creating batches, uploading, running for real and saving manual entries are
+  refused with a reason until this copy is updated. Previews, rechecks and everything read-only keep working.
+  /api/status carries the version and the update status, so the web app can show its banner.
+
 Previews (added in v1.5, see replay.py)
   POST /api/recheck    decide one invoice again (same reading, a corrected PDF, or a manual entry) against a copy of
                        the register. Logged as recheck.preview. Nothing else is written.
@@ -161,8 +166,21 @@ class BatchService:
             raise BatchError(f"There is no batch called {batch}.", 404)
         return path
 
+    def update_info(self, force=False):
+        from .version import check
+        return check(self.state_dir, force=force)
+
+    def paused(self, action):
+        """Real runs and changes wait for a required update (409, with how to update)."""
+        from .version import gate, UpdateRequired
+        try:
+            gate(self.update_info(), action)
+        except UpdateRequired as e:
+            raise BatchError(str(e), 409)
+
     def create(self, name, user, date=None, event_id=""):
         who = check_user(user, "upload")
+        self.paused("Adding a batch")
         slug = slugify(name)
         day = self.pick_day(date)
         with self.lock:
@@ -177,6 +195,7 @@ class BatchService:
 
     def add_file(self, batch, filename, data, user):
         check_user(user, "upload")
+        self.paused("Uploading invoices")
         folder = self.folder(batch)
         name = safe_filename(filename)
         if len(data) > MAX_FILE:
@@ -213,6 +232,8 @@ class BatchService:
 
     def run(self, batch, user, dry_run=True, event_id=""):
         who = check_user(user, "upload" if dry_run else "run_real")
+        if not dry_run:
+            self.paused("Running a batch for real")
         folder = self.folder(batch)
         if not self.files(batch):
             raise BatchError("This batch has no invoices yet. Add at least one PDF.")
@@ -370,6 +391,7 @@ class BatchService:
 
     def save_manual(self, user, run_id, doc_id, entry, evidence, date=None, event_id=""):
         who = check_user(user, "manual")
+        self.paused("Saving a manual entry")
         cfg, _ = self.cfg()
         reading, before = self.saved(run_id, doc_id)
         if before.get("decision") != "HOLD":
@@ -444,7 +466,10 @@ def make_handler(service, web_dir):
                 raise BatchError("Request refused: it came from another site.", 403)
 
         def status(self):
-            return {"mode": "local", "engine": bool(service.package), "max_mb": MAX_FILE // (1024 * 1024),
+            from .version import current
+            info = service.update_info()
+            return {"mode": "local", "engine": bool(service.package), "max_mb": MAX_FILE // (1024 * 1024), "version": current(),
+                    "update": {k: info[k] for k in ("version", "latest", "minimum", "state", "newer", "note")},
                     "inbox": "inbox/", "today": service.today(),
                     "time_zone": getattr(service.zone(), "key", None)}
 
@@ -459,6 +484,11 @@ def make_handler(service, web_dir):
                     data = json.loads((Path(web_dir) / "data" / "penny-data.json").read_text(encoding="utf-8"))
                     data["server"] = self.status()
                     return self.send_json(data)
+                if url.path == "/api/update":
+                    # "Check for updates" in the web app: ask GitHub now instead of using today's cached answer.
+                    force = parse_qs(url.query).get("force") == ["1"]
+                    info = service.update_info(force=force)
+                    return self.send_json({k: info[k] for k in ("version", "latest", "minimum", "state", "newer", "note", "checked")})
                 if url.path == "/api/batches":
                     return self.send_json({"batches": service.list()})
             except BatchError as e:

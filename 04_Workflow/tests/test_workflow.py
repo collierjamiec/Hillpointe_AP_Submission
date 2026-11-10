@@ -11,6 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+os.environ["PENNY_NO_UPDATE_CHECK"] = "1"         # tests never reach out to GitHub; VersionTests turn it back on with a fake fetch
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
@@ -586,6 +587,7 @@ class BatchServerTests(unittest.TestCase):
         self.assertEqual((ev["run_id"], ev["documents"], ev["counts"]), ("run1_2026-11-11_statements_PREVIEW", 1, {"HOLD": 1}))
         info = json.loads((self.tmp / "runs" / ev["run_id"] / "run_info.json").read_text())
         self.assertEqual((info["ran_by"]["role"], info["batch_dir"], info["dry_run"]), ("clerk", f"inbox/{batch}", True))
+        self.assertEqual(info["penny_version"], (ROOT / "VERSION").read_text().strip())   # every run says which Penny decided it
         data = json.loads((self.tmp / "web" / "data" / "penny-data.json").read_text())
         self.assertEqual(data["runs"][0]["label"], "Statements (2026-11-11) preview")
         self.assertEqual(data["documents"]["statement"]["pdf"], "data/pdfs/statement.pdf")
@@ -849,6 +851,128 @@ class PreviewServerTests(unittest.TestCase):
         self.assertEqual(again["versions"]["document"]["sha256"], self.sha)
         self.assertFalse((self.tmp / "state" / "processed_register.csv").exists())
         self.assertEqual([e["event"] for e in svc.read_log()], ["recheck.preview"] * 3)
+
+
+class VersionTests(unittest.TestCase):
+    """(added after submission, v1.6) One version everywhere; required updates pause real runs and changes only."""
+
+    def setUp(self):
+        from ap_workflow import version
+        self.v = version
+        self.tmp = Path(tempfile.mkdtemp())
+        self.rel = [{"version": "1.6.0", "required": False, "summary": "this one"}, {"version": "1.5.0", "required": False, "summary": "older"}]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_versions_have_three_whole_numbers(self):
+        self.assertEqual(self.v.parse("1.10.2"), (1, 10, 2))
+        self.assertGreater(self.v.parse("1.10.0"), self.v.parse("1.9.9"))      # compared as numbers, not text
+        for bad in ("1.6", "v1.6.0", "1.6.0-beta", "", None, "1.6.0.1"):
+            with self.assertRaises(self.v.VersionError):
+                self.v.parse(bad)
+
+    def test_every_place_the_version_lives_agrees(self):
+        c = self.v.consistency()
+        self.assertEqual(len(set(c.values())), 1, c)
+        self.assertEqual(json.loads((ROOT / "releases.json").read_text()), json.loads((ROOT / "web" / "data" / "releases.json").read_text()))
+
+    def test_status_optional_skipped_required(self):
+        st = lambda rel, skipped=None: self.v.status("1.6.0", rel, skipped)["state"]
+        self.assertEqual(st(self.rel), "current")
+        newer = [{"version": "1.7.0", "required": False}] + self.rel
+        self.assertEqual(st(newer), "optional")
+        self.assertEqual(st(newer, skipped="1.7.0"), "skipped")
+        self.assertEqual(st([{"version": "1.8.0", "required": False}] + newer, skipped="1.7.0"), "optional")   # a skip lasts until the next one
+        required = [{"version": "1.7.0", "required": True}] + self.rel
+        self.assertEqual(st(required, skipped="1.7.0"), "required")                                          # required cannot be skipped
+        self.assertEqual(self.v.status("1.7.1", [{"version": "1.8.0"}] + required)["state"], "optional")     # above the minimum: optional again
+
+    def test_check_caches_falls_back_and_can_be_turned_off(self):
+        from unittest import mock
+        root = self.tmp / "app"
+        (root / "web" / "assets").mkdir(parents=True)
+        (root / "VERSION").write_text("1.6.0\n")
+        (root / "releases.json").write_text(json.dumps({"releases": self.rel}))
+        remote = json.dumps({"releases": [{"version": "1.7.0", "required": True, "summary": "fix"}] + self.rel})
+        calls = []
+        fetch = lambda url: calls.append(url) or remote
+        state = self.tmp / "state"
+        with mock.patch.dict(os.environ, {"PENNY_NO_UPDATE_CHECK": ""}):
+            first = self.v.check(state, root=root, fetch=fetch, now=1000)
+            again = self.v.check(state, root=root, fetch=fetch, now=1000 + 3600)
+            later = self.v.check(state, root=root, fetch=lambda u: (_ for _ in ()).throw(OSError("offline")), now=1000 + 2 * 86400)
+        self.assertEqual((first["state"], first["minimum"], first["checked"]), ("required", "1.7.0", "now"))
+        self.assertEqual((again["checked"], len(calls)), ("cache", 1))                 # at most one download a day
+        self.assertEqual((later["checked"], later["state"]), ("failed", "required"))   # offline: keeps the last answer, never raises
+        self.assertIn("Could not check", later["note"])
+        off = self.v.check(state, root=root, fetch=fetch)                              # PENNY_NO_UPDATE_CHECK=1 from the module
+        self.assertEqual((off["checked"], len(calls)), ("off", 1))
+
+    def test_release_writes_everywhere_and_refuses_mistakes(self):
+        root = self.tmp / "app"
+        shutil.copytree(ROOT / "web" / "assets", root / "web" / "assets")
+        (root / "web" / "data").mkdir(parents=True)
+        for f in ("VERSION", "releases.json"):
+            shutil.copy2(ROOT / f, root / f)
+        shutil.copy2(ROOT / "releases.json", root / "web" / "data" / "releases.json")
+        from datetime import date
+        entry = self.v.release("1.7.0", "Fixes a rounding problem in tax splits.", ["Tax splits round to the cent."], required=True, root=root, today=date(2026, 12, 1))
+        self.assertEqual(entry, {"version": "1.7.0", "date": "2026-12-01", "required": True, "summary": "Fixes a rounding problem in tax splits.", "notes": ["Tax splits round to the cent."]})
+        self.assertEqual(set(self.v.consistency(root).values()), {"1.7.0"})
+        self.assertEqual(self.v.minimum(self.v.load_releases(root / "releases.json")), "1.7.0")
+        for args in (("1.7.0", "Same version again."), ("1.6.9", "Older than the current one."), ("1.8.0", "short"), ("1.8", "Not three numbers here.")):
+            with self.subTest(args=args):
+                with self.assertRaises(self.v.VersionError):
+                    self.v.release(*args, root=root)
+
+    def test_required_update_pauses_real_runs_and_changes_only(self):
+        from unittest import mock
+        from ap_workflow import webserver
+        svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        required = self.v.status("1.6.0", [{"version": "1.7.0", "required": True}] + self.rel)
+        clerk = {"id": "avery", "name": "Avery Chen", "role": "clerk"}
+        batch = svc.create("before the update", clerk)["batch"]
+        with mock.patch.object(svc, "update_info", return_value=required):
+            for call in (lambda: svc.create("after", clerk), lambda: svc.add_file(batch, "a.pdf", b"%PDF-1.4", clerk),
+                         lambda: svc.run(batch, {"id": "sam", "name": "Sam Rivera", "role": "admin"}, dry_run=False)):
+                with self.assertRaises(webserver.BatchError) as e:
+                    call()
+                self.assertEqual(e.exception.status, 409)
+                self.assertIn("./penny update", str(e.exception))
+            self.assertEqual(svc.list()[0]["batch"], batch)                          # reading still works
+            with self.assertRaises(webserver.BatchError) as e:
+                svc.run(batch, clerk, dry_run=True)                                  # a preview is not paused...
+            self.assertNotEqual(e.exception.status, 409)                             # ...it stops only because the batch is empty
+        with mock.patch.object(cli, "update_notice", return_value=required):
+            with self.assertRaises(SystemExit) as e:
+                cli.main(["run", "1"])
+        self.assertIn("required update", str(e.exception.code))
+
+    def test_check_for_updates_endpoint(self):
+        """The web app's "Check for updates" asks the server, which answers with this version against the newest."""
+        import threading, urllib.request, http.server
+        from unittest import mock
+        from ap_workflow import webserver
+        svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        optional = self.v.status("1.6.0", [{"version": "1.6.1", "required": False, "summary": "fix"}] + self.rel)
+        seen = []
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), webserver.make_handler(svc, self.tmp / "web"))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            with mock.patch.object(svc, "update_info", side_effect=lambda force=False: seen.append(force) or {**optional, "note": "", "checked": "now"}):
+                with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_address[1]}/api/update?force=1") as r:
+                    body = json.loads(r.read())
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+        self.assertEqual((body["version"], body["latest"], body["state"], body["checked"]), ("1.6.0", "1.6.1", "optional", "now"))
+        self.assertEqual(seen, [True])                                               # asked GitHub now, not the cached answer
+
+    def test_update_ignores_the_persons_own_data(self):
+        porcelain = "\n".join([" M 04_Workflow/state/processed_register.csv", "?? 04_Workflow/inbox/2026-11-10_x/", " M 04_Workflow/runs/run9/decisions.json",
+                               " M 04_Workflow/web/data/penny-data.json", " M 04_Workflow/ap_workflow/rules.py", "R  04_Workflow/a.py -> 04_Workflow/b.py"])
+        self.assertEqual(cli.changed_code_files(porcelain), ["04_Workflow/ap_workflow/rules.py", "04_Workflow/b.py"])
 
 
 if __name__ == "__main__":

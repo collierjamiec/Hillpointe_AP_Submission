@@ -14,6 +14,7 @@ and what I chose to build on my own.
 | 1.3 | November 2026 | **After submission:** honest handling of unfamiliar layouts, sign-in with roles, real actions, an audit trail, a rules editor, a redesigned interface and a help center. | Pull request #2 |
 | 1.4 | November 2026 | **After submission:** upload and run new batches from the web app, suggested fixes that learn, usage insights, every rule editable, plainer exports, a longer intro with a loading bar. | Pull request #3 |
 | 1.5 | November 2026 | **After submission:** blockers with owners, dates and evidence, recheck previews, a rule simulator, manual entry with a second-person check, a most-urgent-first queue, and automatic tests on every pull request. | Pull request #4 |
+| 1.6.0 | November 2026 | **After submission:** the version on every screen, a What's new page, and updates that are either required (read-only until updated) or optional (can be skipped). From here on, versions have three parts. | Pull request #5 |
 
 ---
 
@@ -302,6 +303,60 @@ downloaded, in a shape a server could collect later.
   recheck preview, manual entry under and over the limit (including a wrong second check), Penny checking the keyed
   invoice, saving it, an Admin running it for real, the rule simulator, the audit trail, phone width, and a Viewer
   seeing no new buttons. All 36 checks passed with no page errors.
+
+---
+
+## Version 1.6.0: versions and updates (November 2026, after submission)
+
+### The version on every screen
+
+* One source of truth: `04_Workflow/VERSION` (now `1.6.0`, three parts: major, minor, small fixes) and
+  `04_Workflow/releases.json` (every release, newest first, with its date, summary, notes and whether it is required).
+* The footer of every screen and the sign-in screen show "Penny v1.6.0". It opens a **What's new** page that lists
+  every version back to 1.0.0, marks the one you are on, and says which are required.
+* `./penny --version` prints the same. Every run records the Penny version that made its decisions, and the run page
+  shows it, so an auditor can tell later.
+* A test fails if `VERSION`, `releases.json`, the web app's copy and the version inside the web app ever disagree.
+
+### Updates: required or optional, for everyone
+
+* **Website visitors:** the page checks the published release list when it opens, when you come back to the tab and
+  every 30 minutes. An **optional** update shows a calm banner with What's new, Update now (reloads with fresh files;
+  everything done in the browser is kept) and Skip this version (lasts until the next one). A **required** update
+  shows a warning banner that cannot be dismissed, and Penny becomes read-only: every page can be read, but changes
+  are refused with a reason until the update.
+* **Penny on a computer:** the terminal and the local web app check GitHub's `releases.json` at most once a day
+  (short timeout, cached in `state/update_check.json`, nothing sent about the person, `PENNY_NO_UPDATE_CHECK=1` turns
+  it off, and a failed check never blocks). An optional update prints a one-line notice; `./penny update --skip`
+  waits for the next one. A **required** update pauses real runs and changes (creating batches, uploading, running
+  for real, saving manual entries) with a reason; reading results, help, dry runs, previews and rechecks keep
+  working. The web app shows the same warning banner with "How to update".
+* **Check for updates:** in the account menu (every role) and on What's new. It checks right away (on a computer,
+  the server asks GitHub instead of using the day's cached answer) and shows this version beside the newest one,
+  whether the update is required or optional, the oldest version allowed, what changed, and when it checked. From
+  there: Update now (website), the terminal steps (computer), Skip this version (optional only) or Check again.
+* `./penny update` shows what is new, refuses to start if Penny's own files were changed on this computer (your
+  register, runs, batches and web data never count and are never touched), updates from GitHub `main`, then runs the
+  readiness check. `./penny update --check` only shows what is new.
+* **Publishing:** `./penny release 1.7.0 --summary "..." --note "..." [--required]` writes VERSION, both copies of
+  `releases.json` and the web app's version in one step, and refuses a version that is not newer. When it reaches
+  `main`, `.github/workflows/release.yml` tags it and creates a GitHub release with its notes. A required release
+  becomes the minimum: anything older must update.
+* Versions before 1.6.0 had no update checks, so none of them is marked required.
+
+### Testing
+
+* 73 Python tests; 39 run without the assessment package. New ones cover version parsing (compared as numbers),
+  every place the version lives agreeing, optional, skipped and required states (a skip lasts until the next version;
+  a required one cannot be skipped), the daily cached check, an offline check that never blocks, writing a release
+  and refusing mistakes, the server pausing only real runs and changes, the terminal refusing a real run, and an
+  update that ignores the person's own data, and the server's check-now endpoint.
+* A browser run of the website and of a local copy, with releases published while the page is open: footer and
+  sign-in version, What's new, optional banner with skip remembered and a newer version bringing it back, the
+  required warning banner, a change refused and nothing saved, reading still working, Update now, the local
+  how-to-update dialog, Check for updates (up to date, optional, and required on a computer), the server refusing a
+  new batch, and phone width. All 27 checks passed with no page errors,
+  and the earlier browser suites still pass.
 
 ---
 

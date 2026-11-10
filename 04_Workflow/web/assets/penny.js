@@ -9,6 +9,9 @@
   // ------------------------------------------------------------------ vocabulary
   /* What each Penny result means, in words that never overstate it. Penny writes files; it does not post or pay.
      ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
+  /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
+     fails if they ever disagree. */
+  const APP_VERSION = "1.6.0";
   const STATUS = {
     ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
     ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -293,6 +296,7 @@
     const need = EVENT_NEEDS[type];
     if (!user || !need || !can(need)) { toast("Your role cannot do that."); return null; }
     if (!PennyAuth.currentUser()) { endSession("expired"); return null; }
+    if (UPD.state === "required") { toast(`Paused until you update: Penny ${UPD.minimum} is required. You can still look at everything.`); showUpdateHelp(); return null; }
     PennyAuth.touch();
     const ev = { id: newId(), at: new Date().toISOString(), type,
       user: { id: user.id, name: user.name, role: user.role, initials: user.initials }, ...data };
@@ -623,7 +627,7 @@
     const seg = [{ key: "", label: "All", n: res.length }, ...STATUS_GROUPS.map((g) => ({ key: g.key, label: g.label, n: res.filter((x) => g.match(x.decision)).length }))]
       .filter((g) => g.n || !g.key);
     return `
-      ${head(esc(r.label), `${esc(r.started_at ? fmtDateTime(r.started_at) + " · " : "")}Batch folder <code>${esc(r.batch)}</code> · run ID <code>${esc(r.id)}</code>`,
+      ${head(esc(r.label), `${esc(r.started_at ? fmtDateTime(r.started_at) + " · " : "")}Batch folder <code>${esc(r.batch)}</code> · run ID <code>${esc(r.id)}</code>${r.penny_version ? ` · decided by Penny ${esc(r.penny_version)}` : ""}`,
         `<span class="pill ${r.preflight_failed ? "" : "pill-ok"}">${r.preflight_failed ? "Pre-flight failed" : "Intacct pre-flight passed"}</span>`,
         `<nav class="crumbs" aria-label="Breadcrumb"><a href="#/runs">Run history</a><span aria-hidden="true">/</span><span>${esc(r.label)}</span></nav>`)}
       <section class="grid kpis" aria-label="Run totals">
@@ -2923,6 +2927,174 @@
       ${mine.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>Your recent actions</h2><a href="#/audit?who=${esc(user.id)}">Full audit trail</a></div><div class="card-body">${activityList(mine)}</div></section>` : ""}`;
   }
 
+  // ------------------------------------------------------------------ versions and updates (v1.6)
+  /* Two kinds of update, one release file (data/releases.json, the same as 04_Workflow/releases.json):
+     - The website: a newer version was published while this page was open, or since it was cached. "Update now"
+       reloads the page; everything done in this browser is kept.
+     - Penny on a computer (./penny web): that copy is older than the newest release on GitHub. The server checks
+       and tells the page; updating happens in the terminal with ./penny update.
+     A required release is the minimum. Below it, Penny is read-only: nothing can be changed and nothing runs for real
+     until the update, but every page can still be read. An optional release can be skipped until the next one. */
+  const UPD = { state: "current", version: APP_VERSION, latest: APP_VERSION, minimum: null, newer: [], where: "web", releases: [], loaded: false };
+  const SKIP_KEY = "penny.update.skip";
+  const vparse = (v) => { const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v || "")); return m ? [+m[1], +m[2], +m[3]] : null; };
+  const vcmp = (a, b) => { const x = vparse(a), y = vparse(b); if (!x || !y) return 0; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+  function updateStatus(version, releases, skipped) {
+    const valid = releases.filter((r) => vparse(r.version));
+    if (!valid.length) return { state: "current", version, latest: version, minimum: null, newer: [] };
+    const latest = valid.reduce((a, r) => (vcmp(r.version, a) > 0 ? r.version : a), valid[0].version);
+    const floor = valid.filter((r) => r.required).reduce((a, r) => (!a || vcmp(r.version, a) > 0 ? r.version : a), null);
+    const newer = valid.filter((r) => vcmp(r.version, version) > 0).sort((a, b) => vcmp(b.version, a.version));
+    const state = floor && vcmp(version, floor) < 0 ? "required" : !newer.length ? "current" : skipped && vcmp(skipped, latest) >= 0 ? "skipped" : "optional";
+    return { state, version, latest, minimum: floor, newer };
+  }
+  async function checkUpdates(force) {
+    let releases = UPD.releases;
+    UPD.note = "";
+    if (force && SERVER) {
+      try { SERVER.update = await api("api/update?force=1"); UPD.note = SERVER.update.note || ""; }
+      catch (e) { UPD.note = `Could not reach Penny on this computer (${e.message}).`; }
+    }
+    try {
+      const res = await fetch("data/releases.json", { cache: "no-store" });   // tiny file; never trust a cached copy
+      if (res.ok) releases = ((await res.json()).releases || []);
+      else if (!SERVER) UPD.note = "Could not load the list of versions. Showing what this page already knows.";
+    } catch (e) { if (!SERVER) UPD.note = "Could not check: this browser seems to be offline. Showing what this page already knows."; }
+    UPD.checkedAt = new Date().toISOString();
+    UPD.releases = releases;
+    UPD.loaded = true;
+    const web = updateStatus(APP_VERSION, releases, store.get(SKIP_KEY, ""));
+    // On a computer, the server's own check (against GitHub) is what matters for that copy of Penny.
+    const local = SERVER && SERVER.update ? { ...SERVER.update, state: SERVER.update.state === "optional" && vcmp(store.get(SKIP_KEY, ""), SERVER.update.latest) >= 0 ? "skipped" : SERVER.update.state } : null;
+    Object.assign(UPD, local ? { ...local, where: "local" } : { ...web, where: "web" });
+    paintUpdate();
+    if (user && parseHash().parts[0] === "whats-new") render();       // the page may have drawn before the notes arrived
+  }
+  function paintUpdate() {
+    const tag = $("#app-version");
+    if (tag) {
+      tag.textContent = `Penny v${APP_VERSION}${UPD.state === "optional" || UPD.state === "skipped" ? ` · ${UPD.latest} available` : UPD.state === "required" ? " · update required" : " · What's new"}`;
+      tag.classList.toggle("needs", UPD.state === "required");
+    }
+    const credit = $("#auth-version");
+    if (credit) credit.textContent = `Penny v${APP_VERSION}`;
+    const el = $("#update-banner");
+    if (!el) return;
+    const next = UPD.newer[0] || {};
+    const how = UPD.where === "local"
+      ? `<button type="button" class="btn btn-sm" data-update-help>How to update</button>`
+      : `<button type="button" class="btn btn-sm ${UPD.state === "required" ? "btn-accent" : "btn-accent"}" data-update-now>Update now</button>`;
+    if (UPD.state === "required") {
+      el.className = "update-banner ub-required";
+      el.setAttribute("role", "alert");
+      el.innerHTML = `<div class="ub-text"><strong>Update required: Penny ${esc(UPD.minimum)}.</strong> This copy is ${esc(UPD.version)}. Until it is updated, Penny is read-only: you can look at everything, but changes${UPD.where === "local" ? " and real runs" : ""} are paused.</div>
+        <div class="ub-actions"><a class="btn btn-sm" href="#/whats-new">What's new</a>${how}</div>`;
+      el.hidden = false;
+    } else if (UPD.state === "optional") {
+      el.className = "update-banner ub-optional";
+      el.setAttribute("role", "status");
+      el.innerHTML = `<div class="ub-text"><strong>Penny ${esc(UPD.latest)} is ready.</strong> ${esc(next.summary || "")}</div>
+        <div class="ub-actions"><a class="btn btn-sm" href="#/whats-new">What's new</a>${how}<button type="button" class="btn btn-sm btn-ghost" data-update-skip>Skip this version</button></div>`;
+      el.hidden = false;
+    } else el.hidden = true;
+  }
+  async function updateNow() {
+    toast("Updating Penny…");
+    // Refresh the browser's copy of every file first, so the reload cannot pick up an old cached one.
+    const files = ["./", "index.html", "assets/penny.js", "assets/penny.css", "assets/penny-auth.js", "assets/penny-help.js", "data/penny-data.json", "data/releases.json"];
+    await Promise.all(files.map((f) => fetch(f, { cache: "reload" }).catch(() => null)));
+    track("update", { from: APP_VERSION, to: UPD.latest });
+    location.reload();
+  }
+  function showUpdateHelp() {
+    if (UPD.where !== "local") return;
+    openDialog(`Update to Penny ${UPD.state === "required" ? UPD.minimum : UPD.latest}`, "Penny on this computer updates from GitHub in the terminal. Your register, runs, batches and everything in this browser are kept.",
+      `<ol class="notes"><li>In Terminal, go to the project folder, then <code>cd 04_Workflow</code>.</li>
+        <li>Run <code>./penny update</code>. It shows what is new, updates, and checks that everything works.</li>
+        <li>Stop the web app with Ctrl+C, start it again with <code>./penny web --package &lt;package folder&gt;</code>, and reload this page.</li></ol>
+       ${UPD.state === "required" ? "" : `<p class="hint">Not now? Choose Skip this version, and Penny will remind you when a newer one is out.</p>`}`, "", () => "", { info: true });
+  }
+  function bindUpdates() {
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("[data-update-check]")) { e.preventDefault(); openUpdateCheck(); return; }
+      if (e.target.closest("[data-close-dialog]")) { const d = $("#dialog"); if (d.open) d.close(); return; }
+      if (e.target.closest("[data-update-now]")) { e.preventDefault(); updateNow(); }
+      else if (e.target.closest("[data-update-help]")) { e.preventDefault(); showUpdateHelp(); }
+      else if (e.target.closest("[data-update-skip]")) {
+        e.preventDefault();
+        if (UPD.state !== "optional") return;
+        store.set(SKIP_KEY, UPD.latest);
+        track("update_skip", { version: UPD.latest });
+        UPD.state = "skipped";
+        paintUpdate();
+        const uc = $("#uc-body");
+        if (uc) uc.innerHTML = updateCheckBody();
+        toast(`Skipped ${UPD.latest}. Penny will tell you when a newer version is out.`);
+      }
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdates(); });
+    setInterval(checkUpdates, 30 * 60 * 1000);
+  }
+  /** "Check for updates" (account menu and What's new): this version against the newest one, checked right now. */
+  const UPD_STATE = {
+    current: ["You are up to date", "b-approved", "check"], optional: ["An optional update is ready", "b-ready", "redo"],
+    skipped: ["An optional update is ready (you chose to wait)", "b-skip", "clock"], required: ["A required update is waiting", "b-rejected", "alert"],
+  };
+  function updateCheckBody() {
+    const mine = UPD.where === "local" ? UPD.version : APP_VERSION;
+    const newest = (UPD.releases || []).find((r) => r.version === UPD.latest) || UPD.newer[0] || {};
+    const [label, cls, icon] = UPD_STATE[UPD.state] || UPD_STATE.current;
+    const needs = UPD.state !== "current";
+    const how = UPD.where === "local"
+      ? `<div class="uc-how"><p><b>To update Penny on this computer:</b> in Terminal, in the <code>04_Workflow</code> folder, run <code>./penny update</code>, then restart <code>./penny web</code> and reload this page. Your register, runs and batches are kept.</p></div>`
+      : "";
+    return `<div class="uc-grid">
+        <div class="uc-box"><span class="uc-label">This version</span><span class="uc-ver">${esc(mine)}</span><span class="sub">${UPD.where === "local" ? "Penny on this computer" : "This website"}</span></div>
+        <div class="uc-box${needs ? " uc-new" : ""}"><span class="uc-label">Newest version</span><span class="uc-ver">${esc(UPD.latest)}</span><span class="sub">${esc(newest.required ? "Required" : "Optional")}${newest.date ? ` · ${esc(newest.date)}` : ""}</span></div>
+      </div>
+      <p class="uc-state"><span class="badge ${cls}">${bIcon(icon)}${esc(label)}</span>${UPD.minimum ? `<span class="sub-inline">Oldest version allowed: ${esc(UPD.minimum)}</span>` : ""}</p>
+      ${UPD.state === "required" ? `<p class="form-warn">Until you update, Penny is read-only: you can look at everything, but changes${UPD.where === "local" ? " and real runs" : ""} are paused.</p>` : ""}
+      ${UPD.newer.length ? `<ul class="uc-list">${UPD.newer.map((r) => `<li><b>${esc(r.version)}</b> <span class="badge ${r.required ? "b-rejected" : "b-skip"}">${r.required ? "Required" : "Optional"}</span> ${esc(r.summary || "")}</li>`).join("")}</ul>` : ""}
+      ${needs ? how : ""}
+      <p class="hint">Checked ${esc(fmtDateTime(UPD.checkedAt || new Date().toISOString()))}.${UPD.note ? ` ${esc(UPD.note)}` : ""}</p>
+      <div class="nb-actions">
+        ${needs && UPD.where !== "local" ? `<button type="button" class="btn btn-accent" data-update-now>Update now</button>` : ""}
+        ${UPD.state === "optional" ? `<button type="button" class="btn" data-update-skip>Skip this version</button>` : ""}
+        <a class="btn" href="#/whats-new" data-close-dialog>What's new</a>
+        <button type="button" class="btn btn-ghost" data-update-check>Check again</button>
+      </div>`;
+  }
+  async function openUpdateCheck() {
+    const dlg = $("#dialog");
+    if (!dlg.open) openDialog("Check for updates", "", `<div id="uc-body" aria-live="polite"><p class="hint">Checking for a newer version…</p></div>`, "", () => "", { info: true });
+    else $("#uc-body").innerHTML = `<p class="hint">Checking for a newer version…</p>`;
+    await checkUpdates(true);
+    track("update_check", { state: UPD.state });
+    const body = $("#uc-body");
+    if (body) body.innerHTML = updateCheckBody();
+  }
+
+  function viewWhatsNew() {
+    const rel = (UPD.releases || []).filter((r) => vparse(r.version)).sort((a, b) => vcmp(b.version, a.version));
+    const when = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? fmtDate(d) : /^\d{4}-\d{2}$/.test(d || "") ? `${MONTHS[+d.slice(5) - 1]} ${d.slice(0, 4)}` : d || "");
+    const banner = UPD.state === "required" ? `<div class="mode-banner mode-warn" role="note"><b>Penny ${esc(UPD.minimum)} is required.</b> Until you update, Penny is read-only.</div>`
+      : UPD.state === "optional" || UPD.state === "skipped" ? `<div class="mode-banner mode-ok" role="note"><b>Penny ${esc(UPD.latest)} is ready.</b> ${UPD.where === "local" ? "Update in the terminal with <code>./penny update</code>." : "Choose Update now in the banner, or reload the page."}</div>` : "";
+    return `${head("What's new", `You are using <strong>Penny v${esc(APP_VERSION)}</strong>${UPD.where === "local" ? ` on this computer (the copy here is ${esc(UPD.version)})` : ""}. Each version says whether it is required.`)}
+      ${banner}
+      <ol class="releases">${rel.map((r) => {
+        const mine = r.version === (UPD.where === "local" ? UPD.version : APP_VERSION);
+        const isNew = vcmp(r.version, UPD.where === "local" ? UPD.version : APP_VERSION) > 0;
+        return `<li class="card release${mine ? " mine" : ""}"><div class="rel-head"><h2>Penny ${esc(r.version)}</h2>
+            <span class="badge ${r.required ? "b-rejected" : "b-skip"}">${r.required ? "Required" : "Optional"}</span>
+            ${mine ? `<span class="badge b-approved">${bIcon("check")}You are on this version</span>` : isNew ? `<span class="badge b-ready">New</span>` : ""}
+            <span class="rel-date">${esc(when(r.date))}</span></div>
+          <p>${esc(r.summary || "")}</p>
+          ${(r.notes || []).length ? `<ul class="notes">${r.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</li>`;
+      }).join("") || `<li class="empty">${UPD.loaded ? "The release notes could not be loaded. Check your connection and reload the page." : "Loading the release notes…"}</li>`}</ol>
+      <p class="hint">Required means older copies must update before anything changes or runs for real; reading always works. Optional versions can be skipped until the next one. <a href="#/help/updates">How updates work</a></p>
+      <p><button type="button" class="btn" data-update-check>Check for updates</button></p>`;
+  }
+
   // ------------------------------------------------------------------ audit trail
   // The browser writes UTC times and Penny's disk log writes local times with an offset, so both are turned into
   // UTC before sorting. Comparing the raw text would put a 9:00 -05:00 entry before a 10:00 UTC one.
@@ -3192,6 +3364,7 @@
     }
     else if (a === "audit") { html = viewAudit(q); title = "Audit trail"; nav = "audit"; after = bindAudit; }
     else if (a === "about") { location.replace("#/help/about"); return; }
+    else if (a === "whats-new") { html = viewWhatsNew(); title = "What's new"; nav = "help"; }
     else if (a === "help") { html = viewHelp(b, q); const art = HELP().find((x) => x.slug === b); title = art ? `${art.title} · Help` : "Help center"; nav = "help"; after = bindHelp; }
     else { html = notFound("That page"); title = "Not found"; }
     if (lastHash) scrollMemo[lastHash] = window.scrollY;
@@ -3264,6 +3437,7 @@
     });
     $("#user-btn").addEventListener("click", (e) => { e.stopPropagation(); $("#user-pop").hidden ? openUserMenu() : closeUserMenu(); });
     $("#sign-out").addEventListener("click", () => { closeUserMenu(); endSession("signed-out"); });
+    $("#check-updates").addEventListener("click", () => { closeUserMenu(); openUpdateCheck(); });
     $("#reset-demo").addEventListener("click", () => {
       closeUserMenu();
       openDialog("Reset the demo", "This erases every action saved in this browser: resolved holds, approvals, notes and rule changes. Penny's own results are not affected.",
@@ -3412,7 +3586,7 @@
               <td><button class="btn btn-sm" type="button" data-fill="${esc(a.email)}" data-pw="${esc(a.demoPassword)}">Fill</button></td></tr>`).join("")}</tbody></table></details>
         </section>
       </div>
-      <p class="auth-credit"><svg class="credit-coin" aria-hidden="true"><use href="#coin-front"/></svg>Designed and built by <strong>Jamie Collier</strong> · <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission" target="_blank" rel="noopener">Source on GitHub</a></p>
+      <p class="auth-credit"><svg class="credit-coin" aria-hidden="true"><use href="#coin-front"/></svg>Designed and built by <strong>Jamie Collier</strong> · <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission" target="_blank" rel="noopener">Source on GitHub</a> · <span id="auth-version">Penny v${esc(APP_VERSION)}</span></p>
     </div>`;
     const form = $("#login-form"), err = $("#login-error"), btn = $("#login-submit"), email = $("#login-email"), pw = $("#login-pw");
     const emailErr = $("#email-err");
@@ -3550,6 +3724,8 @@
       return;
     }
     if (introResult) track("intro", introResult);
+    bindUpdates();
+    checkUpdates();
     window.addEventListener("error", (e) => track("error", { message: String(e.message || "error").slice(0, 160) }));
     const u = PennyAuth.currentUser();
     if (u) enterApp(u); else showLogin();

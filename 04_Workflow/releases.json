@@ -1,0 +1,65 @@
+{
+  "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
+  "releases": [
+    {
+      "version": "1.6.0",
+      "date": "2026-11-10",
+      "required": false,
+      "summary": "Penny shows its version on every screen and tells you when a new one is ready, required or optional.",
+      "notes": [
+        "The version is at the bottom of every screen, with a What's new page.",
+        "When a new version is ready, Penny says so. You can update now, read what is new, or skip an optional version until the next one.",
+        "A required version pauses real runs and changes until you update. Reading results, help, previews and rechecks keep working.",
+        "In the terminal: ./penny --version, ./penny update, and ./penny update --skip.",
+        "Every run records the Penny version that made its decisions."
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-11",
+      "required": false,
+      "summary": "Blockers, recheck previews, a rule simulator, manual entry with a second-person check, and a most-urgent-first queue.",
+      "notes": [
+        "Each reason for a hold is a blocker with an owner, a target date, notes and fingerprinted files.",
+        "Recheck decides a held invoice again without saving anything, and Test on saved invoices shows what a rule change would do.",
+        "Files Penny cannot read can be keyed by hand beside a screenshot; above a limit, a second person checks the entry.",
+        "My work shows the most urgent holds first and says why."
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-11",
+      "required": false,
+      "summary": "Upload and run new batches from the web app, suggested fixes that learn, usage insights, and every rule editable.",
+      "notes": []
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-11",
+      "required": false,
+      "summary": "Sign-in with four roles, real actions, an audit trail, a rules editor, a redesigned interface and a help center.",
+      "notes": []
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-11",
+      "required": false,
+      "summary": "A web view in the browser, read only.",
+      "notes": []
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-11",
+      "required": false,
+      "summary": "A bad or unreadable file is held with a clear reason instead of stopping the run.",
+      "notes": []
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10",
+      "required": false,
+      "summary": "The Hillpointe AP technical screen, as submitted.",
+      "notes": []
+    }
+  ]
+}

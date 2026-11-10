@@ -29,10 +29,13 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 65 automated checks
+./penny test                                  # run the 73 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
+./penny --version                             # (added after submission, v1.6) which Penny this is
+./penny update                                # (added after submission, v1.6) see what is new and update; --check only looks, --skip waits
+./penny release 1.7.0 --summary "..."         # (added after submission, v1.6, maintainer) publish a version; add --required to make it the minimum
 ```
 
 `./penny install` needs Python 3.9 or newer and an internet connection, and it touches nothing outside this folder. It ends with a check that says "Penny is ready". On Windows type `penny` instead of `./penny`. If `./penny` says permission denied, type `bash penny run 1`.
@@ -70,6 +73,9 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Versions and updates (v1.6.0):** `VERSION` and `releases.json` are the single source of truth (`ap_workflow/version.py`).
+  The footer shows the version and opens What's new; "Check for updates" in the account menu checks on demand. A required release pauses real runs and changes until
+  `./penny update` (reading, dry runs, previews and rechecks keep working); an optional one can be skipped.
 * **Suggested fixes and Insights (v1.4):** one-click resolutions learned from past resolutions plus a playbook, and an
   Admin page of usage signals. Both run in the browser and never change Penny's decisions.
 

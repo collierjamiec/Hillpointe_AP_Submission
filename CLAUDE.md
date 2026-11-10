@@ -18,7 +18,11 @@ where each rule lives, assumptions). Read it before changing behavior.
   `llm_extract.py` (optional Claude extraction, never run live), `webexport.py` (runs → `web/data/penny-data.json`),
   `webserver.py` (local server behind `./penny web`: batch upload/run, recheck, simulate and manual-entry API,
   permissions, `state/batch_log.jsonl`), `replay.py` (re-decide saved readings on a scratch register: recheck and the
-  rule simulator), `manual.py` (manual entry → the reader's record shape; `<file>.keyed.json` in a batch folder).
+  rule simulator), `manual.py` (manual entry → the reader's record shape; `<file>.keyed.json` in a batch folder),
+  `version.py` (VERSION + releases.json, update check, required-update gate, `./penny release`).
+- `04_Workflow/VERSION` and `04_Workflow/releases.json`: the current version (three parts) and every release. A new
+  release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
+  `web/data/releases.json` and `APP_VERSION` in `penny.js`; a test checks all four agree.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
 - `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny.js` (views, sandbox, roles),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
@@ -35,7 +39,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 65 checks, uses temp dirs, safe
+./penny test                                   # 73 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
