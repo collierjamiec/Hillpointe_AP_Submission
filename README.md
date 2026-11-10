@@ -12,8 +12,10 @@ about a real product.
 
 | | What it is | Start here |
 |---|---|---|
+| **Live demo** | The web app with the example invoices, in your browser. Pick a demo role to sign in. | [collierjamiec.github.io/Hillpointe_AP_Submission](https://collierjamiec.github.io/Hillpointe_AP_Submission/) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1+)** | Safer handling of bad files, and a web view in the browser | [`SCOPE.md`](SCOPE.md) |
+| **Built after submission (v1.1 to 1.7.0)** | A full web app: roles, new batches, blockers, manual entry, user accounts, email, appearance settings and updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 1.7.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
 | **How it works** | Every check, rule and assumption | [`04_Workflow/README.md`](04_Workflow/README.md) |
 
 ## Try it
@@ -27,6 +29,14 @@ cd 04_Workflow
 ```
 
 In the web view, pick any of the four demo roles on the sign-in screen. Everything you do stays in your browser.
+
+For a team on one computer, turn on real accounts and email (all optional):
+
+```bash
+./penny users invite --email you@company.com --name "Your Name" --role admin   # the first Admin; then invite others in the web app
+./penny email test --to you@company.com          # after setting PENNY_SMTP_* (see Help > Emailing exports)
+./penny update                                    # take a new version when one is out
+```
 
 ## Original scope versus what I added
 

@@ -14,8 +14,8 @@ and what I chose to build on my own.
 | 1.3 | November 2026 | **After submission:** honest handling of unfamiliar layouts, sign-in with roles, real actions, an audit trail, a rules editor, a redesigned interface and a help center. | Pull request #2 |
 | 1.4 | November 2026 | **After submission:** upload and run new batches from the web app, suggested fixes that learn, usage insights, every rule editable, plainer exports, a longer intro with a loading bar. | Pull request #3 |
 | 1.5 | November 2026 | **After submission:** blockers with owners, dates and evidence, recheck previews, a rule simulator, manual entry with a second-person check, a most-urgent-first queue, and automatic tests on every pull request. | Pull request #4 |
-| 1.6.0 | November 2026 | **After submission:** the version on every screen, a What's new page, and updates that are either required (read-only until updated) or optional (can be skipped). From here on, versions have three parts. | Pull request #5 |
-| 1.7.0 | November 2026 | **After submission:** real user accounts with invitations, password resets, roles and on/off status; emailing exports and approval requests with the file attached; an Outbox; and appearance settings with preset themes, custom colors and a company default. | Pull request #6 |
+| 1.6.0 | November 2026 | **After submission:** the version on every screen, a What's new page, and updates that are either required (read-only until updated) or optional (can be skipped). From here on, versions have three parts. | Pull request #5, release [v1.6.0](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases/tag/v1.6.0) |
+| 1.7.0 | November 2026 | **After submission:** real user accounts with invitations, password resets, roles and on/off status; emailing exports and approval requests with the file attached; an Outbox; and appearance settings with preset themes, custom colors and a company default. | Pull request #6, release [v1.7.0](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases/tag/v1.7.0) |
 
 ---
 
