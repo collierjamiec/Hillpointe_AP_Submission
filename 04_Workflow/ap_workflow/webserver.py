@@ -10,8 +10,18 @@ Batch folders
   Names are lowercase letters, numbers and dashes. If a name is taken that day, -2, -3 ... is added.
 
 Permissions (from the signed-in demo account; a production server would authenticate the person itself)
-  AP Clerk and Admin   create a batch, upload invoices, run a preview (dry run: the register is not changed)
-  Admin only           run for real (the register is updated, so those bills can never be entered twice)
+  AP Clerk and Admin   create a batch, upload invoices, run a preview (dry run: the register is not changed),
+                       recheck a held invoice, save a manual entry (v1.5)
+  Admin only           run for real (the register is updated, so those bills can never be entered twice),
+                       test draft rules against every saved run (v1.5)
+
+Previews (added in v1.5, see replay.py)
+  POST /api/recheck    decide one invoice again (same reading, a corrected PDF, or a manual entry) against a copy of
+                       the register. Logged as recheck.preview. Nothing else is written.
+  POST /api/simulate   replay every saved run under draft rules and under the current rules; list what differs.
+  POST /api/manual     save a manual entry for the next run: inbox/<date>_manual-<file>/ holds the original file,
+                       <file>.keyed.json and evidence/. Logged as manual.saved. A run uses the keyed record in place
+                       of reading that PDF.
 
 Audit
   Every step is appended to state/batch_log.jsonl and never rewritten: who created the batch, who uploaded which files
@@ -22,10 +32,13 @@ Safety
   Write requests must carry the header X-Penny: 1, which other web pages cannot send, so a malicious page cannot
   upload or run anything through your browser.
 """
+import base64
 import hashlib
 import http.server
 import json
 import re
+import shutil
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -33,8 +46,19 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
 MAX_FILE = 25 * 1024 * 1024
+MAX_EVIDENCE = 10 * 1024 * 1024
+MAX_EVIDENCE_FILES = 5
 ROLES_UPLOAD = {"clerk", "admin"}
 ROLES_RUN_REAL = {"admin"}
+# Who may do what. Each entry: roles allowed, and the sentence shown to anyone else.
+NEEDS = {
+    "upload": (ROLES_UPLOAD, "Only an AP Clerk or Admin can add invoice batches."),
+    "run_real": (ROLES_RUN_REAL, "Only an Admin can run a batch for real."),
+    "recheck": ({"clerk", "admin"}, "Only an AP Clerk or Admin can recheck an invoice."),
+    "manual": ({"clerk", "admin"}, "Only an AP Clerk or Admin can key an invoice by hand."),
+    "simulate": ({"admin"}, "Only an Admin can test rule changes."),
+}
+EVIDENCE_TYPES = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpg", b"%PDF": "pdf"}
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 BATCH_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -66,12 +90,16 @@ def safe_filename(name):
 
 def check_user(user, need):
     role = (user or {}).get("role")
-    allowed = ROLES_RUN_REAL if need == "run_real" else ROLES_UPLOAD
+    allowed, refusal = NEEDS[need]
     if role not in allowed:
-        what = "run a batch for real" if need == "run_real" else "add invoice batches"
-        who = "Only an Admin" if need == "run_real" else "Only an AP Clerk or Admin"
-        raise BatchError(f"{who} can {what}.", 403)
+        raise BatchError(refusal, 403)
     return {"id": str(user.get("id", ""))[:40], "name": str(user.get("name", ""))[:80], "role": role}
+
+
+def evidence_kind(data):
+    """'png', 'jpg' or 'pdf' by content, or None. A file's name is never trusted for this."""
+    head = data[:1024].lstrip()
+    return next((k for magic, k in EVIDENCE_TYPES.items() if head.startswith(magic)), None)
 
 
 class BatchService:
@@ -81,6 +109,7 @@ class BatchService:
         self.state_dir, self.runs_dir, self.web_dir, self.cfg_path = Path(state_dir), Path(runs_dir), Path(web_dir), Path(cfg_path)
         self.log_path = self.state_dir / "batch_log.jsonl"
         self.lock = threading.Lock()
+        self._ref = None                                   # reference data, loaded once on first use
 
     # ---------------------------------------------------------------- time
     def zone(self):
@@ -225,8 +254,169 @@ class BatchService:
             for p in sorted(self.inbox.iterdir(), reverse=True):
                 if p.is_dir() and BATCH_RE.match(p.name):
                     events = [e for e in log if e.get("batch") == p.name]
-                    out.append({"batch": p.name, "folder": f"inbox/{p.name}", "files": self.files(p.name), "events": events})
+                    out.append({"batch": p.name, "folder": f"inbox/{p.name}", "files": self.files(p.name), "events": events,
+                                "keyed": sorted(x.name for x in p.glob("*.keyed.json")),
+                                "evidence": sorted(x.name for x in (p / "evidence").glob("*")) if (p / "evidence").is_dir() else []})
         return out
+
+    # ---------------------------------------------------------------- previews and manual entry (v1.5)
+    def ref(self):
+        if not self.package:
+            raise BatchError("Penny needs the reference data for this. Start the server with: ./penny web --package <package folder>", 503)
+        with self.lock:
+            if self._ref is None:
+                from .reference import load_package
+                from .replay import data_fingerprint
+                self._ref = (load_package(self.package), data_fingerprint(self.package))
+        return self._ref
+
+    def cfg(self, rules=None):
+        """The rules to use: the ones the person sees on the Rules page if sent, else config/rules.json."""
+        if rules is None:
+            return json.loads(self.cfg_path.read_text(encoding="utf-8")), "config/rules.json"
+        need = ("thresholds", "routes", "code_priority", "terms_days", "payment_change_phrases")
+        if not isinstance(rules, dict) or any(k not in rules for k in need):
+            raise BatchError("Those rules are incomplete, so Penny cannot use them.")
+        return rules, "the rules shown on the Rules page"
+
+    def run_dir(self, run_id):
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", str(run_id or "")) or not (self.runs_dir / run_id / "decisions.json").exists():
+            raise BatchError("That run is not on this computer.", 404)
+        return self.runs_dir / run_id
+
+    def saved(self, run_id, doc_id):
+        """What Penny read and decided for one document in one run."""
+        rd = self.run_dir(run_id)
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", str(doc_id or "")):
+            raise BatchError("That document is not valid.", 404)
+        reading = rd / "extracted" / f"{doc_id}.json"
+        decision = next((d for d in json.loads((rd / "decisions.json").read_text(encoding="utf-8")) if Path(d["file"]).stem == doc_id), None)
+        if not reading.exists() or decision is None:
+            raise BatchError("Penny has no saved reading for that document.", 404)
+        return json.loads(reading.read_text(encoding="utf-8")), decision
+
+    def original(self, run_id, file):
+        """The original file on this computer: the inbox folder it was uploaded to, the package batch folder, or the copy
+        published with the web view. Callers check its SHA-256 against what Penny read, so a copy is only used if identical."""
+        from .webexport import _run_info
+        info = _run_info(self.run_dir(run_id))
+        options = []
+        if info.get("batch_dir"):
+            options.append(self.root / info["batch_dir"] / file)
+        if self.package and info.get("batch"):
+            options.append(Path(self.package) / info["batch"] / file)
+        options.append(self.web_dir / "data" / "pdfs" / file)
+        return next((p for p in options if p.is_file()), None)
+
+    def versions(self, doc, rules, rules_source, data_fp, reg_rows):
+        from .replay import fingerprint
+        return {"document": {"file": doc.get("file", ""), "sha256": doc.get("sha256", ""), "read_by": (doc.get("extraction") or {}).get("method", "")},
+                "rules": {"fingerprint": fingerprint(rules), "source": rules_source},
+                "data": {"fingerprint": data_fp},
+                "register": {"entries": len(reg_rows), "entered": sum(1 for r in reg_rows.values() if r.get("status") == "ENTERED")}}
+
+    def recheck(self, user, run_id, doc_id, source="saved", rules=None, entry=None, pdf=None, pdf_name="", event_id=""):
+        who = check_user(user, "recheck")
+        (ref, data_fp) = self.ref()
+        cfg, rules_source = self.cfg(rules)
+        reading, before = self.saved(run_id, doc_id)
+        if source == "saved":
+            doc = reading
+        elif source == "keyed":
+            from .manual import keyed_doc, KeyedError
+            try:
+                doc = keyed_doc(entry or {}, reading, cfg)
+            except KeyedError as e:
+                raise BatchError(f"Fix the entry first: {e}.")
+        elif source == "file":
+            if not pdf or not pdf[:1024].lstrip().startswith(b"%PDF"):
+                raise BatchError("The corrected file is not a PDF.")
+            if len(pdf) > MAX_FILE:
+                raise BatchError("The corrected file is larger than 25 MB.", 413)
+            from .llm_extract import extract
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / safe_filename(pdf_name or reading["file"])
+                path.write_bytes(pdf)
+                doc = extract(path, cfg, "rules")
+            doc.pop("raw_text", None)
+        else:
+            raise BatchError("Choose what to recheck: the same reading, a corrected PDF, or a manual entry.")
+        from .register import Register
+        from .replay import recheck, brief
+        reg_rows = Register(self.state_dir).rows
+        try:
+            after = recheck(ref, cfg, reg_rows, doc)
+        except Exception as e:
+            raise BatchError(f"Penny could not decide this document ({type(e).__name__}: {e}).", 500)
+        result = {"run_id": run_id, "doc_id": doc_id, "source": source, "before": brief(before), "after": after,
+                  "versions": self.versions(doc, cfg, rules_source, data_fp, reg_rows)}
+        self.log({"event": "recheck.preview", "id": event_id, "doc": doc_id, "run_id": run_id, "source": source, "by": who,
+                  "result": after["decision"], "codes": after["codes"], "was": before["decision"],
+                  "document_sha256": doc.get("sha256", ""), "rules_fingerprint": result["versions"]["rules"]["fingerprint"],
+                  "data_fingerprint": data_fp})
+        return result
+
+    def simulate(self, user, rules_now, rules_draft):
+        check_user(user, "simulate")
+        (ref, data_fp) = self.ref()
+        now, _ = self.cfg(rules_now)
+        draft, _ = self.cfg(rules_draft)
+        from .replay import saved_runs, simulate
+        try:
+            out = simulate(ref, now, draft, saved_runs(self.runs_dir))
+        except Exception as e:
+            raise BatchError(f"Penny could not test these rules ({type(e).__name__}: {e}). Check the values and try again.", 400)
+        return {**out, "data_fingerprint": data_fp}
+
+    def save_manual(self, user, run_id, doc_id, entry, evidence, date=None, event_id=""):
+        who = check_user(user, "manual")
+        cfg, _ = self.cfg()
+        reading, before = self.saved(run_id, doc_id)
+        if before.get("decision") != "HOLD":
+            raise BatchError("Only a held document can be keyed by hand.", 409)
+        from .manual import keyed_doc, KeyedError
+        files = []
+        for ev in (evidence or [])[:MAX_EVIDENCE_FILES + 1]:
+            try:
+                data = base64.b64decode(str(ev.get("data") or ""), validate=True)
+            except ValueError:
+                raise BatchError(f"Evidence {ev.get('name', '')!r} did not arrive intact.")
+            kind = evidence_kind(data)
+            if not kind:
+                raise BatchError(f"Evidence {ev.get('name', '')!r} must be a PNG or JPEG screenshot, or a PDF.")
+            if len(data) > MAX_EVIDENCE:
+                raise BatchError(f"Evidence {ev.get('name', '')!r} is larger than 10 MB.", 413)
+            files.append({"name": re.sub(r"[^A-Za-z0-9._-]+", "_", Path(str(ev.get("name") or "evidence")).stem)[:60] + "." + kind,
+                          "type": kind, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(), "data": data})
+        if len(files) > MAX_EVIDENCE_FILES:
+            raise BatchError(f"Attach at most {MAX_EVIDENCE_FILES} evidence files.")
+        if not files:
+            raise BatchError("Attach the screenshot or re-saved file you keyed from, so a reviewer can see it.")
+        claimed = {e.get("sha256") for e in (entry or {}).get("evidence") or []}
+        if claimed != {f["sha256"] for f in files}:
+            raise BatchError("The evidence files do not match the ones listed in the entry. Attach them again.")
+        src = self.original(run_id, reading["file"])
+        if not src:
+            raise BatchError(f"The original file {reading['file']} is not on this computer, so the entry cannot be saved with it.", 409)
+        sha = hashlib.sha256(src.read_bytes()).hexdigest()
+        if reading.get("sha256") and sha != reading["sha256"]:
+            raise BatchError(f"{reading['file']} on this computer is not the file Penny read (its fingerprint differs).", 409)
+        try:
+            doc = keyed_doc(entry or {}, {**reading, "sha256": sha}, cfg)
+        except KeyedError as e:
+            raise BatchError(f"Fix the entry first: {e}.")
+        made = self.create(f"manual {Path(reading['file']).stem}", user, date, event_id=f"{event_id}-folder" if event_id else "")
+        folder = self.inbox / made["batch"]
+        shutil.copy2(src, folder / reading["file"])
+        (folder / "evidence").mkdir()
+        for f in files:
+            (folder / "evidence" / f["name"]).write_bytes(f["data"])
+        (folder / f"{Path(reading['file']).stem}.keyed.json").write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        return self.log({"event": "manual.saved", "id": event_id, "doc": doc_id, "run_id": run_id, "batch": made["batch"],
+                         "folder": made["folder"], "by": who, "keyed_by": doc["extraction"]["keyed_by"],
+                         "checked_by": doc["extraction"]["checked_by"], "reason": doc["extraction"]["reason"],
+                         "invoice_no": doc["invoice_no"], "total": doc["total"], "original_sha256": doc["sha256"],
+                         "evidence": [{k: f[k] for k in ("name", "type", "bytes", "sha256")} for f in files]})
 
 
 def make_handler(service, web_dir):
@@ -281,8 +471,9 @@ def make_handler(service, web_dir):
             try:
                 self.guard()
                 length = int(self.headers.get("Content-Length") or 0)
-                if length > MAX_FILE + 1024:
-                    raise BatchError("That upload is larger than 25 MB.", 413)
+                limit = (MAX_EVIDENCE * MAX_EVIDENCE_FILES * 4 // 3 + 1024 * 1024) if parts == ["api", "manual"] else MAX_FILE + 1024
+                if length > limit:
+                    raise BatchError("That upload is too large.", 413)
                 raw = self.rfile.read(length)
                 if parts == ["api", "batches"]:
                     body = json.loads(raw or b"{}")
@@ -297,6 +488,22 @@ def make_handler(service, web_dir):
                 if len(parts) == 4 and parts[:2] == ["api", "batches"] and parts[3] == "run":
                     body = json.loads(raw or b"{}")
                     return self.send_json(service.run(parts[2], body.get("user"), bool(body.get("dry_run", True)), str(body.get("event_id", ""))[:40]))
+                if parts == ["api", "recheck"] and self.headers.get("Content-Type", "").startswith("application/pdf"):
+                    q = parse_qs(url.query)
+                    user = json.loads(self.headers.get("X-Penny-User") or "{}")
+                    return self.send_json(service.recheck(user, (q.get("run") or [""])[0], (q.get("doc") or [""])[0], "file",
+                                                          pdf=raw, pdf_name=(q.get("name") or [""])[0], event_id=(q.get("event_id") or [""])[0][:40]))
+                if parts == ["api", "recheck"]:
+                    body = json.loads(raw or b"{}")
+                    return self.send_json(service.recheck(body.get("user"), body.get("run_id"), body.get("doc_id"), body.get("source", "saved"),
+                                                          rules=body.get("rules"), entry=body.get("entry"), event_id=str(body.get("event_id", ""))[:40]))
+                if parts == ["api", "simulate"]:
+                    body = json.loads(raw or b"{}")
+                    return self.send_json(service.simulate(body.get("user"), body.get("rules_now"), body.get("rules_draft")))
+                if parts == ["api", "manual"]:
+                    body = json.loads(raw or b"{}")
+                    return self.send_json(service.save_manual(body.get("user"), body.get("run_id"), body.get("doc_id"), body.get("entry"),
+                                                              body.get("evidence"), body.get("date"), str(body.get("event_id", ""))[:40]), 201)
                 raise BatchError("Not found.", 404)
             except BatchError as e:
                 return self.send_json({"error": str(e)}, e.status)

@@ -38,7 +38,9 @@ In the web view, pick any of the four demo roles on the sign-in screen. Everythi
 * **Added after submission:** bad files are held with a clear reason instead of crashing a run (v1.1), a web view
   (v1.2), and then sign-in with four roles, real actions, an audit trail, a rules editor with an impact preview, a
   redesigned interface, a help center, and an honest reason for bills in unfamiliar layouts (v1.3), then uploading
-  and running new batches from the browser, suggested fixes that learn, and usage insights (v1.4).
+  and running new batches from the browser, suggested fixes that learn, and usage insights (v1.4), then blockers
+  with owners and evidence, recheck previews, a rule simulator, manual entry with a second-person check, and a
+  most-urgent-first queue (v1.5).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

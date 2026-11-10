@@ -121,8 +121,9 @@ def run(package, batch, run_id, state_dir, out_dir, extractor="rules", dry_run=F
     (out / "run_info.json").write_text(json.dumps({"run_id": run_id, "batch": Path(batch).name, "batch_dir": batch_dir, "extractor": extractor, "dry_run": dry_run,
                                                    "started_at": datetime.now().astimezone().isoformat(timespec="seconds")}, indent=2), encoding="utf-8")
     docs = []
+    keyed = {p.name[:-len(".keyed.json")]: p for p in Path(batch).glob("*.keyed.json")} if Path(batch).is_dir() else {}
     for p in pdfs:
-        d = extract(p, cfg, extractor)
+        d = read_keyed(keyed[p.stem], p) if p.stem in keyed else extract(p, cfg, extractor)
         (out / "extracted" / f"{p.stem}.json").write_text(json.dumps({k: v for k, v in d.items() if k != "raw_text"}, indent=2, default=str), encoding="utf-8")
         docs.append(d)
 
@@ -159,6 +160,22 @@ def run(package, batch, run_id, state_dir, out_dir, extractor="rules", dry_run=F
     if not quiet:
         summarize(run_id, decisions, counts, errs, irows, routes, priority)
     return decisions, errs
+
+
+def read_keyed(keyed_path, pdf_path):
+    """(added after submission, v1.5) A manual entry saved from the web app, used in place of reading the PDF.
+    It must have been keyed from this exact file: if the fingerprints differ, the file is held instead."""
+    from .extract import unreadable_doc
+    from .util import sha256_file
+    try:
+        d = json.loads(Path(keyed_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return unreadable_doc(pdf_path, f"The manual entry {Path(keyed_path).name} could not be read ({e}).")
+    if d.get("sha256") != sha256_file(pdf_path) or (d.get("extraction") or {}).get("method") != "manual":
+        return unreadable_doc(pdf_path, f"The manual entry {Path(keyed_path).name} was not keyed from this file "
+                                        "(the fingerprints differ). Key it again from this file.")
+    d["file"] = pdf_path.name
+    return d
 
 
 def _style(text, code):
@@ -310,7 +327,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 49 automated checks")
+    t = sub.add_parser("test", help="run the 65 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))

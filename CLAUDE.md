@@ -16,7 +16,9 @@ where each rule lives, assumptions). Read it before changing behavior.
 - `04_Workflow/ap_workflow/`: the code. `extract.py` (PDF → fields), `rules.py` (all decisions, ~800 lines),
   `outputs.py` (files + Intacct pre-flight), `register.py` (processed-invoice register), `cli.py` (commands),
   `llm_extract.py` (optional Claude extraction, never run live), `webexport.py` (runs → `web/data/penny-data.json`),
-  `webserver.py` (local server behind `./penny web`: batch upload/run API, permissions, `state/batch_log.jsonl`).
+  `webserver.py` (local server behind `./penny web`: batch upload/run, recheck, simulate and manual-entry API,
+  permissions, `state/batch_log.jsonl`), `replay.py` (re-decide saved readings on a scratch register: recheck and the
+  rule simulator), `manual.py` (manual entry → the reader's record shape; `<file>.keyed.json` in a batch folder).
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
 - `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny.js` (views, sandbox, roles),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
@@ -33,7 +35,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 49 checks, uses temp dirs, safe
+./penny test                                   # 65 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
@@ -45,4 +47,5 @@ export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
 - Money is `Decimal`, never float.
 - Every decision change should come with a test in `tests/test_workflow.py`; `tests/expected_decisions.json` holds the
   expected outcome per sample document.
+- `.github/workflows/tests.yml` runs the package-free tests on every pull request; keep them passing without the package.
 - Git repo on `main`, pushed to public GitHub repo `collierjamiec/Hillpointe_AP_Submission` (remote `origin`). Commit only when Jamie asks.

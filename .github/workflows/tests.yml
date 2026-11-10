@@ -1,0 +1,46 @@
+# Runs Penny's automated checks on every pull request and every push to main. (Added after submission, v1.5.)
+# The assessment package is not public, so the tests that need it are skipped here and say so. Run the full suite
+# on your own computer:  ./penny test --package <package folder>
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.12"]   # 3.9 is the Mac's system Python; 3.12 catches anything newer breaks
+    defaults:
+      run:
+        working-directory: 04_Workflow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: 04_Workflow/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Run the tests (package-free set)
+        run: python -m unittest discover -s tests -v
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check the web app's scripts parse
+        run: for f in 04_Workflow/web/assets/*.js; do node --check "$f" || exit 1; done
+      - name: Check the published data file is valid JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('04_Workflow/web/data/penny-data.json','utf8'))"

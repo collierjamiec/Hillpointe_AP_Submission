@@ -73,9 +73,9 @@
   const CATEGORY = { construction: "Construction", stabilized: "Stabilized community", corporate: "Corporate" };
   const ROLES = {
     viewer: { name: "Viewer", can: [], blurb: "can see everything and change nothing." },
-    clerk: { name: "AP Clerk", can: ["resolve", "note", "upload"], blurb: "can resolve and reassign holds, add notes, and upload and preview new batches." },
+    clerk: { name: "AP Clerk", can: ["resolve", "note", "upload"], blurb: "can work holds and their blockers, recheck invoices, key unreadable invoices by hand, add notes, and upload and preview new batches." },
     approver: { name: "Approver", can: ["approve", "note"], blurb: "can approve or send back bills that are ready to import, and add notes." },
-    admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run"], blurb: "can do everything, including changing rules and running batches for real." },
+    admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run"], blurb: "can do everything, including changing and testing rules and running batches for real." },
   };
   /** Which permission each kind of event needs. Checked again when the event is recorded (defense in depth). */
   const EVENT_NEEDS = {
@@ -83,12 +83,17 @@
     "bill.approve": "approve", "bill.sendback": "approve", "note.add": "note",
     "rules.update": "rules", "rules.revert": "rules",
     "batch.upload": "upload", "batch.run": "upload",
+    "blocker.update": "resolve", "blocker.clear": "resolve", "blocker.reopen": "resolve",
+    "manual.keyed": "resolve", "manual.check": "resolve", "manual.saved": "resolve",
   };
   const EVENT_LABEL = {
     "hold.resolve": "Resolved a hold", "hold.reopen": "Reopened a hold", "hold.reassign": "Reassigned a hold",
     "bill.approve": "Approved a bill", "bill.sendback": "Sent a bill back", "note.add": "Added a note",
     "rules.update": "Changed rules", "rules.revert": "Undid a rule change", "run": "Penny ran a batch",
     "batch.upload": "Uploaded a batch", "batch.run": "Ran a batch", "batch.created": "Created a batch folder", "batch.uploaded": "Uploaded a batch", "batch.run_failed": "A batch run failed",
+    "blocker.update": "Updated a blocker", "blocker.clear": "Cleared a blocker", "blocker.reopen": "Reopened a blocker",
+    "manual.keyed": "Keyed an invoice by hand", "manual.check": "Checked a manual entry", "manual.saved": "Saved a manual entry for the next run",
+    "recheck.preview": "Rechecked an invoice (preview)",
   };
 
   // ------------------------------------------------------------------ helpers
@@ -142,8 +147,8 @@
     return `${part ? part.value : z} (${z.replace(/_/g, " ")})`;
   }
   /** Today's date as YYYY-MM-DD in the company time zone. */
-  function todayIn(z) {
-    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: z, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  function todayIn(z, when = new Date()) {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: z, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(when).map((x) => [x.type, x.value]));
     return `${p.year}-${p.month}-${p.day}`;
   }
   function fmtDateTime(iso) {
@@ -257,7 +262,7 @@
 
   const SANDBOX_KEY = "penny.sandbox.v1";
   let EV = [];                  // the audit log: every human action, oldest first, never edited
-  let S = { holds: {}, approvals: {}, notes: {}, rules: null, revoked: new Set() };
+  let S = { holds: {}, approvals: {}, notes: {}, rules: null, revoked: new Set(), blockers: {}, manual: {} };
 
   function loadSandbox() {
     try {
@@ -303,7 +308,7 @@
   /** Rebuild the current state by replaying the audit log over Penny's results. */
   function derive() {
     const revoked = new Set(EV.filter((e) => e.type === "rules.revert").map((e) => e.target));
-    const holds = {}, approvals = {}, notes = {};
+    const holds = {}, approvals = {}, notes = {}, blockers = {}, manual = {};
     const rules = JSON.parse(JSON.stringify(D.rules || {}));
     for (const e of EV) {
       if (e.type === "hold.resolve") holds[e.doc] = { ...(holds[e.doc] || {}), outcome: e.outcome, by: e.user, at: e.at, note: e.note };
@@ -313,8 +318,20 @@
         (approvals[e.doc] = approvals[e.doc] || {})[e.step] = { status: e.type === "bill.approve" ? "approved" : "sent back", by: e.user, at: e.at, note: e.note };
       } else if (e.type === "note.add") (notes[e.doc] = notes[e.doc] || []).push(e);
       else if (e.type === "rules.update" && !revoked.has(e.id)) e.changes.forEach((c) => setPath(rules, c.path, c.after));
+      else if (e.type.startsWith("blocker.")) {
+        const m = ((blockers[e.doc] = blockers[e.doc] || {})[e.code] = blockers[e.doc][e.code] || { notes: [], files: [] });
+        if (e.status) m.status = e.status;
+        if (e.owner) m.owner = e.owner;
+        if (e.due !== undefined) m.due = e.due;
+        if (e.files && e.files.length) m.files = [...m.files, ...e.files.map((f) => ({ ...f, by: e.user, at: e.at }))];
+        if (e.note) m.notes = [...m.notes, { note: e.note, by: e.user, at: e.at, type: e.type }];
+        if (e.type === "blocker.clear") Object.assign(m, { status: "cleared", verifiedBy: e.user, verifiedAt: e.at });
+        if (e.type === "blocker.reopen") Object.assign(m, { status: "open", verifiedBy: null, verifiedAt: null });
+      } else if (e.type === "manual.keyed") manual[e.doc] = { id: e.id, entry: e.entry, evidence: e.evidence || [], by: e.user, at: e.at, note: e.note, checks: [], saved: null };
+      else if (e.type === "manual.check" && manual[e.doc] && manual[e.doc].id === e.entry_id) manual[e.doc].checks.push({ by: e.user, at: e.at, match: e.match, invoice_no: e.invoice_no, total: e.total });
+      else if (e.type === "manual.saved" && manual[e.doc]) manual[e.doc].saved = { batch: e.batch, folder: e.folder, by: e.user, at: e.at };
     }
-    S = { holds, approvals, notes, rules, revoked };
+    S = { holds, approvals, notes, rules, revoked, blockers, manual };
     if (X) X.docs.forEach((d) => (d.status = humanStatus(d)));
     updateWorkCount();
   }
@@ -547,7 +564,7 @@
           <td><a class="main-link" href="${esc(href)}">${esc(d.vendor)}</a><span class="sub">${esc(d.billNo || "No invoice number")} · ${esc(d.id)}</span></td>
           <td class="hide-sm">${esc(fmtDate(d.date))}</td>
           ${opt.route
-            ? `<td><span class="reason-plain">${esc((CODES[d.primary] || CODES.OTHER).plain)}</span>${d.codes.length > 1 ? `<span class="sub">and ${plural(d.codes.length - 1, "more reason")}</span>` : ""}<span class="sub">Next: ${esc(routes.join("; "))}</span><div class="chips" style="margin-top:4px">${d.codes.map(codeChip).join("")}</div>${opt.suggest ? inlineSuggestion(d) : ""}</td>`
+            ? `<td><span class="reason-plain">${esc((CODES[d.primary] || CODES.OTHER).plain)}</span>${d.codes.length > 1 ? `<span class="sub">and ${plural(d.codes.length - 1, "more reason")}</span>` : ""}<span class="sub">Next: ${esc(routes.join("; "))}</span><div class="chips" style="margin-top:4px">${d.codes.map(codeChip).join("")}${blockerChip(d)}${manualChip(d)}</div>${opt.urgent ? urgencyTags(d) : ""}${opt.suggest ? inlineSuggestion(d) : ""}</td>`
             : `<td>${badge(d.status)}${opt.run ? "" : approvalChip(d)}${d.replacedBy && d.status === "REPLACED" ? `<span class="sub">by ${esc(d.replacedBy.doc)}</span>` :
                 d.codes.length && d.status !== "DUP" ? `<div class="chips" style="margin-top:6px">${d.codes.map(codeChip).join("")}</div>` : ""}</td>`}
           <td class="num">${!d.amount && !(d.ex && d.ex.total) ? `<span class="hint">Not read</span>` : esc(money(d.amount))}</td>
@@ -726,7 +743,7 @@
             ${r.vendor_id ? `<span>Vendor ${esc(r.vendor_id)}</span>` : ""}
             <span>${esc(d.file)}</span>
           </div>
-          <div class="status-strip">${badge(isCurrent ? d.status : r.decision, true)}${destTag(r.decision)}${isCurrent ? approvalChip(d) : ""}${confChip(r.confidence)}</div>
+          <div class="status-strip">${badge(isCurrent ? d.status : r.decision, true)}${destTag(r.decision)}${isCurrent ? approvalChip(d) + blockerChip(d) + manualChip(d) : ""}${confChip(r.confidence)}</div>
         </div>
         <div class="inv-amount"><div class="eyebrow">${cents(r.amount) < 0 ? "Credit" : "Amount"}</div>${!cents(r.amount) && !ex.total
           ? `<div class="big" style="color:var(--text-3);font-size:22px">Not read</div>` : `<div class="big">${esc(money(cents(r.amount)))}</div>`}
@@ -737,6 +754,7 @@
           ${isCurrent && d.replacedBy ? replacedCallout(d) : ""}
           ${isCurrent ? humanCallout(d) : ""}
           ${outcomeCallout(r, isCurrent && (d.replacedBy || (S.holds[d.id] || {}).outcome))}
+          ${isCurrent ? recheckCard(d) + manualCallout(d) + blockersCard(d) : ""}
           ${isCurrent ? suggestionCard(d) : ""}
           ${isCurrent ? actionsCard(d) : `<section class="card actions"><span class="who">You are looking at an earlier run. <a href="#/invoices/${esc(d.id)}">Open the latest result</a> to take action.</span></section>`}
           <section class="card">
@@ -833,7 +851,9 @@
         if (can("resolve")) btns.push(`<button class="btn" data-act="reopen" data-doc="${esc(d.id)}">Reopen hold</button>`);
       } else if (can("resolve")) {
         btns.push(`<button class="btn btn-accent" data-act="resolve" data-doc="${esc(d.id)}">Resolve hold</button>`,
+                  `<button class="btn" data-act="recheck" data-doc="${esc(d.id)}">Recheck</button>`,
                   `<button class="btn" data-act="reassign" data-doc="${esc(d.id)}">Reassign</button>`);
+        if (canKey(d)) btns.push(`<a class="btn" href="#/invoices/${esc(d.id)}/manual">Enter by hand</a>`);
       }
     }
     const a = approvalSummary(d);
@@ -847,6 +867,709 @@
       ${btns.join("")}
     </section>`;
   }
+
+  // ------------------------------------------------------------------ evidence files (v1.5)
+  /* Files people attach (screenshots, re-saved PDFs, a vendor's letter) are kept in this browser's IndexedDB under their
+     SHA-256 fingerprint, so the audit trail can name exactly which file was used. If the browser blocks storage, a
+     file lasts for this visit only, and Penny says so. */
+  const EVIDENCE_MAX = 10 * 1048576;
+  const MEMFILES = new Map();
+  let idbPromise = null;
+  function idb() {
+    if (!idbPromise) idbPromise = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open("penny.files", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("files");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+    return idbPromise;
+  }
+  async function putFile(meta, blob) {
+    MEMFILES.set(meta.sha256, { ...meta, blob });
+    try {
+      const db = await idb();
+      await new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").put({ ...meta, blob }, meta.sha256); t.oncomplete = res; t.onerror = () => rej(t.error); });
+      return true;
+    } catch (e) { return false; }
+  }
+  async function getFile(sha) {
+    if (MEMFILES.has(sha)) return MEMFILES.get(sha);
+    try {
+      const db = await idb();
+      return await new Promise((res) => { const r = db.transaction("files").objectStore("files").get(sha); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); });
+    } catch (e) { return null; }
+  }
+  const sha256Hex = async (buf) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)), (b) => b.toString(16).padStart(2, "0")).join("");
+  /** Check one file by its content, not its name: a PNG or JPEG screenshot, or a PDF, up to 10 MB. */
+  async function readEvidence(file) {
+    if (file.size > EVIDENCE_MAX) return { name: file.name, error: `Larger than ${fmtBytes(EVIDENCE_MAX)}` };
+    const buf = await file.arrayBuffer();
+    const b = new Uint8Array(buf.slice(0, 1024));
+    const text = new TextDecoder().decode(b).trimStart();
+    const type = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 ? "png" : b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff ? "jpg" : text.startsWith("%PDF") ? "pdf" : "";
+    if (!type) return { name: file.name, error: "Not a PNG, JPEG or PDF file" };
+    const mime = { png: "image/png", jpg: "image/jpeg", pdf: "application/pdf" }[type];
+    return { name: file.name.slice(0, 120), type, bytes: file.size, sha256: await sha256Hex(buf), blob: new Blob([buf], { type: mime }) };
+  }
+  const fileMeta = (f) => ({ name: f.name, type: f.type, bytes: f.bytes, sha256: f.sha256 });
+  const fileLink = (f) => `<button type="button" class="link-btn file-link" data-open-file="${esc(f.sha256)}" title="SHA-256 ${esc(f.sha256)}">${esc(f.name)}</button><span class="sub-inline">${esc(fmtBytes(f.bytes))} · ${esc(f.sha256.slice(0, 10))}</span>`;
+  async function openFile(sha) {
+    const f = await getFile(sha);
+    if (!f || !f.blob) { toast("That file is not in this browser. It was attached in another browser, or the browser storage was cleared."); return; }
+    const url = URL.createObjectURL(f.blob);
+    const w = window.open(url, "_blank", "noopener");
+    if (!w) { const a = document.createElement("a"); a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  /** A file input inside a dialog: files are checked and fingerprinted as soon as they are picked. */
+  function evidenceField(label, hint) {
+    return `<div class="field"><label for="dlg-files">${esc(label)} (optional)</label>
+      <input id="dlg-files" name="files" type="file" accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf" multiple>
+      <span class="hint">${esc(hint || "Screenshots (PNG or JPEG) or PDFs, up to 10 MB each. Each file is fingerprinted and named in the audit trail.")}</span>
+      <ul class="dlg-files" id="dlg-file-list" aria-live="polite"></ul></div>`;
+  }
+  function watchEvidence(state) {
+    const inp = $("#dlg-files");
+    if (!inp) return;
+    inp.addEventListener("change", async () => {
+      state.busy = true; state.files = [];
+      const list = $("#dlg-file-list");
+      list.innerHTML = `<li class="hint">Checking ${plural(inp.files.length, "file")}…</li>`;
+      const out = await Promise.all(Array.from(inp.files).slice(0, 5).map(readEvidence));
+      state.files = out; state.busy = false;
+      list.innerHTML = out.map((f) => `<li class="${f.error ? "form-error" : ""}">${esc(f.name)}: ${f.error ? esc(f.error) : `${esc(fmtBytes(f.bytes))}, fingerprint ${esc(f.sha256.slice(0, 10))}`}</li>`).join("")
+        + (inp.files.length > 5 ? `<li class="form-error">Only the first 5 files are kept.</li>` : "");
+    });
+  }
+  function evidenceProblem(state) {
+    if (state.busy) return "Still checking the files. Try again in a moment.";
+    const bad = (state.files || []).find((f) => f.error);
+    return bad ? `${bad.name}: ${bad.error}. Remove it or pick another file.` : "";
+  }
+  async function keepFiles(files) {
+    const ok = await Promise.all(files.map((f) => putFile(fileMeta(f), f.blob)));
+    if (ok.includes(false)) toast("This browser blocked saving files, so attachments last only until you close this tab.");
+  }
+
+  // ------------------------------------------------------------------ blockers (v1.5)
+  /* Each reason a held invoice is waiting on is its own blocker, with an owner, a target date, a status, notes, files,
+     and the person who verified it. The invoice shows how many are cleared. Blockers organize the people work; Penny
+     still decides, and a cleared invoice is checked from scratch on its next run. */
+  const BLOCKER_STATUS = {
+    open: { label: "Open", cls: "b-hold", icon: "alert" },
+    waiting: { label: "Waiting for evidence", cls: "b-waiting", icon: "clock" },
+    ready: { label: "Ready for recheck", cls: "b-ready", icon: "redo" },
+    cleared: { label: "Cleared", cls: "b-approved", icon: "check" },
+  };
+  const blockerBadge = (st) => { const b = BLOCKER_STATUS[st] || BLOCKER_STATUS.open; return `<span class="badge ${b.cls}">${bIcon(b.icon)}${esc(b.label)}</span>`; };
+  function blockersOf(d) {
+    if (d.pennyStatus !== "HOLD") return [];
+    const got = S.blockers[d.id] || {};
+    const routed = (S.holds[d.id] || {}).route;
+    return (d.codes.length ? d.codes : ["OTHER"]).map((code) => ({ code, status: "open", owner: routed || (RULES().routes || {})[code] || "", due: "", notes: [], files: [], ...(got[code] || {}) }));
+  }
+  function blockerSummary(d) {
+    const list = blockersOf(d);
+    return list.length ? { list, done: list.filter((b) => b.status === "cleared").length, total: list.length } : null;
+  }
+  const blockerChip = (d) => { const s2 = blockerSummary(d); return s2 && s2.done ? `<span class="badge ${s2.done === s2.total ? "b-approved" : "b-waiting"}">${bIcon(s2.done === s2.total ? "check" : "clock")}${s2.done} of ${s2.total} blockers cleared</span>` : ""; };
+  function dueTag(due) {
+    if (!due) return "";
+    const n = daysBetween(today(), due);
+    return n < 0 ? `<span class="due-tag late">${plural(-n, "day")} overdue</span>` : n === 0 ? `<span class="due-tag soon">due today</span>` : n <= 2 ? `<span class="due-tag soon">in ${plural(n, "day")}</span>` : "";
+  }
+  function blockersCard(d) {
+    const sum = blockerSummary(d);
+    if (!sum) return "";
+    const closed = !openHold(d);
+    const edit = can("resolve") && !closed;
+    const pct = Math.round((sum.done / sum.total) * 100);
+    return `<section class="card blockers" aria-labelledby="bl-h">
+      <div class="card-head"><h2 id="bl-h">Blockers</h2><p>${sum.done} of ${sum.total} cleared</p></div>
+      <div class="card-body">
+        <div class="progress" role="progressbar" aria-label="Blockers cleared" aria-valuemin="0" aria-valuemax="${sum.total}" aria-valuenow="${sum.done}"><span style="width:${pct}%"></span></div>
+        <ul class="blocker-list">${sum.list.map((b) => {
+          const last = b.notes[b.notes.length - 1];
+          return `<li class="blocker st-${esc(b.status)}">
+            <div class="bl-top">${codeChip(b.code)}<b>${esc((CODES[b.code] || CODES.OTHER).plain)}</b>${blockerBadge(b.status)}</div>
+            <dl class="bl-meta"><div><dt>Owner</dt><dd>${esc(b.owner || "Not set")}</dd></div>
+              <div><dt>Target date</dt><dd>${b.due ? `${esc(fmtDate(b.due))} ${b.status === "cleared" ? "" : dueTag(b.due)}` : "Not set"}</dd></div>
+              ${b.verifiedBy ? `<div><dt>Verified by</dt><dd>${esc(b.verifiedBy.name)}, ${esc(fmtDateTime(b.verifiedAt))}</dd></div>` : ""}</dl>
+            ${last ? `<p class="bl-note">“${esc(last.note)}” <span class="sub-inline">${esc(last.by.name)}, ${esc(fmtDateTime(last.at))}${b.notes.length > 1 ? ` · ${plural(b.notes.length - 1, "earlier note")}` : ""}</span></p>` : ""}
+            ${b.files.length ? `<ul class="bl-files">${b.files.map((f) => `<li>${fileLink(f)}</li>`).join("")}</ul>` : ""}
+            ${edit ? `<div class="bl-actions">${b.status === "cleared"
+              ? `<button class="btn btn-sm" data-act="blocker-reopen" data-doc="${esc(d.id)}" data-code="${esc(b.code)}">Reopen</button>`
+              : `<button class="btn btn-sm" data-act="blocker" data-doc="${esc(d.id)}" data-code="${esc(b.code)}">Update</button>
+                 <button class="btn btn-sm btn-accent" data-act="blocker-clear" data-doc="${esc(d.id)}" data-code="${esc(b.code)}">Mark cleared</button>`}</div>` : ""}
+          </li>`;
+        }).join("")}</ul>
+        ${!closed && sum.done === sum.total ? `<p class="bl-done">${bIcon("check")}All blockers are cleared. Recheck the invoice, then resolve the hold.</p>` : ""}
+      </div></section>`;
+  }
+  function blockerDialog(id, code, mode) {
+    const d = X.docById[id];
+    const b = blockersOf(d).find((x) => x.code === code);
+    if (!b) return;
+    const files = { files: [], busy: false };
+    const name = (CODES[code] || CODES.OTHER).plain;
+    if (mode === "reopen") {
+      openDialog("Reopen this blocker", `${esc(name)}. The earlier verification stays in the audit trail.`, noteField("Why reopen it?", true), "Reopen", (fd) => {
+        const err = needNote(fd, 5); if (err) return err;
+        if (record("blocker.reopen", { doc: id, code, note: String(fd.get("note")).trim(), before: "Cleared", after: "Open" })) { render(); toast("Blocker reopened."); }
+        return "";
+      });
+      return;
+    }
+    if (mode === "clear") {
+      const guarded = GUARDED.has(code);
+      openDialog("Mark this blocker cleared", `${esc(name)} · ${esc(d.vendor)} ${esc(d.billNo || d.id)}. You are recorded as the person who verified it.`,
+        `${noteField("What did you verify?", true, code === "NOPO" ? "For example: PM confirmed PO2410315-008 and the vendor sent a corrected bill." : "For example: received the current certificate, valid to 2027-06-30.")}
+         ${evidenceField("Attach proof")}
+         ${guarded ? `<label class="check-line"><input type="checkbox" name="treasury" value="1"> Treasury confirmed the new payment details by phone, at the number already in the vendor master.</label>` : ""}`,
+        "Mark cleared", (fd) => {
+          const err = needNote(fd, 10) || evidenceProblem(files); if (err) return err;
+          if (guarded && !fd.get("treasury")) return "A payment change is cleared only after Treasury confirms it by phone at the number on file.";
+          const ok = files.files.filter((f) => !f.error);
+          if (record("blocker.clear", { doc: id, code, note: String(fd.get("note")).trim(), files: ok.map(fileMeta), before: BLOCKER_STATUS[b.status].label, after: "Cleared" })) {
+            keepFiles(ok); render(); toast(`${name}: cleared.`);
+          }
+          return "";
+        });
+      watchEvidence(files);
+      return;
+    }
+    const teams = [...new Set([b.owner, ...teamsList()].filter(Boolean))];
+    openDialog("Update this blocker", `${esc(name)} · ${esc(d.vendor)} ${esc(d.billNo || d.id)}`,
+      `<div class="field"><label for="dlg-status">Status</label><select id="dlg-status" name="status">${["open", "waiting", "ready"].map((k) =>
+         `<option value="${k}"${k === b.status ? " selected" : ""}>${esc(BLOCKER_STATUS[k].label)}</option>`).join("")}</select></div>
+       <div class="field-row"><div class="field"><label for="dlg-owner">Owner</label><select id="dlg-owner" name="owner">${teams.map((t) => `<option${t === b.owner ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+         <div class="field"><label for="dlg-due">Target date</label><input id="dlg-due" name="due" type="date" value="${esc(b.due || "")}"></div></div>
+       ${noteField("Note", true, "For example: asked the vendor for a current certificate; promised by Friday.")}
+       ${evidenceField("Attach files")}`,
+      "Save", (fd) => {
+        const err = needNote(fd, 5) || evidenceProblem(files); if (err) return err;
+        const ok = files.files.filter((f) => !f.error);
+        const status = fd.get("status"), owner = fd.get("owner"), due = String(fd.get("due") || "");
+        const change = [status !== b.status && `${BLOCKER_STATUS[b.status].label} → ${BLOCKER_STATUS[status].label}`, owner !== b.owner && `owner ${owner}`, due !== (b.due || "") && `target ${due ? fmtDate(due) : "removed"}`, ok.length && plural(ok.length, "file")].filter(Boolean);
+        if (record("blocker.update", { doc: id, code, status, owner, due, note: String(fd.get("note")).trim(), files: ok.map(fileMeta),
+          before: BLOCKER_STATUS[b.status].label, after: change.join("; ") || "Note added" })) { keepFiles(ok); render(); toast("Blocker updated."); }
+        return "";
+      });
+    watchEvidence(files);
+  }
+
+  // ------------------------------------------------------------------ recheck preview (v1.5)
+  /* Recheck runs Penny's real engine on one held invoice again: the same reading under today's rules and reference
+     data, a corrected PDF from the vendor, or a manual entry. It needs Penny on a computer (./penny web --package).
+     It is a preview: Penny decides against a copy of its register and saves nothing. The server logs who asked. */
+  const RC = {};                 // invoice id -> the latest recheck preview shown on this page
+  const RC_SOURCE = { saved: "Same reading, today's rules and data", file: "Corrected PDF", keyed: "Manual entry" };
+  const engineReady = () => !!(SERVER && SERVER.engine);
+  function needsEngine(what) {
+    openDialog(`${what} needs Penny on your computer`, "This public demo has no server, so it cannot run Penny's engine. Nothing was sent anywhere.",
+      `<ol class="notes"><li>Open Terminal in the project folder, then <code>cd 04_Workflow</code>.</li>
+        <li>Start Penny with <code>./penny web --package ~/Downloads/Hillpointe_AP_Technical_Screen</code>.</li>
+        <li>Come back to this invoice in the window that opens and try again. Penny will decide it with its real rules and reference data.</li></ol>`,
+      "", () => "", { info: true });
+    track("engine_demo_attempt", { what });
+  }
+  async function runRecheck(id, source, extra = {}) {
+    const d = X.docById[id];
+    const who = { id: user.id, name: user.name, role: user.role };
+    toast(source === "keyed" ? "Penny is checking the manual entry…" : "Penny is rechecking this invoice…");
+    try {
+      let res;
+      if (source === "file") {
+        res = await api(`api/recheck?run=${encodeURIComponent(d.cur.run_id)}&doc=${encodeURIComponent(id)}&name=${encodeURIComponent(extra.file.name)}&event_id=${newId()}`,
+          { method: "POST", headers: { "Content-Type": "application/pdf", "X-Penny-User": JSON.stringify(who) }, body: extra.file });
+      } else {
+        res = await api("api/recheck", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: who, run_id: d.cur.run_id, doc_id: id, source, rules: RULES(), entry: extra.entry, event_id: newId() }) });
+      }
+      RC[id] = { ...res, at: new Date().toISOString(), by: who };
+      track("recheck", { source, result: res.after.decision });
+      try { await reloadData(); } catch (e) { /* the preview still shows; the audit trail refreshes on the next load */ }
+      render();
+      const el = $("#rc-h");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      openDialog("Penny could not recheck this invoice", esc(e.message), "", "", () => "", { info: true });
+    }
+  }
+  function recheckDialog(id) {
+    if (!engineReady()) return needsEngine("Rechecking");
+    const d = X.docById[id];
+    const st = { file: null };
+    openDialog("Recheck this invoice", `${esc(d.vendor)} · ${esc(d.billNo || d.id)}. Penny decides it again as its next run would. This is a preview: nothing is saved.`,
+      `<div class="choice" role="radiogroup" aria-label="What to recheck">
+        <label><input type="radio" name="source" value="saved" checked><b>The same reading, with today's rules and data</b><small>Use this after a rule change, or after the reference data was fixed (for example, the vendor was added to the vendor master).</small></label>
+        <label><input type="radio" name="source" value="file"><b>A corrected PDF from the vendor</b><small>Penny reads the new file and checks it. The file is not added to any batch.</small></label>
+      </div>
+      <div class="field" id="rc-file-field" hidden><label for="rc-file">Corrected PDF</label><input id="rc-file" name="file" type="file" accept="application/pdf,.pdf"><span class="hint">PDF only, up to 25 MB.</span></div>`,
+      "Recheck", (fd) => {
+        const source = fd.get("source");
+        const file = $("#rc-file").files[0];
+        if (source === "file" && !file) return "Choose the corrected PDF.";
+        if (source === "file" && !/\.pdf$/i.test(file.name)) return "The corrected file must be a PDF.";
+        runRecheck(id, source, { file });
+        return "";
+      });
+    $$('#dialog input[name="source"]').forEach((r) => r.addEventListener("change", () => ($("#rc-file-field").hidden = r.value !== "file" || !r.checked)));
+  }
+  function briefCol(title, b) {
+    const reasons = (b.reasons || []).map(parseReason);
+    return `<div class="rc-col"><h3>${esc(title)}</h3><div class="status-strip">${badge(b.decision)}${destTag(b.decision)}</div>
+      ${b.codes && b.codes.length ? `<div class="chips">${b.codes.map(codeChip).join("")}</div>` : ""}
+      ${reasons.length ? `<ul class="notes">${reasons.slice(0, 3).map((x) => `<li>${esc(x.text.length > 220 ? x.text.slice(0, 217) + "…" : x.text)}</li>`).join("")}</ul>`
+        : b.decision && b.decision.startsWith("ENTER_") ? `<p>Every check passed.</p>` : ""}
+      ${(b.approvers || []).length ? `<p class="hint">Approvals needed: ${esc(b.approvers.join("; "))}</p>` : ""}</div>`;
+  }
+  function recheckCard(d) {
+    const r = RC[d.id];
+    if (!r) return "";
+    const a = r.after, b = r.before;
+    const same = a.decision === b.decision && JSON.stringify(a.codes) === JSON.stringify(b.codes);
+    const passes = a.decision && a.decision.startsWith("ENTER_");
+    const verdict = same ? "No change: Penny would decide it the same way."
+      : passes ? (r.source === "keyed" ? "Penny would pass the keyed invoice. Save it for the next run so an Admin can run it." : "Penny would now pass it. Once the corrected document is in a batch, the next run can write it to an import file.")
+      : `Penny would still hold it${a.codes.length ? `, now for ${a.codes.join(", ")}` : ""}.`;
+    const v = r.versions;
+    return `<section class="card recheck" aria-labelledby="rc-h">
+      <div class="card-head"><h2 id="rc-h">Recheck preview</h2><p>${esc(RC_SOURCE[r.source] || r.source)} · ${esc(fmtDateTime(r.at))}</p></div>
+      <div class="card-body">
+        <p class="rc-verdict ${passes ? "ok" : same ? "" : "hold"}">${esc(verdict)}</p>
+        <div class="rc-cols">${briefCol("Before (saved result)", b)}${briefCol("After (this preview)", a)}</div>
+        <dl class="rc-versions">
+          <div><dt>Document</dt><dd>${esc(v.document.file)} · ${esc((v.document.sha256 || "").slice(0, 12) || "no fingerprint")} · read by ${esc(v.document.read_by === "manual" ? "a person (manual entry)" : v.document.read_by || "Penny")}</dd></div>
+          <div><dt>Rules</dt><dd>${esc(v.rules.fingerprint)} · ${esc(v.rules.source)}</dd></div>
+          <div><dt>Reference data</dt><dd>${esc(v.data.fingerprint)}</dd></div>
+          <div><dt>Register</dt><dd>${plural(v.register.entries, "entry", "entries")}, ${v.register.entered} entered (a copy; not changed)</dd></div>
+        </dl>
+        <p class="hint">Preview only. Nothing was saved, no import file was written, and Penny's register did not change. The recheck is in the audit trail.</p>
+        ${passes && openHold(d) && can("resolve") && r.source !== "keyed" ? `<div class="nb-actions"><button class="btn btn-accent" data-act="resolve" data-doc="${esc(d.id)}">Resolve hold</button></div>` : ""}
+      </div></section>`;
+  }
+
+  // ------------------------------------------------------------------ manual entry (v1.5)
+  /* When Penny cannot read a file but a person can open it in another program, the person keys the invoice beside a
+     screenshot or re-saved copy. Penny then runs every normal check on the keyed record. Above the dollar limit in
+     Rules (thresholds.manual_entry_check_over), a different person keys the invoice number and total again without
+     seeing the first entry; both must match. The original file stays the source document, and every step is logged. */
+  const MANUAL_KINDS = new Set(["unreadable", "unrecognized"]);
+  const canKey = (d) => d.pennyStatus === "HOLD" && MANUAL_KINDS.has(d.ex.kind) && openHold(d);
+  const keyedByHand = (d) => (d.ex.extraction || {}).method === "manual";
+  const checkLimit = () => { const raw = getPath(RULES(), "thresholds.manual_entry_check_over"); const v = Number(raw); return raw !== undefined && raw !== null && Number.isFinite(v) ? Math.round(v * 100) : 0; };
+  const normNo = (v) => String(v || "").toUpperCase().replace(/[\s-]+/g, "");
+  function manualState(d) {
+    const m = S.manual[d.id];
+    if (!m) return null;
+    const needsCheck = Math.abs(cents(m.entry.total)) > checkLimit();
+    const last = m.checks[m.checks.length - 1];
+    const checked = last && last.match ? last : null;
+    const state = m.saved ? "saved" : !needsCheck || checked ? "ready" : last ? "mismatch" : "check";
+    return { ...m, needsCheck, checked, last, state };
+  }
+  const MANUAL_STATE = {
+    check: ["Waiting for a second check", "b-waiting", "clock"], mismatch: ["Second check did not match", "b-rejected", "x"],
+    ready: ["Manual entry ready", "b-ready", "redo"], saved: ["Manual entry saved for the next run", "b-approved", "check"],
+  };
+  function manualChip(d) {
+    if (keyedByHand(d)) return `<span class="badge b-manual" title="A person keyed this invoice from the original file">${bIcon("check")}Keyed by hand</span>`;
+    const m = manualState(d);
+    if (!m) return "";
+    const [label, cls, icon] = MANUAL_STATE[m.state];
+    return `<span class="badge ${cls}">${bIcon(icon)}${esc(label)}</span>`;
+  }
+  function manualCallout(d) {
+    if (keyedByHand(d)) {
+      const x = d.ex.extraction;
+      return `<section class="callout callout-manual" aria-labelledby="mk"><div class="callout-title">${bIcon("check")}<h2 id="mk">Keyed by hand from the original file</h2></div>
+        <p>${esc((x.keyed_by || {}).name || "A person")} keyed this invoice${x.keyed_at ? ` on ${esc(fmtDateTime(x.keyed_at))}` : ""}${x.checked_by ? `, and ${esc(x.checked_by.name)} checked the invoice number and total by keying them again` : ""}. Penny ran every normal check on what was keyed.</p>
+        ${x.reason ? `<div class="activity"><p class="a-note">${esc(x.reason)}</p></div>` : ""}
+        ${(x.evidence || []).length ? `<p class="hint">Evidence on file: ${x.evidence.map((f) => `${esc(f.name)} (${esc(String(f.sha256).slice(0, 10))})`).join(", ")}</p>` : ""}</section>`;
+    }
+    const m = manualState(d);
+    if (m) {
+      const [label] = MANUAL_STATE[m.state];
+      return `<section class="callout callout-manual" aria-labelledby="mk"><div class="callout-title">${bIcon("redo")}<h2 id="mk">${esc(label)}</h2></div>
+        <p>${esc(m.by.name)} keyed this invoice by hand on ${esc(fmtDateTime(m.at))}.${m.state === "check" ? " A different person needs to key the invoice number and total again before it can go further." : ""}</p>
+        <div class="nb-actions"><a class="btn ${m.state === "saved" ? "" : "btn-accent"}" href="#/invoices/${esc(d.id)}/manual">Open the manual entry</a></div></section>`;
+    }
+    if (canKey(d) && can("resolve")) {
+      return `<section class="callout callout-manual" aria-labelledby="mk"><div class="callout-title">${bIcon("redo")}<h2 id="mk">Can you open this file in another program?</h2></div>
+        <p>If a person can read it, they can key the invoice beside a screenshot. Penny then checks the keyed invoice like any other${checkLimit() ? `, and a second person confirms it above ${esc(money(checkLimit()))}` : ""}.</p>
+        <div class="nb-actions"><a class="btn btn-accent" href="#/invoices/${esc(d.id)}/manual">Enter it by hand</a><a class="btn" href="#/help/manual-entry">How manual entry works</a></div></section>`;
+    }
+    return "";
+  }
+
+  const MAN = { doc: null, entry: null, files: [], editing: false, error: "", preview: 0 };
+  const blankLine = () => ({ desc: "", qty: "", rate: "", amount: "", auto: true });
+  function startManual(d, fromExisting) {
+    const m = S.manual[d.id];
+    const seen = String(d.ex.amount_seen || "").replace(/[^0-9.]/g, "");
+    const base = fromExisting && m ? JSON.parse(JSON.stringify(m.entry)) : {
+      kind: "invoice", vendor_name: d.ex.vendor_name_raw || "", invoice_no: d.ex.invoice_no || "", date: d.ex.date || "", terms: d.ex.terms_printed || "",
+      customer_ref: ((d.ex.refs || {}).po || [])[0] || d.ex.customer_ref || "", other_refs: "", bill_to: (d.ex.bill_to || {}).name || "", ship_to: d.ex.ship_to || "",
+      remit_address: "", lines: [blankLine()], subtotal: "", tax_total: "0.00", total: seen, payment_change: false, lien_waiver_attached: false, reason: "",
+      auto_subtotal: true, auto_total: !seen };
+    base.lines = (base.lines || []).map((l) => ({ ...blankLine(), ...l, auto: l.auto !== undefined ? l.auto : false }));
+    Object.assign(MAN, { doc: d.id, entry: base, files: fromExisting && m ? m.evidence.map((f) => ({ ...f })) : [], editing: true, error: "", preview: 0 });
+  }
+  const c2s = (c) => (c / 100).toFixed(2);
+  function tieOut(e) {
+    const lines = e.lines.map((l) => cents(l.amount));
+    const sum = lines.reduce((a, b) => a + b, 0);
+    const sub = cents(e.subtotal), tax = cents(e.tax_total), tot = cents(e.total);
+    return { sum, sub, tax, tot, subOk: e.subtotal !== "" && sum === sub, totOk: e.total !== "" && sub + tax === tot };
+  }
+  function manualProblems(e, files) {
+    const p = [];
+    if (!files.length) p.push("Attach the screenshot or re-saved file you are keying from");
+    if (!e.vendor_name.trim()) p.push("Vendor name is required");
+    if (!e.invoice_no.trim()) p.push("Invoice number is required");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date || "")) p.push("Invoice date is required");
+    if (!e.lines.some((l) => l.desc.trim() && l.amount !== "")) p.push("Add at least one line with a description and an amount");
+    e.lines.forEach((l, i) => { if ((l.desc.trim() || l.amount !== "") && (!l.desc.trim() || !/^-?\d+(\.\d{1,2})?$/.test(String(l.amount).replace(/[$,]/g, "")))) p.push(`Line ${i + 1} needs a description and an amount like 1234.56`); });
+    const t = tieOut(e);
+    if (!t.subOk) p.push(`The lines add to ${money(t.sum)}, but the subtotal is ${e.subtotal === "" ? "empty" : money(t.sub)}`);
+    if (!t.totOk) p.push(`Subtotal plus tax is ${money(t.sub + t.tax)}, but the total is ${e.total === "" ? "empty" : money(t.tot)}`);
+    if ((e.reason || "").trim().length < 10) p.push("Say why this invoice is keyed by hand (at least 10 characters)");
+    return p;
+  }
+  /** The entry exactly as the server and the audit trail see it. */
+  function entryForServer(m) {
+    const e = m.entry;
+    return { ...e, lines: e.lines.filter((l) => l.desc.trim() || l.amount !== "").map(({ desc, qty, rate, amount }) => ({ desc, qty: qty || "1", rate, amount })),
+      keyed_by: { id: m.by.id, name: m.by.name, role: m.by.role }, keyed_at: m.at,
+      checked_by: m.checked ? { id: m.checked.by.id, name: m.checked.by.name, role: m.checked.by.role } : null,
+      evidence: m.evidence.map(fileMeta) };
+  }
+
+  function viewManual(d) {
+    if (!d) return notFound("That invoice");
+    const back = `<nav class="record-nav" aria-label="Record navigation"><a href="#/invoices/${esc(d.id)}" class="back-link">← Back to the invoice</a><span class="crumb-id">${esc(d.id)}</span></nav>`;
+    const m = manualState(d);
+    if (keyedByHand(d) || (!canKey(d) && !m)) {
+      return `${back}${head("Enter by hand", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>${keyedByHand(d) ? "This invoice was already keyed by hand" : "This invoice does not need manual entry"}</h2>
+        <p>Manual entry is for held files Penny could not read, or bills in a layout it does not know. ${keyedByHand(d) ? "Penny has checked the keyed record." : "Penny read this one itself."}</p></div></section>`;
+    }
+    if (MAN.doc !== d.id) { MAN.doc = d.id; MAN.editing = false; MAN.files = []; MAN.entry = null; MAN.error = ""; }
+    if (!m && can("resolve") && !MAN.editing) startManual(d, false);
+    const why = d.cur.reasons && d.cur.reasons[0] ? parseReason(d.cur.reasons[0]).text : "";
+    const demo = !SERVER ? `<div class="mode-banner mode-demo" role="note"><b>Keying and the second check work here.</b> Checking the keyed invoice with Penny and saving it for the next run need Penny on your computer. <a href="#/help/manual-entry">How it works</a></div>` : "";
+    const steps = [["Key it beside the evidence", !m || MAN.editing ? "now" : "done"], ["Second person checks", !m || MAN.editing ? "" : m.needsCheck ? (m.checked ? "done" : "now") : "skip"],
+      ["Check with Penny", m && !MAN.editing && m.state === "ready" ? "now" : m && m.state === "saved" ? "done" : ""], ["Save for the next run", m && m.state === "saved" ? "done" : ""]];
+    return `${back}
+      ${head(`Enter by hand: ${esc(d.vendor)}`, `${esc(d.file)}. ${esc(why.length > 200 ? why.slice(0, 197) + "…" : why)}`)}
+      ${demo}
+      <ol class="m-steps" aria-label="Steps">${steps.map(([l, st], i) => `<li class="ms-${st || "todo"}"><span class="ms-n">${st === "done" ? bIcon("check") : i + 1}</span>${esc(l)}${st === "skip" ? `<span class="sub">Not needed under ${esc(money(checkLimit()))}</span>` : ""}</li>`).join("")}</ol>
+      <div class="manual-layout">
+        <section class="card m-evidence" aria-labelledby="ev-h"><div class="card-head"><h2 id="ev-h">Evidence</h2><p>What the invoice is keyed from</p></div>
+          <div class="card-body" id="m-evidence">${evidencePanel(d, m)}</div></section>
+        <section class="card m-form" aria-labelledby="mf-h"><div class="card-body" id="m-body">${manualBody(d, m)}</div></section>
+      </div>
+      ${recheckCard(d)}`;
+  }
+  function evidencePanel(d, m) {
+    const files = MAN.editing ? MAN.files : m ? m.evidence : [];
+    const cur = files[MAN.preview] || files[0];
+    return `${MAN.editing ? `<div class="dropzone dz-sm" id="m-drop" tabindex="0" role="button" aria-describedby="m-drop-hint">
+          <p><b>Drop a screenshot or re-saved PDF</b> or <span class="link-like">choose a file</span></p>
+          <p class="hint" id="m-drop-hint">PNG, JPEG or PDF, up to 10 MB, at most 5 files.</p>
+          <input type="file" id="m-files" accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf" multiple hidden></div>` : ""}
+      ${files.length ? `<ul class="m-files">${files.map((f, i) => `<li class="${f.error ? "st-bad" : ""}${i === MAN.preview ? " on" : ""}">
+          ${f.error ? `<span><b>${esc(f.name)}</b><span class="sub form-error">${esc(f.error)}</span></span>` : `<button type="button" class="link-btn" data-m-preview="${i}">${esc(f.name)}</button><span class="sub">${esc(fmtBytes(f.bytes))} · ${esc(f.sha256.slice(0, 12))}</span>`}
+          ${MAN.editing ? `<button type="button" class="icon-btn" data-m-rm="${i}" aria-label="Remove ${esc(f.name)}">×</button>` : ""}</li>`).join("")}</ul>
+        <div class="m-preview" id="m-preview" data-sha="${esc(cur && !cur.error ? cur.sha256 : "")}"><p class="hint">Loading the preview…</p></div>`
+        : `<p class="empty">${MAN.editing ? "No evidence yet. A reviewer must be able to see what you keyed from." : "No evidence attached."}</p>`}
+      ${d.pdf ? `<p class="hint"><a href="${esc(d.pdf)}" target="_blank" rel="noopener">Open the original file</a> (the one Penny could not read). It stays the source document.</p>` : ""}`;
+  }
+  async function paintEvidencePreview() {
+    const box = $("#m-preview");
+    if (!box) return;
+    const sha = box.dataset.sha;
+    const f = sha ? (MAN.files.find((x) => x.sha256 === sha && x.blob) || await getFile(sha)) : null;
+    if (!f || !f.blob) { box.innerHTML = `<p class="hint">${sha ? "This file is not in this browser (it was attached in another browser, or storage was cleared). Its fingerprint is still on record." : ""}</p>`; return; }
+    if (box.dataset.url) URL.revokeObjectURL(box.dataset.url);
+    const url = URL.createObjectURL(f.blob);
+    box.dataset.url = url;
+    box.innerHTML = f.type === "pdf" ? `<iframe src="${esc(url)}" title="Evidence: ${esc(f.name)}"></iframe>` : `<img src="${esc(url)}" alt="Evidence: ${esc(f.name)}">`;
+  }
+  const mField = (key, label, opts = {}) => `<div class="field${opts.cls ? " " + opts.cls : ""}"><label for="m-${key}">${esc(label)}${opts.optional ? " (optional)" : ""}</label>
+    <input id="m-${key}" class="text-input" data-m="${key}" type="${opts.type || "text"}" value="${esc(MAN.entry[key] ?? "")}" ${opts.list ? `list="${opts.list}"` : ""} ${opts.attrs || ""} autocomplete="off"></div>`;
+  function tieBox() {
+    const t = tieOut(MAN.entry);
+    const row = (ok, text) => `<li class="${ok ? "ok" : "bad"}">${bIcon(ok ? "check" : "alert")}${esc(text)}</li>`;
+    return `<ul class="tie">${row(t.subOk, `Lines add to ${money(t.sum)}${MAN.entry.subtotal === "" ? "" : t.subOk ? ", same as the subtotal" : `, but the subtotal is ${money(t.sub)}`}`)}
+      ${row(t.totOk, `Subtotal plus tax is ${money(t.sub + t.tax)}${MAN.entry.total === "" ? "" : t.totOk ? ", same as the total" : `, but the total is ${money(t.tot)}`}`)}
+      ${Math.abs(t.tot) > checkLimit() ? `<li class="info">${bIcon("clock")}Over ${esc(money(checkLimit()))}: a second person will key the invoice number and total again.</li>` : ""}</ul>`;
+  }
+  function manualForm() {
+    const e = MAN.entry;
+    const vendors = [...new Set(X.docs.filter((x) => x.vendorKnown).map((x) => x.vendor))].sort();
+    const terms = Object.keys(RULES().terms_days || {});
+    return `<h2 id="mf-h">Key the invoice</h2>
+      <p class="hint">Type exactly what the document says. Penny checks the vendor, PO, coding, dates and approvals from this, the same way it checks a PDF it reads itself.</p>
+      <datalist id="m-vendors">${vendors.map((v) => `<option value="${esc(v)}">`).join("")}</datalist>
+      <div class="m-grid">
+        <div class="field"><label for="m-kind">Document type</label><select id="m-kind" data-m="kind"><option value="invoice"${e.kind === "invoice" ? " selected" : ""}>Invoice</option><option value="credit_memo"${e.kind === "credit_memo" ? " selected" : ""}>Credit memo</option></select></div>
+        ${mField("vendor_name", "Vendor name", { list: "m-vendors", cls: "span2" })}
+        ${mField("invoice_no", "Invoice number", { attrs: 'maxlength="40"' })}
+        ${mField("date", "Invoice date", { type: "date" })}
+        <div class="field"><label for="m-terms">Terms</label><select id="m-terms" data-m="terms"><option value="">Not shown</option>${terms.map((t) => `<option${t === e.terms ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+        ${mField("customer_ref", "PO or customer reference", { optional: true })}
+        ${mField("bill_to", "Bill to", { cls: "span2" })}
+        ${mField("ship_to", "Ship to or property", { optional: true, cls: "span2" })}
+        ${mField("remit_address", "Remit-to address", { optional: true, cls: "span2" })}
+        ${e.kind === "credit_memo" ? mField("credit_original_invoice", "Original invoice it credits", { optional: true }) : ""}
+      </div>
+      <h3 class="sub-h">Line items</h3>
+      <div class="m-lines" role="group" aria-label="Line items">
+        <div class="m-line m-line-head" aria-hidden="true"><span>Description</span><span>Qty</span><span>Rate</span><span>Amount</span><span></span></div>
+        ${e.lines.map((l, i) => `<div class="m-line">
+          <input class="text-input" data-lf="desc" data-i="${i}" value="${esc(l.desc)}" aria-label="Line ${i + 1} description">
+          <input class="text-input num-in" data-lf="qty" data-i="${i}" value="${esc(l.qty)}" inputmode="decimal" aria-label="Line ${i + 1} quantity">
+          <input class="text-input num-in" data-lf="rate" data-i="${i}" value="${esc(l.rate)}" inputmode="decimal" aria-label="Line ${i + 1} rate">
+          <input class="text-input num-in" data-lf="amount" data-i="${i}" value="${esc(l.amount)}" inputmode="decimal" aria-label="Line ${i + 1} amount">
+          <button type="button" class="icon-btn" data-m-line-rm="${i}" aria-label="Remove line ${i + 1}" ${e.lines.length === 1 ? "disabled" : ""}>×</button></div>`).join("")}
+        <button type="button" class="btn btn-sm" data-m-line-add>Add a line</button>
+      </div>
+      <div class="m-grid m-totals">
+        ${mField("subtotal", "Subtotal", { attrs: 'inputmode="decimal"' })}${mField("tax_total", "Tax", { attrs: 'inputmode="decimal"' })}${mField("total", "Total", { attrs: 'inputmode="decimal"' })}
+      </div>
+      <div id="m-tie">${tieBox()}</div>
+      <label class="check-line"><input type="checkbox" data-m="payment_change"${e.payment_change ? " checked" : ""}> The document mentions new bank or payment details (Penny sends it to Treasury)</label>
+      ${e.kind === "invoice" ? `<label class="check-line"><input type="checkbox" data-m="lien_waiver_attached"${e.lien_waiver_attached ? " checked" : ""}> A lien waiver is attached</label>` : ""}
+      <div class="field"><label for="m-reason">Why is it keyed by hand?</label><textarea id="m-reason" data-m="reason" maxlength="300" placeholder="For example: vendor's statement layout; Penny cannot read it. Keyed from the PDF opened in Preview.">${esc(e.reason)}</textarea>
+        <span class="hint">Saved to the audit trail with your name and the time.</span></div>
+      ${MAN.error ? `<div class="auth-error" role="alert">${MAN.error}</div>` : ""}
+      <div class="nb-actions"><button class="btn btn-accent btn-lg" type="button" id="m-save">Save entry</button>${S.manual[MAN.doc] ? `<button class="btn" type="button" id="m-cancel">Cancel changes</button>` : ""}</div>`;
+  }
+  function entrySummary(e) {
+    const row = (l, v) => v ? `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>` : "";
+    return `<dl class="m-summary">${row("Document type", e.kind === "credit_memo" ? "Credit memo" : "Invoice")}${row("Vendor", e.vendor_name)}${row("Invoice number", e.invoice_no)}
+      ${row("Invoice date", fmtDate(e.date))}${row("Terms", e.terms)}${row("PO or reference", e.customer_ref)}${row("Bill to", e.bill_to)}${row("Ship to", e.ship_to)}
+      ${row("Total", money(cents(e.total)))}${row("Mentions new payment details", e.payment_change ? "Yes" : "")}</dl>
+      <table class="data m-lines-table"><thead><tr><th scope="col">Description</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th></tr></thead>
+      <tbody>${e.lines.filter((l) => l.desc || l.amount).map((l) => `<tr><td>${esc(l.desc)}</td><td class="num">${esc(l.qty)}</td><td class="num">${esc(l.rate)}</td><td class="num">${esc(money(cents(l.amount)))}</td></tr>`).join("")}</tbody></table>
+      ${e.reason ? `<div class="activity"><p class="a-note">${esc(e.reason)}</p></div>` : ""}`;
+  }
+  function manualBody(d, m) {
+    if (MAN.editing && can("resolve")) return manualForm();
+    if (!m) return `<h2 id="mf-h">Not keyed yet</h2><p>An AP Clerk or Admin can key this invoice. Sign in as Avery Chen or Sam Rivera to try it.</p>`;
+    const mine = user && m.by.id === user.id;
+    const keyedLine = `<p class="hint">Keyed by ${esc(m.by.name)} (${esc(ROLES[m.by.role].name)}), ${esc(fmtDateTime(m.at))}.</p>`;
+    if ((m.state === "check" || m.state === "mismatch") && !mine && can("resolve")) {
+      return `<h2 id="mf-h">Second check: key it again</h2>
+        <p>Look at the evidence and type the invoice number and total yourself. You cannot see what ${esc(m.by.name)} keyed; Penny compares the two.</p>
+        ${m.state === "mismatch" ? `<p class="form-warn">The last check did not match. Look again carefully, or ask ${esc(m.by.name)} to fix the entry.</p>` : ""}
+        <form id="m-check" class="m-grid" autocomplete="off" onsubmit="return false">
+          <div class="field"><label for="mc-no">Invoice number</label><input id="mc-no" class="text-input" name="invoice_no" maxlength="40" required></div>
+          <div class="field"><label for="mc-total">Total</label><input id="mc-total" class="text-input" name="total" inputmode="decimal" required></div>
+          <div class="nb-actions span2"><button class="btn btn-accent" type="submit">Compare</button></div>
+        </form>${keyedLine}`;
+    }
+    const st = MANUAL_STATE[m.state];
+    const lastCheck = m.last ? `<p class="${m.last.match ? "hint" : "form-warn"}">${m.last.match ? `${esc(m.last.by.name)} keyed the invoice number and total again on ${esc(fmtDateTime(m.last.at))}. Both matched.`
+      : `${esc(m.last.by.name)} keyed invoice <b>${esc(m.last.invoice_no)}</b> and total <b>${esc(money(cents(m.last.total)))}</b>, which does not match this entry. ${mine ? "Check the evidence and fix the entry, or ask them to check again." : ""}`}</p>` : "";
+    const actions = [];
+    if (m.state === "ready") {
+      actions.push(`<button class="btn" type="button" id="m-penny">Check with Penny</button>`, `<button class="btn btn-accent" type="button" id="m-store">Save for the next run</button>`);
+    }
+    if (m.state === "saved") actions.push(`<a class="btn btn-accent" href="#/batch">Go to New batch</a>`);
+    if (m.state !== "saved" && mine && can("resolve")) actions.push(`<button class="btn" type="button" id="m-edit">Edit the entry</button>`);
+    return `<h2 id="mf-h">${esc(st[0])}</h2>
+      ${m.state === "check" ? `<p>The total is over ${esc(money(checkLimit()))}, so a different AP Clerk or Admin must key the invoice number and total again from the evidence. ${mine ? "Sign in as someone else to try it." : ""}</p>` : ""}
+      ${m.state === "ready" ? `<p>Check it with Penny to see the decision, then save it for the next run. ${m.needsCheck ? "" : `It is under ${esc(money(checkLimit()))}, so one person and a reason are enough.`}</p>` : ""}
+      ${m.state === "saved" ? `<p>Saved to <code>${esc(m.saved.folder)}</code> with the original file and the evidence. An Admin previews or runs that batch from <a href="#/batch">New batch</a>, and Penny uses the keyed record in place of reading the file.</p>` : ""}
+      ${lastCheck}
+      ${entrySummary(m.entry)}
+      ${keyedLine}
+      ${actions.length ? `<div class="nb-actions">${actions.join("")}</div>` : ""}`;
+  }
+  function paintManual() {
+    const d = X.docById[MAN.doc];
+    if (!d || !$("#m-body")) return;
+    $("#m-body").innerHTML = manualBody(d, manualState(d));
+    $("#m-evidence").innerHTML = evidencePanel(d, manualState(d));
+    paintEvidencePreview();
+  }
+  async function addEvidence(list) {
+    const room = 5 - MAN.files.length;
+    if (room <= 0) { toast("At most 5 evidence files."); return; }
+    const picked = Array.from(list).slice(0, room);
+    const out = await Promise.all(picked.map(readEvidence));
+    for (const f of out) {
+      if (!f.error && MAN.files.some((x) => x.sha256 === f.sha256)) f.error = "Same file added twice";
+      MAN.files.push(f);
+    }
+    MAN.preview = Math.max(0, MAN.files.findIndex((f) => !f.error));
+    const d = X.docById[MAN.doc];
+    $("#m-evidence").innerHTML = evidencePanel(d, manualState(d));
+    paintEvidencePreview();
+  }
+  const blobToBase64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+  function bindManual(id) {
+    const d = X.docById[id];
+    paintEvidencePreview();
+    const main = $("#main");
+    if (main.dataset.manualBound) return;
+    main.dataset.manualBound = "1";
+    const onPage = () => !!$("#m-body");
+    const set = (key, v) => {
+      const e = MAN.entry;
+      e[key] = v;
+      if (key === "subtotal") e.auto_subtotal = false;
+      if (key === "total") e.auto_total = false;
+    };
+    const recalc = () => {
+      const e = MAN.entry;
+      const t = tieOut(e);
+      if (e.auto_subtotal && e.lines.some((l) => l.amount !== "")) { e.subtotal = c2s(t.sum); const el = $("#m-subtotal"); if (el) el.value = e.subtotal; }
+      if (e.auto_total && e.subtotal !== "") { e.total = c2s(cents(e.subtotal) + cents(e.tax_total)); const el = $("#m-total"); if (el) el.value = e.total; }
+      const box = $("#m-tie"); if (box) box.innerHTML = tieBox();
+    };
+    main.addEventListener("input", (ev) => {
+      if (!onPage() || !MAN.editing) return;
+      const t = ev.target;
+      if (t.dataset.lf) {
+        const l = MAN.entry.lines[+t.dataset.i];
+        l[t.dataset.lf] = t.value;
+        if (t.dataset.lf === "amount") l.auto = false;
+        if ((t.dataset.lf === "qty" || t.dataset.lf === "rate") && l.auto) {
+          const q = Number(String(l.qty).replace(/,/g, "")), r = Number(String(l.rate).replace(/[$,]/g, ""));
+          if (Number.isFinite(q) && Number.isFinite(r) && l.qty !== "" && l.rate !== "") { l.amount = (Math.round(q * r * 100) / 100).toFixed(2); const el = $(`[data-lf="amount"][data-i="${t.dataset.i}"]`); if (el) el.value = l.amount; }
+        }
+        recalc();
+      } else if (t.dataset.m && t.type !== "checkbox" && t.tagName !== "SELECT") { set(t.dataset.m, t.value); if (["subtotal", "tax_total", "total"].includes(t.dataset.m)) recalc(); }
+    });
+    main.addEventListener("change", (ev) => {
+      if (!onPage()) return;
+      const t = ev.target;
+      if (t.id === "m-files") { addEvidence(t.files); t.value = ""; return; }
+      if (!MAN.editing || !t.dataset.m) return;
+      if (t.type === "checkbox") set(t.dataset.m, t.checked);
+      else if (t.tagName === "SELECT") { set(t.dataset.m, t.value); if (t.dataset.m === "kind") $("#m-body").innerHTML = manualForm(); }
+    });
+    main.addEventListener("click", async (ev) => {
+      if (!onPage()) return;
+      const t = ev.target;
+      const doc = X.docById[MAN.doc];
+      const pv = t.closest("[data-m-preview]");
+      if (pv) { MAN.preview = +pv.dataset.mPreview; $("#m-evidence").innerHTML = evidencePanel(doc, manualState(doc)); paintEvidencePreview(); return; }
+      const rm = t.closest("[data-m-rm]");
+      if (rm) { MAN.files.splice(+rm.dataset.mRm, 1); MAN.preview = 0; $("#m-evidence").innerHTML = evidencePanel(doc, manualState(doc)); paintEvidencePreview(); return; }
+      if (t.closest("#m-drop")) { $("#m-files").click(); return; }
+      if (t.closest("[data-m-line-add]")) { MAN.entry.lines.push(blankLine()); $("#m-body").innerHTML = manualForm(); const n = $$("[data-lf=desc]"); n[n.length - 1].focus(); return; }
+      const lr = t.closest("[data-m-line-rm]");
+      if (lr) { MAN.entry.lines.splice(+lr.dataset.mLineRm, 1); $("#m-body").innerHTML = manualForm(); recalc(); return; }
+      if (t.closest("#m-edit")) { startManual(doc, true); render(); return; }
+      if (t.closest("#m-cancel")) { MAN.editing = false; render(); return; }
+      if (t.closest("#m-save")) {
+        const files = MAN.files.filter((f) => !f.error);
+        const p = manualProblems(MAN.entry, files);
+        if (MAN.files.some((f) => f.error)) p.unshift("Remove the evidence files that cannot be used");
+        if (p.length) { MAN.error = `<strong>Fix this before saving:</strong><ul class="notes">${p.map((x) => `<li>${esc(x)}.</li>`).join("")}</ul>`; $("#m-body").innerHTML = manualForm(); $(".auth-error").scrollIntoView({ block: "center" }); return; }
+        const { auto_subtotal, auto_total, ...entry } = MAN.entry;
+        entry.lines = entry.lines.filter((l) => l.desc.trim() || l.amount !== "").map(({ desc, qty, rate, amount }) => ({ desc: desc.trim(), qty: qty || "1", rate, amount }));
+        const redo = !!S.manual[doc.id];
+        const over = Math.abs(cents(entry.total)) > checkLimit();
+        if (record("manual.keyed", { doc: doc.id, entry, evidence: files.map(fileMeta), note: entry.reason.trim(),
+          before: redo ? "Keyed before" : "Not keyed", after: over ? "Waiting for a second check" : "Ready to check with Penny" })) {
+          await keepFiles(files.filter((f) => f.blob));
+          MAN.editing = false; MAN.error = ""; delete RC[doc.id];
+          render(); toast(over ? "Entry saved. A different person must now check it." : "Entry saved.");
+        }
+        return;
+      }
+      if (t.closest("#m-penny")) {
+        if (!engineReady()) return needsEngine("Checking with Penny");
+        runRecheck(doc.id, "keyed", { entry: entryForServer(manualState(doc)) });
+        return;
+      }
+      if (t.closest("#m-store")) {
+        if (!engineReady()) return needsEngine("Saving for the next run");
+        const m = manualState(doc);
+        const btn = t.closest("#m-store");
+        btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          const evidence = [];
+          for (const f of m.evidence) {
+            const got = await getFile(f.sha256);
+            if (!got || !got.blob) throw new Error(`${f.name} is not in this browser any more, so it cannot be sent. Edit the entry and attach it again.`);
+            evidence.push({ name: f.name, data: await blobToBase64(got.blob) });
+          }
+          const id2 = newId();
+          const res = await api("api/manual", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user: { id: user.id, name: user.name, role: user.role }, run_id: doc.cur.run_id, doc_id: doc.id, entry: entryForServer(m), evidence, date: today(), event_id: id2 }) });
+          record("manual.saved", { id: id2, doc: doc.id, batch: res.batch, folder: res.folder, before: "Ready", after: `Saved to ${res.folder}` });
+          try { await reloadData(); } catch (e) { /* shown on the next load */ }
+          render(); toast(`Saved to ${res.folder}. An Admin can run it from New batch.`);
+        } catch (e) {
+          btn.disabled = false; btn.textContent = "Save for the next run";
+          openDialog("The entry was not saved", esc(e.message), "", "", () => "", { info: true });
+        }
+      }
+    });
+    main.addEventListener("submit", (ev) => {
+      if (!onPage() || ev.target.id !== "m-check") return;
+      ev.preventDefault();
+      const doc = X.docById[MAN.doc];
+      const m = manualState(doc);
+      const fd = new FormData(ev.target);
+      const no = String(fd.get("invoice_no") || "").trim(), tot = String(fd.get("total") || "").replace(/[$,\s]/g, "");
+      if (!no || !/^-?\d+(\.\d{1,2})?$/.test(tot)) { toast("Type the invoice number and a total like 1234.56."); return; }
+      if (m.by.id === user.id) { toast("You keyed this entry. A different person must check it."); return; }
+      const match = normNo(no) === normNo(m.entry.invoice_no) && cents(tot) === cents(m.entry.total);
+      if (record("manual.check", { doc: doc.id, entry_id: m.id, invoice_no: no, total: tot, match, before: "Waiting for a second check", after: match ? "Matched" : "Did not match" })) {
+        render(); toast(match ? "Both match. The entry is ready to check with Penny." : "It does not match. The entry stays on hold until it is fixed or checked again.");
+      }
+    });
+    main.addEventListener("dragover", (ev) => { const z = ev.target.closest("#m-drop"); if (z) { ev.preventDefault(); z.classList.add("drag"); } });
+    main.addEventListener("dragleave", (ev) => { const z = ev.target.closest("#m-drop"); if (z) z.classList.remove("drag"); });
+    main.addEventListener("drop", (ev) => { const z = ev.target.closest("#m-drop"); if (z) { ev.preventDefault(); z.classList.remove("drag"); addEvidence(ev.dataTransfer.files); } });
+    main.addEventListener("keydown", (ev) => { if (ev.target.id === "m-drop" && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); $("#m-files").click(); } });
+  }
+
+  // ------------------------------------------------------------------ urgency (v1.5)
+  /* My work puts the most urgent holds first: a blocker past its target date, then a bill past or near its due date
+     (bill date plus payment terms from Rules), then how long it has been held. Each row says why it is where it is. */
+  function addDays(isoDate, n) { const t = Date.parse(`${isoDate}T00:00:00Z`); return isNaN(t) ? "" : new Date(t + n * 86400000).toISOString().slice(0, 10); }
+  function daysBetween(a, b) { const x = Date.parse(`${a}T00:00:00Z`), y = Date.parse(`${b}T00:00:00Z`); return isNaN(x) || isNaN(y) ? 0 : Math.round((y - x) / 86400000); }
+  function billDue(d) {
+    const days = (RULES().terms_days || {})[d.ex.terms_printed || ""];
+    return d.date && Number.isFinite(days) ? addDays(d.date, days) : "";
+  }
+  function urgency(d) {
+    const t = today();
+    let score = 0;
+    const why = [];
+    const next = blockersOf(d).filter((b) => b.status !== "cleared" && b.due).sort((a, b) => (a.due < b.due ? -1 : 1))[0];
+    if (next) {
+      const n = daysBetween(t, next.due);
+      if (n < 0) { score += 1000 + Math.min(-n, 400); why.push({ text: `Blocker ${plural(-n, "day")} overdue`, level: "late" }); }
+      else if (n <= 2) { score += 600 - n * 50; why.push({ text: n === 0 ? "Blocker due today" : `Blocker due in ${plural(n, "day")}`, level: "soon" }); }
+    }
+    const due = billDue(d);
+    if (due) {
+      const n = daysBetween(t, due);
+      if (n < 0) { score += 300 + Math.min(-n, 200); why.push({ text: `Bill ${plural(-n, "day")} past due`, level: "late" }); }
+      else if (n <= 7) { score += 250 - n * 10; why.push({ text: n === 0 ? "Bill due today" : `Bill due in ${plural(n, "day")}`, level: "soon" }); }
+      else score += Math.max(0, 120 - n);
+    }
+    const run = X.runById[d.cur.run_id];
+    // Older runs did not record when they ran; then the age is counted from the bill date, and the tag says so.
+    const ran = run && run.started_at && !isNaN(new Date(run.started_at)) ? todayIn(tz(), new Date(run.started_at)) : "";
+    const since = ran || d.date;
+    const age = since ? Math.max(0, daysBetween(since, t)) : 0;
+    score += Math.min(age, 90) + Math.abs(d.amount) / 1e8;
+    if (age && why.length < 2) why.push({ text: ran ? `Held ${plural(age, "day")}` : `${plural(age, "day")} since the bill date`, level: "" });
+    return { score, why: why.slice(0, 2), due };
+  }
+  const urgencyTags = (d) => { const u = urgency(d); return u.why.length ? `<div class="urgency">${u.why.map((w) => `<span class="due-tag ${w.level}">${esc(w.text)}</span>`).join("")}</div>` : ""; };
 
   // ------------------------------------------------------------------ suggested fixes
   /* Penny suggests ready-made resolutions for a held invoice. They come from how people resolved the same kind of hold
@@ -990,13 +1713,18 @@
     return n.length < min ? `Please write at least ${min} characters, so the next person knows why.` : "";
   }
 
-  function doAction(act, id) {
+  function doAction(act, id, data = {}) {
     const d = X.docById[id];
     if (!d) return;
     const done = (msg) => { render(); toast(msg); };
+    if (act === "blocker" || act === "blocker-clear" || act === "blocker-reopen") return blockerDialog(id, data.code, act === "blocker" ? "update" : act.slice(8));
+    if (act === "recheck") return recheckDialog(id);
     if (act === "resolve") {
+      const bs = blockerSummary(d);
+      const open = bs ? bs.total - bs.done : 0;
       openDialog("Resolve this hold", `${esc(d.vendor)} · ${esc(d.billNo || d.id)} · ${esc(money(d.amount))}`,
-        `<div class="choice" role="radiogroup" aria-label="Outcome">
+        `${open && bs.done ? `<p class="form-warn">${plural(open, "blocker")} of ${bs.total} ${open === 1 ? "is" : "are"} still open. You can still resolve the hold; the blockers stay on record as they are.</p>` : ""}
+        <div class="choice" role="radiogroup" aria-label="Outcome">
           <label><input type="radio" name="outcome" value="cleared" checked><b>Fixed: enter it on the next run</b><small>The problem is solved (for example a PO change order is approved). Penny will check it again from scratch.</small></label>
           <label><input type="radio" name="outcome" value="rejected"><b>Reject: return it to the vendor</b><small>Nothing goes into an import file. The vendor must send a corrected document.</small></label>
         </div>${noteField("What did you check or fix?", true, "For example: PM approved change order CO-14 for $2,000.")}`,
@@ -1185,6 +1913,12 @@
       case "rules.revert": return "undid a rule change";
       case "batch.upload": return `uploaded ${plural(e.count || (e.files || []).length, "invoice")} to ${e.folder}`;
       case "batch.run": return `${e.dry_run ? "previewed" : "ran"} batch ${e.batch}`;
+      case "blocker.update": return `updated the ${e.code} blocker: ${e.after}`;
+      case "blocker.clear": return `verified and cleared the ${e.code} blocker${(e.files || []).length ? ` with ${plural(e.files.length, "file")}` : ""}`;
+      case "blocker.reopen": return `reopened the ${e.code} blocker`;
+      case "manual.keyed": return `keyed the invoice by hand (${e.entry.invoice_no}, ${money(cents(e.entry.total))}) from ${plural((e.evidence || []).length, "evidence file")}`;
+      case "manual.check": return e.match ? "checked the manual entry by keying it again: it matched" : "checked the manual entry by keying it again: it did not match";
+      case "manual.saved": return `saved the manual entry to ${e.folder}`;
       default: return EVENT_LABEL[e.type] || e.type;
     }
   }
@@ -1279,6 +2013,7 @@
     cfo_bill_over: ["CFO approval", "Any bill over this needs the CFO.", "money"],
     arithmetic_tolerance: ["Arithmetic tolerance", "Largest difference allowed when checking that the numbers tie out.", "money"],
     coi_grace_days: ["Insurance grace period", "Days after a certificate expires before bills are held.", "days"],
+    manual_entry_check_over: ["Manual entry second check", "Invoices keyed by hand with a total over this are keyed again by a different person before Penny uses them.", "money"],
   };
   function fmtSetting(v, kind) {
     if (kind === "money") return money(cents(v));
@@ -1443,7 +2178,7 @@
           ...(sample ? [`For example, ${sample.label} started ${new Date(sample.started_at).toLocaleString("en-US", { timeZone: validTz(c.after) ? c.after : DEFAULT_TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}.`] : []),
           "No invoice decision changes." ] });
       } else {
-        items.push({ title: describeChange(c), lines: ["Penny applies this on its next run. This preview cannot estimate it from the saved results."] });
+        items.push({ title: describeChange(c), lines: ["Penny applies this on its next run. This quick preview cannot estimate it; use Test on saved invoices for the exact answer."] });
       }
     }
     return items;
@@ -1584,7 +2319,9 @@
       bar.hidden = !changes.length && !errors.length;
       bar.innerHTML = errors.length ? `<div style="flex:1"><strong>Fix this before saving:</strong><ul class="notes">${errors.map((x) => `<li class="form-error">${esc(x)}.</li>`).join("")}</ul></div><button class="btn" type="button" id="rules-discard">Discard changes</button>`
         : `<div style="flex:1;min-width:240px"><strong>${plural(changes.length, "unsaved change")}.</strong> What it would do to the invoices on file:${impactHtml(changes)}</div>
-           <div style="display:flex;gap:8px"><button class="btn" type="button" id="rules-discard">Discard</button><button class="btn btn-accent" type="button" id="rules-save">Save changes</button></div>`;
+           <div class="edit-bar-actions"><button class="btn" type="button" id="rules-sim">Test on saved invoices</button><button class="btn" type="button" id="rules-discard">Discard</button><button class="btn btn-accent" type="button" id="rules-save">Save changes</button></div>`;
+      const sim = $("#rules-sim", bar);
+      if (sim) sim.addEventListener("click", () => simulateRules(sim));
       const disc = $("#rules-discard", bar);
       if (disc) disc.addEventListener("click", () => { ruleDraft = {}; render(); });
       const save = $("#rules-save", bar);
@@ -1595,6 +2332,37 @@
           if (record("rules.update", { changes, note: String(fd.get("note")).trim() })) { ruleDraft = {}; render(); toast(`Saved ${plural(changes.length, "rule change")}.`); }
           return "";
         }));
+  }
+  /** The rule simulator (v1.5): Penny re-decides every saved invoice twice, under the current rules and the draft,
+      on the same saved readings and reference data, and lists exactly what would change. Nothing is saved. */
+  async function simulateRules(btn) {
+    if (!engineReady()) return needsEngine("Testing rule changes");
+    const { changes } = draftChanges();
+    btn.disabled = true; btn.textContent = "Testing…";
+    try {
+      const res = await api("api/simulate", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: { id: user.id, name: user.name, role: user.role }, rules_now: RULES(), rules_draft: ruleDraft.rules }) });
+      track("rules_simulated", { changed: res.changes.length });
+      const lineOf = (c) => {
+        const d = X.docById[c.doc_id], run = X.runById[c.run_id];
+        const ap = (x) => (x.approvers || []).join("; ") || "none";
+        const apChange = JSON.stringify(c.before.approvers) !== JSON.stringify(c.after.approvers);
+        return `<li><div class="sim-doc"><a href="#/invoices/${esc(c.doc_id)}">${esc(d ? `${d.vendor} ${d.billNo}` : c.doc_id)}</a><span class="sub">${esc(run ? run.label : c.run_id)}</span></div>
+          <div class="sim-change">${badge(c.before.decision)}${c.before.codes.map(codeChip).join("")}<span class="arrow" aria-label="becomes">→</span>${badge(c.after.decision)}${c.after.codes.map(codeChip).join("")}</div>
+          ${apChange ? `<p class="hint">Approvals: ${esc(ap(c.before))} → ${esc(ap(c.after))}</p>` : ""}</li>`;
+      };
+      openDialog("What these rule changes would do", `Penny decided ${plural(res.documents, "saved document")} from ${plural(res.runs, "run")} twice, with the current rules and with your draft, using the same readings and reference data.`,
+        `<ul class="impact">${changes.map((c) => `<li>${esc(describeChange(c))}</li>`).join("")}</ul>
+         ${res.changes.length ? `<h3 class="sub-h">${plural(res.changes.length, "document")} would change</h3><ul class="sim-list">${res.changes.map(lineOf).join("")}</ul>`
+           : `<p class="rc-verdict">No saved document would be decided differently.</p>`}
+         ${res.differs_from_saved ? `<p class="form-warn">${plural(res.differs_from_saved, "document")} already decide differently today than when they were saved, because rules or reference data changed since. They are compared on today's footing, so only your draft's effect is listed.</p>` : ""}
+         <p class="hint">Rules ${esc(res.rules_now)} → ${esc(res.rules_draft)} · reference data ${esc(res.data_fingerprint)}. Preview only: nothing was saved, and past decisions stay exactly as Penny made them.</p>`,
+        "", () => "", { info: true, wide: true });
+    } catch (e) {
+      openDialog("Penny could not test these rules", esc(e.message), "", "", () => "", { info: true });
+    } finally {
+      btn.disabled = false; btn.textContent = "Test on saved invoices";
+    }
   }
   function bindRulesEditor() {
     const main = $("#main");
@@ -1845,7 +2613,42 @@
         : `<div class="mode-banner mode-warn" role="note"><b>Uploads work, but Penny cannot run yet.</b> Restart with <code>./penny web --package &lt;package folder&gt;</code> so it can read the reference data.</div>`;
     return `${head("New batch", "Give the batch a name, add the invoice PDFs, then preview it or run it. Every step is recorded in the audit trail.")}
       ${banner}
-      <div class="batch-flow" id="batch-flow">${batchBody()}</div>`;
+      <div class="batch-flow" id="batch-flow">${batchBody()}</div>
+      ${SERVER ? `<section class="card" id="nb-waiting" aria-labelledby="nbw-h" style="margin-top:16px"><div class="card-head"><h2 id="nbw-h">Batches waiting to run</h2><p>Folders in inbox/ not yet run for real, including saved manual entries</p></div>
+        <div class="card-body" id="nb-waiting-body"><p class="hint">Loading…</p></div></section>` : ""}`;
+  }
+  async function loadWaiting() {
+    const box = $("#nb-waiting-body");
+    if (!box) return;
+    try {
+      const { batches } = await api("api/batches");
+      const waiting = batches.filter((b) => !b.events.some((e) => e.event === "batch.run" && !e.dry_run));
+      box.innerHTML = waiting.length ? `<ul class="waiting">${waiting.map((b) => {
+        const made = b.events.find((e) => e.event === "batch.created");
+        const prev = [...b.events].reverse().find((e) => e.event === "batch.run");
+        return `<li><div><b><code>${esc(b.folder)}</code></b>
+            <span class="sub">${plural(b.files.length, "file")}${b.keyed.length ? ` · ${plural(b.keyed.length, "manual entry", "manual entries")}` : ""}${b.evidence.length ? ` · ${plural(b.evidence.length, "evidence file")}` : ""}${made ? ` · created by ${esc(made.by.name)}, ${esc(fmtDateTime(made.at))}` : ""}</span>
+            ${prev ? `<span class="sub">Last preview: <a href="#/runs/${esc(prev.run_id)}">${esc(prev.run_id)}</a>, ${esc(fmtDateTime(prev.at))}</span>` : ""}</div>
+          <div class="nb-actions">${b.files.length ? `<button class="btn btn-sm" data-wait-run="${esc(b.batch)}" data-real="0">Preview</button>${can("run") ? `<button class="btn btn-sm btn-accent" data-wait-run="${esc(b.batch)}" data-real="1">Run for real</button>` : ""}` : `<span class="hint">No PDFs yet</span>`}</div></li>`;
+      }).join("")}</ul>${can("run") ? "" : `<p class="hint">Only an Admin runs a batch for real. You can preview.</p>`}` : `<p class="empty">Nothing is waiting. Every batch in inbox/ has been run.</p>`;
+    } catch (e) { box.innerHTML = `<p class="form-error">${esc(e.message)}</p>`; }
+  }
+  async function runWaiting(btn) {
+    const batch = btn.dataset.waitRun, real = btn.dataset.real === "1" && can("run");
+    $$("[data-wait-run]").forEach((b) => (b.disabled = true));
+    btn.textContent = real ? "Running…" : "Previewing…";
+    try {
+      const id = newId();
+      const ran = await api(`api/batches/${encodeURIComponent(batch)}/run`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: { id: user.id, name: user.name, role: user.role }, dry_run: !real, event_id: id }) });
+      record("batch.run", { id, batch: ran.batch, folder: ran.folder, run_id: ran.run_id, dry_run: ran.dry_run, counts: ran.counts, documents: ran.documents, preflight: ran.preflight });
+      await reloadData();
+      render();
+      toast(`${ran.dry_run ? "Preview" : "Run"} finished: ${ran.run_id}.`, { label: "Open the run", fn: () => (location.hash = `#/runs/${ran.run_id}`) });
+    } catch (e) {
+      openDialog("Penny could not run this batch", esc(e.message), "", "", () => "", { info: true });
+      loadWaiting();
+    }
   }
   function batchBody() {
     if (NB.result || NB.busy) return batchProgress();
@@ -1979,6 +2782,8 @@
     $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
   }
   function bindBatch() {
+    const wait = $("#nb-waiting");
+    if (wait) { loadWaiting(); wait.addEventListener("click", (e) => { const b = e.target.closest("[data-wait-run]"); if (b) runWaiting(b); }); }
     const flow = $("#batch-flow");
     if (!flow || flow.dataset.bound) return;
     flow.dataset.bound = "1";
@@ -2090,7 +2895,14 @@
     const tabs = [can("resolve") && ["holds", "Holds to resolve", w.holds.length], can("approve") && ["approvals", "Bills to approve", w.approvals.length]].filter(Boolean);
     const tab = tabs.find((t) => t[0] === q.get("tab")) ? q.get("tab") : tabs[0][0];
     let body;
-    if (tab === "holds") {
+    const order = q.get("order") === "team" ? "team" : "urgent";
+    if (tab === "holds" && order === "urgent") {
+      const rows = w.holds.map((d) => [urgency(d).score, d]).sort((a, b) => b[0] - a[0]).map((x) => x[1]);
+      body = rows.length ? `<section class="card"><div class="team-head"><h2>Most urgent first</h2><span>${plural(rows.length, "hold")} · ${esc(amountLabel(rows))}</span></div>
+          <p class="hint queue-why">Overdue blockers come first, then bills past or near their due date (bill date plus terms), then the oldest holds. Each row says why.</p>
+          ${docTable(rows, { route: true, suggest: true, urgent: true })}</section>`
+        : `<section class="card"><div class="empty-state">${ICON.check}<h2>No open holds</h2><p>Every hold has been resolved. Nice work.</p></div></section>`;
+    } else if (tab === "holds") {
       const teams = {};
       w.holds.forEach((d) => { const t = routesFor(d.codes, d.id)[0] || "Unassigned"; (teams[t] = teams[t] || []).push(d); });
       body = w.holds.length ? Object.entries(teams).sort((a, b) => b[1].length - a[1].length).map(([t, rows]) =>
@@ -2103,8 +2915,10 @@
     }
     const mine = EV.filter((e) => e.user.id === user.id).slice(-6).reverse();
     return `${head("My work", `${esc(user.name)}, here is what is waiting on you as ${esc(article(ROLES[user.role].name))}.`)}
-      ${tabs.length > 1 ? `<div class="segmented queue-tabs" role="group" aria-label="Queue">${tabs.map(([k, l, n]) =>
+      <div class="queue-bar">${tabs.length > 1 ? `<div class="segmented queue-tabs" role="group" aria-label="Queue">${tabs.map(([k, l, n]) =>
         `<button data-tab="${k}" aria-pressed="${k === tab}">${esc(l)}<span class="count">${n}</span></button>`).join("")}</div>` : ""}
+        ${tab === "holds" && w.holds.length ? `<div class="segmented queue-order" role="group" aria-label="Order">${[["urgent", "Most urgent"], ["team", "By team"]].map(([k, l]) =>
+          `<button data-order="${k}" aria-pressed="${k === order}">${esc(l)}</button>`).join("")}</div>` : ""}</div>
       ${body}
       ${mine.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>Your recent actions</h2><a href="#/audit?who=${esc(user.id)}">Full audit trail</a></div><div class="card-body">${activityList(mine)}</div></section>` : ""}`;
   }
@@ -2145,6 +2959,10 @@
     if (e.type === "batch.run_failed") return `${e.dry_run ? "Preview" : "Real run"} ${e.run_id} on ${e.folder} did not finish: ${e.error}`;
     if (e.type === "batch.upload") return `${plural(e.count || (e.files || []).length, "file")} to ${e.folder}${e.bytes ? `, ${fmtBytes(e.bytes)}` : ""}: ${(e.files || []).slice(0, 4).map((f) => f.name).join(", ")}${(e.files || []).length > 4 ? "…" : ""}`;
     if (e.type === "batch.run") return `${e.dry_run ? "Preview" : "Real run"} ${e.run_id} on ${e.folder}: ${plural(e.documents, "document")}, ${Object.entries(e.counts || {}).map(([k, n]) => `${n} ${(STATUS[k] || { short: k }).short.toLowerCase()}`).join(", ")}; pre-flight ${e.preflight}${e.seconds ? `; ${e.seconds} s` : ""}`;
+    if (e.type === "recheck.preview") return `${RC_SOURCE[e.source] || e.source}: ${(STATUS[e.was] || { label: e.was }).label} → ${(STATUS[e.result] || { label: e.result }).label}${(e.codes || []).length ? ` (${e.codes.join(", ")})` : ""}; rules ${e.rules_fingerprint}, data ${e.data_fingerprint}. Preview only.`;
+    if (e.type === "manual.saved" && e.server) return `Keyed by ${(e.keyed_by || {}).name || "?"}${e.checked_by ? `, checked by ${e.checked_by.name}` : ""}; invoice ${e.invoice_no}, total ${money(cents(e.total))}; ${plural((e.evidence || []).length, "evidence file")}; saved to ${e.folder}`;
+    if (e.type === "manual.keyed") return `${e.entry.vendor_name} ${e.entry.invoice_no}, ${money(cents(e.entry.total))}; evidence ${(e.evidence || []).map((f) => `${f.name} (${f.sha256.slice(0, 10)})`).join(", ")}`;
+    if (e.type === "blocker.clear" || e.type === "blocker.update") return `${e.code}: ${e.before} → ${e.after}${(e.files || []).length ? `; files ${e.files.map((f) => `${f.name} (${f.sha256.slice(0, 10)})`).join(", ")}` : ""}`;
     if (e.before !== undefined) return `${e.before} → ${e.after}`;
     return "";
   }
@@ -2196,9 +3014,9 @@
   const HELP = () => window.PENNY_HELP || [];
   const ROLE_ROWS = [
     ["Viewer", "Every run, invoice, check, rule, export and the audit trail.", "Nothing. Read-only for auditors and leaders."],
-    ["AP Clerk", "Everything a Viewer sees, plus a queue of holds by team.", "Resolve, reject, reassign and reopen holds, apply suggested fixes, add notes, upload new batches and run previews."],
+    ["AP Clerk", "Everything a Viewer sees, plus a queue of holds, most urgent first.", "Resolve, reject, reassign and reopen holds, update and clear blockers, recheck invoices, key unreadable invoices by hand and check someone else's entry, apply suggested fixes, add notes, upload new batches and run previews."],
     ["Approver", "Everything a Viewer sees, plus bills waiting for sign-off.", "Approve or send back bills. Add notes."],
-    ["Admin", "Everything, plus usage Insights.", "All of the above, plus run batches for real, and edit every rule with a preview first and undo."],
+    ["Admin", "Everything, plus usage Insights.", "All of the above, plus run batches for real, edit every rule with a preview first and undo, and test rule changes on every saved invoice."],
   ];
   /** Fill the live parts of an article from the same data the app uses. */
   function helpFill(html) {
@@ -2354,6 +3172,7 @@
     else if (a === "runs" && !b) { html = viewRuns(); title = "Run history"; nav = "runs"; }
     else if (a === "runs") { html = viewRun(b, q); title = X.runById[b] ? X.runById[b].label : "Run"; nav = "runs"; after = () => bindRun(b, q); }
     else if (a === "invoices" && !b) { html = viewInvoices(q); title = "Invoices"; nav = "invoices"; after = () => bindInvoices(q); }
+    else if (a === "invoices" && parts[2] === "manual") { html = viewManual(X.docById[b]); title = X.docById[b] ? `Enter by hand: ${X.docById[b].vendor}` : "Enter by hand"; nav = "invoices"; after = () => bindManual(b); }
     else if (a === "invoices") { html = viewInvoice(b, q); title = X.docById[b] ? `${X.docById[b].vendor} ${X.docById[b].billNo}` : "Invoice"; nav = "invoices"; after = () => bindInvoice(b, q); }
     else if (a === "rules") { html = viewRules(); title = "Rules"; nav = "rules"; after = bindRules; }
     else if (a === "exceptions") { html = viewExceptions(); title = "Exceptions"; nav = "exceptions"; }
@@ -2364,7 +3183,13 @@
       html = viewBatch(); title = "New batch"; nav = "batch"; after = bindBatch;
     }
     else if (a === "insights") { html = viewInsights(); title = "Insights"; nav = "insights"; after = bindInsights; }
-    else if (a === "work") { html = viewWork(q); title = "My work"; nav = "work"; after = () => $$(".queue-tabs button").forEach((b) => b.addEventListener("click", () => (location.hash = `#/work?tab=${b.dataset.tab}`))); }
+    else if (a === "work") {
+      html = viewWork(q); title = "My work"; nav = "work";
+      after = () => {
+        $$(".queue-tabs button").forEach((b) => b.addEventListener("click", () => (location.hash = `#/work?tab=${b.dataset.tab}${q.get("order") ? `&order=${q.get("order")}` : ""}`)));
+        $$(".queue-order button").forEach((b) => b.addEventListener("click", () => (location.hash = `#/work?tab=holds&order=${b.dataset.order}`)));
+      };
+    }
     else if (a === "audit") { html = viewAudit(q); title = "Audit trail"; nav = "audit"; after = bindAudit; }
     else if (a === "about") { location.replace("#/help/about"); return; }
     else if (a === "help") { html = viewHelp(b, q); const art = HELP().find((x) => x.slug === b); title = art ? `${art.title} · Help` : "Help center"; nav = "help"; after = bindHelp; }
@@ -2447,7 +3272,9 @@
     document.addEventListener("click", (e) => {
       if (!e.target.closest(".user-menu")) closeUserMenu();
       const act = e.target.closest("[data-act]");
-      if (act) { e.preventDefault(); doAction(act.dataset.act, act.dataset.doc); return; }
+      if (act) { e.preventDefault(); doAction(act.dataset.act, act.dataset.doc, act.dataset); return; }
+      const of = e.target.closest("[data-open-file]");
+      if (of) { e.preventDefault(); openFile(of.dataset.openFile); return; }
       const ap = e.target.closest("[data-apply]");
       if (ap) { e.preventDefault(); applySuggestion(ap.dataset.apply, +ap.dataset.n); return; }
       const sum = e.target.closest("[data-view-summary]");
@@ -2527,6 +3354,7 @@
     PennyAuth.signOut(reason);
     user = null;
     ruleDraft = {};
+    Object.assign(MAN, { doc: null, entry: null, files: [], editing: false, error: "" });
     const dlg = $("#dialog");
     if (dlg.open) dlg.close();
     showLogin(reason);
