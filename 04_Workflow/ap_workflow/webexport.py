@@ -76,7 +76,7 @@ def _label(run_id, batch, seen_before):
     return name + (" rerun" if seen_before else "")
 
 
-def build(runs_dir, cfg_path, out_dir, package=None):
+def build(runs_dir, cfg_path, out_dir, package=None, root=None, batch_log=None):
     runs_dir, out_dir = Path(runs_dir), Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf_dir = out_dir / "pdfs"
@@ -95,6 +95,7 @@ def build(runs_dir, cfg_path, out_dir, package=None):
         runs.append({"id": run_id, "order": order, "label": info.get("label") or _label(run_id, batch, seen_before),
                      "batch": batch, "started_at": info.get("started_at", ""),
                      "dry_run": bool(info.get("dry_run", False)), "rerun": "RERUN" in run_id.upper() or seen_before,
+                     "ran_by": info.get("ran_by"), "batch_dir": info.get("batch_dir", ""),
                      "preflight_failed": (run_dir / "PREFLIGHT_FAILED.txt").exists(), "documents": len(decisions),
                      "files": _copy_run_files(run_dir, out_dir)})
         for d in decisions:
@@ -109,6 +110,8 @@ def build(runs_dir, cfg_path, out_dir, package=None):
                 continue
             pdf = None
             src = Path(package) / batch / d["file"] if package and batch else None
+            if (not src or not src.exists()) and root and info.get("batch_dir"):
+                src = Path(root) / info["batch_dir"] / d["file"]          # a batch uploaded through the web app
             if src and src.exists():
                 pdf_dir.mkdir(exist_ok=True)
                 shutil.copy2(src, pdf_dir / d["file"])
@@ -120,8 +123,11 @@ def build(runs_dir, cfg_path, out_dir, package=None):
             documents[doc_id] = {"id": doc_id, "file": d["file"], "pdf": pdf, "extracted": extracted}
 
     cfg = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
+    log = []
+    if batch_log and Path(batch_log).exists():
+        log = [json.loads(line) for line in Path(batch_log).read_text(encoding="utf-8").splitlines() if line.strip()]
     data = {"generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "runs": runs,
-            "results": results, "documents": documents, "rules": cfg}
+            "results": results, "documents": documents, "rules": cfg, "batch_log": log}
     (out_dir / "penny-data.json").write_text(json.dumps(data, indent=1, default=str), encoding="utf-8")
     return {"runs": len(runs), "documents": len(documents), "results": len(results), "pdfs_copied": copied,
             "pdfs_missing": missing, "path": out_dir / "penny-data.json"}

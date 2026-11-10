@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-10T16:59:25Z",
+ "generated_at": "2026-11-10T17:37:25Z",
  "runs": [
   {
    "id": "run1_batch01",
@@ -236,7 +236,7 @@
      "name": "run_report.md",
      "path": "data/runs/run6_t5_retest/run_report.md",
      "rows": null,
-     "bytes": 494
+     "bytes": 495
     }
    ]
   }
@@ -4723,6 +4723,10 @@
   "legal_bill_to_aliases": {
    "_comment": "Normalized names that count as a Hillpointe legal entity are built from the Entities tab. Add any approved aliases here.",
    "extra": []
+  },
+  "display": {
+   "_comment": "The company's time zone (an IANA name such as America/New_York). The web app shows every time in it, and new batch folders are dated by it. Penny's decisions do not depend on it.",
+   "time_zone": "America/New_York"
   },
   "llm": {
    "enabled_by_default": false,

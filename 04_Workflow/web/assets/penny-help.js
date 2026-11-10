@@ -109,6 +109,51 @@ window.PENNY_HELP = [
 </ol>
 <p>The bill shows <em>Approved</em> once every step is approved, or <em>Sent back</em> if any step was sent back.</p>` },
 
+  { slug: "new-batch", section: "Using the web app", title: "Adding a new batch of invoices",
+    summary: "Name it, add the PDFs, preview or run. Every step is recorded.",
+    html: `
+<p>AP Clerks and Admins can add a batch from <a href="#/batch">New batch</a>.</p>
+<ol>
+  <li><strong>Name the batch.</strong> Type a short name or pick one: weekly-ap, month-end, vendor-resends, corrections. Penny puts today's date in the company time zone in front, so the folder is <code>inbox/2026-11-10_weekly-ap</code>. Dates first means folders sort in order. If the name is already used that day, Penny adds -2, -3 and so on.</li>
+  <li><strong>Add the invoices.</strong> Drag PDFs onto the box, or choose them. Penny checks each file before anything is uploaded: it must really be a PDF, 25 MB or less, and not added twice. A file Penny has already read is flagged, because it would be skipped or stopped as a duplicate.</li>
+  <li><strong>Preview or run.</strong>
+    <ul>
+      <li><strong>Preview</strong> (AP Clerk or Admin): Penny reads every invoice and writes the files, but does not update its register. Use it to see what will happen.</li>
+      <li><strong>Run for real</strong> (Admin only): Penny updates its register, so those bills can never be written to an import file twice.</li>
+    </ul></li>
+</ol>
+<p>When it finishes you see the results and can open the run, or go straight to what needs review.</p>
+<h2>What is recorded</h2>
+<p>Every step is written to <code>state/batch_log.jsonl</code> on the Penny computer, and shown in the <a href="#/audit">Audit trail</a> marked "On disk": who created the batch, who uploaded which files (name, size and a SHA-256 fingerprint that proves the exact file), who ran it, when, the folder, the run ID, preview or real, the results and the pre-flight check. A run that fails is recorded too.</p>
+<div class="help-note"><strong>Where this works.</strong> Reading invoices needs Penny's engine, so batches run only when the web app is started on your computer with <code>./penny web --package &lt;package folder&gt;</code>. On the public demo site you can try every step, and the last one explains what would happen. Nothing is uploaded from the demo.</div>` },
+
+  { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
+    summary: "One click to resolve a hold the way it was resolved before.",
+    html: `
+<p>On a held invoice, AP Clerks and Admins see <strong>Suggested fix</strong>: up to three ready-made resolutions. Choose <strong>Apply</strong> and the hold is resolved with that note in one click. An <strong>Undo</strong> button appears right away.</p>
+<h2>Where suggestions come from</h2>
+<ul>
+  <li><strong>What people did before.</strong> When someone resolves or reassigns a hold, Penny remembers it for that reason. The next invoice held for the same reason gets that fix suggested, with "Learned from 3 past resolutions".</li>
+  <li><strong>The same vendor counts more.</strong> A fix used before for this vendor moves to the top.</li>
+  <li><strong>Fixes that did not hold count less.</strong> If a resolution was later reopened or undone, Penny trusts it less.</li>
+  <li><strong>A built-in playbook</strong> covers each reason before there is any history. For a missing PO it even uses the PO number Penny already spotted as a likely match.</li>
+</ul>
+<p>The most likely fix also appears in <a href="#/work">My work</a>, so you can clear a queue without opening each invoice.</p>
+<div class="help-note"><strong>Guardrail.</strong> A change to payment instructions is how most invoice fraud starts, so it is never cleared in one click. You must confirm that Treasury called the vendor at the number already on file.</div>
+<p>Suggestions only make a person's decision faster. Penny's own decision never changes, and a cleared invoice is still checked from scratch on the next run.</p>` },
+
+  { slug: "insights", section: "Using the web app", title: "Usage insights (Admin)",
+    summary: "How Penny is used, and signals for improving it.",
+    html: `
+<p><a href="#/insights">Insights</a> shows how Penny is being used, so it can be improved over time.</p>
+<ul>
+  <li><strong>Totals:</strong> sessions, screen views, actions taken, how often suggested fixes are accepted, and the typical time from opening a held invoice to resolving it.</li>
+  <li><strong>Signals to improve Penny:</strong> plain suggestions built from the numbers, such as a suggested fix people keep undoing, a search that finds nothing, a help topic people look for but cannot find, or the hold reason that comes up most.</li>
+  <li><strong>Breakdowns:</strong> screens used, actions by kind and role, fixes applied by reason, searches with no results, help articles read, and errors.</li>
+</ul>
+<h2>Privacy</h2>
+<p>Collected: screens opened, actions taken and how long they took, suggestions shown, applied or undone, searches that found nothing, shortcuts, the intro, and errors. Each event has a time and a role, not a person. Never collected: note text, passwords, or anything that identifies a real person. It stays in this browser, and you can turn it off, clear it or download it.</p>` },
+
   { slug: "exceptions-page", section: "Using the web app", title: "The Exceptions guide",
     summary: "Every hold reason, explained, with the invoices it applies to.",
     html: `
@@ -119,14 +164,15 @@ window.PENNY_HELP = [
     summary: "The files each run writes, and what they are not.",
     html: `
 <p>Each run writes files for people to review. Download them from <a href="#/exports">Exports</a>.</p>
-<table class="mini"><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody>
-<tr><td><code>intacct_bill_import.csv</code></td><td>The Sage Intacct bill import. One row per bill line, only for bills that passed every check. A person uploads it in Intacct.</td></tr>
-<tr><td><code>entrata_handoff.csv</code></td><td>One row per Entrata GL for apartment communities. Property Accounting posts it.</td></tr>
-<tr><td><code>exception_log.csv</code></td><td>Every document held or stopped: file, vendor, invoice, amount, codes, reason, route and confidence.</td></tr>
-<tr><td><code>approvals_for_entered_bills.csv</code></td><td>Who must approve each bill in the import file, plus notes to check.</td></tr>
-<tr><td><code>review_workbook.xlsx</code></td><td>All of the above as tabs in one Excel file, with a tab that uses formulas to prove every bill ties to the amount owed.</td></tr>
-<tr><td><code>run_report.md</code></td><td>Counts, every decision, and the Intacct pre-flight result.</td></tr>
+<table class="mini"><thead><tr><th>Name</th><th>What is inside</th><th>For</th></tr></thead><tbody>
+<tr><td><strong>Intacct bill import file</strong><br><code>intacct_bill_import.csv</code></td><td>Bills that passed every check, in Sage Intacct's import format, one row per bill line.</td><td>AP team, to upload to Intacct</td></tr>
+<tr><td><strong>Entrata handoff list</strong><br><code>entrata_handoff.csv</code></td><td>Apartment community bills, one row per Entrata GL.</td><td>Property Accounting</td></tr>
+<tr><td><strong>Invoices needing review</strong><br><code>exception_log.csv</code></td><td>Every invoice held or stopped, with the reason, the team it goes to and Penny's confidence.</td><td>AP Manager and assigned teams</td></tr>
+<tr><td><strong>Approvals needed</strong><br><code>approvals_for_entered_bills.csv</code></td><td>Who must sign off on each bill in the import file. It does not record approvals.</td><td>Approvers</td></tr>
+<tr><td><strong>Review workbook</strong><br><code>review_workbook.xlsx</code></td><td>All of the above as tabs in one Excel file, plus a sheet that checks every bill total with formulas.</td><td>Anyone reviewing a run</td></tr>
+<tr><td><strong>Run summary</strong><br><code>run_report.md</code></td><td>One page with the counts, every decision and the pre-flight check. Choose View to read it on the page.</td><td>Anyone</td></tr>
 </tbody></table>
+<p>Downloads are named so you can tell them apart later, for example "Penny - Batch 01 - Intacct bill import file.csv".</p>
 <div class="help-note"><strong>Generated is not imported.</strong> A bill in an import file still has to be uploaded and approved before it is paid.</div>` },
 
   { slug: "runs", section: "Using the web app", title: "Run history",
@@ -152,13 +198,15 @@ window.PENNY_HELP = [
   { slug: "rules-edit", section: "Using the web app", title: "Changing rules (Admin)",
     summary: "Edit thresholds and routes with a preview, then undo if needed.",
     html: `
-<p>Admins can change thresholds and routes on the <a href="#/rules">Rules</a> page.</p>
+<p>Admins can change every rule on the <a href="#/rules">Rules</a> page: dollar thresholds and tolerances, the team for each exception code, the order codes are ranked in, payment terms, the words Penny looks for (payment-change wording, duplicate stamps, approved bill-to names), the keyword-to-GL rules, one-time and subscription words, posting entities and accounts, whether the AI reader is on, and the company time zone.</p>
 <ol>
-  <li>Change a value. The box turns copper to show it is changed.</li>
+  <li>Change anything. Changed items turn copper. Lists have Add and remove buttons; the code order has up and down arrows.</li>
+  <li>If something is not valid (an empty code, the same word twice, a term without days), Penny says what to fix before you can save.</li>
   <li>Read the preview. It lists which invoices on file would change, for example a hold that a higher PO tolerance would release, or a bill that would now need the CFO.</li>
   <li>Choose <strong>Save changes</strong> and write why. The change goes to the audit trail.</li>
   <li>To reverse it, choose <strong>Undo</strong> in Change history.</li>
 </ol>
+<p><strong>Time zone:</strong> every time in Penny, from the audit trail to run history, is shown in the company time zone, with its short name such as EST. New batch folders are dated by it too. Changing it changes how times read right away; the saved times themselves never change.</p>
 <div class="help-note">Saved rules apply to Penny's <strong>next run</strong>. Past decisions stay exactly as Penny made them. Use <strong>Download rules.json</strong> to take the new settings back to the terminal version.</div>` },
 
   { slug: "search", section: "Using the web app", title: "Search and filters",
@@ -191,7 +239,7 @@ window.PENNY_HELP = [
 <tr><td><code>./penny test</code></td><td>Run the automated checks.</td></tr>
 <tr><td><code>./penny reset</code></td><td>Forget everything and start fresh.</td></tr>
 <tr><td><code>./penny web-export --package &lt;folder&gt;</code></td><td>Package the saved runs and invoice PDFs for this web view.</td></tr>
-<tr><td><code>./penny web</code></td><td>Open this web view on your computer.</td></tr>
+<tr><td><code>./penny web --package &lt;folder&gt;</code></td><td>Open this web app on your computer, with New batch able to upload and run invoices. Without <code>--package</code>, batches can be uploaded but not run.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },
 
@@ -319,6 +367,7 @@ window.PENNY_HELP = [
 <tr><td><code>entrata_gl_keywords</code></td><td>Which Entrata GL a description maps to.</td></tr>
 <tr><td><code>construction</code></td><td>Posting entity, department and retainage account.</td></tr>
 <tr><td><code>terms_days</code></td><td>Days for each payment term.</td></tr>
+<tr><td><code>display.time_zone</code></td><td>The company time zone. Times in the web app and new batch folder dates use it.</td></tr>
 </tbody></table>` },
 
   { slug: "roles", section: "Reference", title: "Roles and permissions",
@@ -373,6 +422,15 @@ window.PENNY_HELP = [
   <li>Everything you type is escaped before it is shown, so a note cannot inject code.</li>
   <li>Downloaded CSV files neutralize spreadsheet formulas.</li>
 </ul>
+<h2>The local server for new batches</h2>
+<ul>
+  <li>It only accepts connections from your own computer.</li>
+  <li>Every write request needs a special header that other websites cannot send, and requests from other sites are refused.</li>
+  <li>Uploads must be real PDFs, 25 MB or less, with safe names that can only land inside the batch folder.</li>
+  <li>A Clerk can preview; only an Admin can run for real. In this demo the server trusts the signed-in demo account; a production server would check the person itself.</li>
+  <li>Every step, including failures, is appended to <code>state/batch_log.jsonl</code> and never rewritten.</li>
+  <li>Uploaded invoices stay in <code>inbox/</code> on your computer and are left out of git, so they are not published by accident.</li>
+</ul>
 <h2>What production would add</h2>
 <ul>
   <li>A server that checks every password and every action, with Argon2id hashing.</li>
@@ -391,6 +449,10 @@ window.PENNY_HELP = [
 <p>No. Clearing marks it ready for Penny's next run. Penny reads the corrected document from scratch and only writes it to an import file if every check passes.</p>
 <h2>Can I break anything?</h2>
 <p>No. Your actions are saved only in your browser. Choose <strong>Reset demo data</strong> from the menu under your name to start over.</p>
+<h2>Can I upload new invoices on the public site?</h2>
+<p>You can try every step, but nothing is uploaded. Reading invoices needs Penny's engine, which runs on your computer with <code>./penny web --package &lt;folder&gt;</code>.</p>
+<h2>Does Penny learn from what I do?</h2>
+<p>Yes, in one specific way: how people resolve holds becomes a suggested fix for the next invoice held for the same reason. It never changes how Penny decides; that stays in tested rules.</p>
 <h2>Why is an amount shown as "Not read"?</h2>
 <p>Penny could not read the numbers from that document, so it does not show a guess.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
@@ -406,6 +468,7 @@ window.PENNY_HELP = [
   <li>Bad or unreadable files are held with a clear reason instead of stopping a run.</li>
   <li>Bills in unfamiliar layouts are described honestly instead of being called "not a bill".</li>
   <li>This web view, with sign-in, roles, real actions, rules editing, an audit trail and this help center.</li>
+  <li>Suggested fixes that learn from how holds were resolved, usage insights, and uploading and running new batches from the browser.</li>
 </ul>
 <p>Each version is documented on its own, so it is always clear what was asked for and what was chosen. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/SCOPE.md" target="_blank" rel="noopener">Read the full scope and version history on GitHub.</a></p>` },
 ];

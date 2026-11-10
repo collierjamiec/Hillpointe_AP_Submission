@@ -1,5 +1,6 @@
 """Regression and edge-case tests. Run:  python -m unittest discover -s tests -v
 (set HILLPOINTE_PACKAGE to the package folder if it is not next to the workflow folder)."""
+import hashlib
 import json
 import os
 import shutil
@@ -455,6 +456,156 @@ class WebExportTests(unittest.TestCase):
             self.assertEqual(data["runs"][0]["started_at"], "2026-11-10T09:00:00-05:00")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+class BatchServerTests(unittest.TestCase):
+    """Uploading and running new batches from the web app (ap_workflow/webserver.py)."""
+    CLERK = {"id": "avery", "name": "Avery Chen", "role": "clerk"}
+    ADMIN = {"id": "sam", "name": "Sam Rivera", "role": "admin"}
+    VIEWER = {"id": "riley", "name": "Riley Brooks", "role": "viewer"}
+
+    def setUp(self):
+        from ap_workflow import webserver
+        self.ws = webserver
+        self.tmp = Path(tempfile.mkdtemp())
+        (self.tmp / "web" / "data").mkdir(parents=True)
+        self.svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        syn.make_invoice(self.tmp / "inv.pdf")
+        self.pdf = (self.tmp / "inv.pdf").read_bytes()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_batch_names_are_dated_readable_and_unique(self):
+        self.assertEqual(self.ws.slugify("Weekly AP run #3"), "weekly-ap-run-3")
+        day = self.svc.today()
+        a = self.svc.create("Weekly AP", self.CLERK, date=day)
+        b = self.svc.create("weekly ap", self.CLERK, date=day)
+        self.assertEqual((a["batch"], b["batch"]), (f"{day}_weekly-ap", f"{day}_weekly-ap-2"))
+        self.assertEqual(a["folder"], f"inbox/{day}_weekly-ap")
+        with self.assertRaises(self.ws.BatchError):
+            self.svc.create("!!", self.CLERK)
+
+    def test_company_time_zone_dates_folders_and_the_log(self):
+        """(added after submission) display.time_zone in rules.json sets folder dates and log times."""
+        from datetime import datetime, timedelta, timezone
+        cfg = json.loads((ROOT / "config" / "rules.json").read_text())
+        cfg["display"]["time_zone"] = "Pacific/Kiritimati"            # UTC+14, so its date often differs from UTC
+        (self.tmp / "rules.json").write_text(json.dumps(cfg))
+        svc = self.ws.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        self.assertEqual(svc.zone().key, "Pacific/Kiritimati")
+        self.assertTrue(svc.now().isoformat().endswith("+14:00"))
+        self.assertEqual(svc.today(), datetime.now(timezone(timedelta(hours=14))).strftime("%Y-%m-%d"))
+        made = svc.create("tz check", self.CLERK)
+        self.assertTrue(made["batch"].startswith(svc.today() + "_"))
+        self.assertTrue(svc.read_log()[-1]["at"].endswith("+14:00"))
+        # A date from the browser is used only when it is real and within a day of now.
+        utc = datetime.now(timezone.utc).date()
+        self.assertEqual(svc.pick_day((utc + timedelta(days=1)).isoformat()), (utc + timedelta(days=1)).isoformat())
+        for bad in ("2001-01-01", "2026-13-40", "../etc", None):
+            self.assertEqual(svc.pick_day(bad), svc.today())
+        # A missing or unknown zone falls back to this computer's own clock instead of failing.
+        cfg["display"]["time_zone"] = "Not/A_Zone"
+        (self.tmp / "rules.json").write_text(json.dumps(cfg))
+        self.assertIsNone(svc.zone())
+        self.assertEqual(svc.today(), datetime.now().strftime("%Y-%m-%d"))
+
+    def test_permissions(self):
+        for who in (self.VIEWER, {"role": "approver"}, None):
+            with self.assertRaises(self.ws.BatchError) as e:
+                self.svc.create("x batch", who)
+            self.assertEqual(e.exception.status, 403)
+        batch = self.svc.create("perm test", self.CLERK)["batch"]
+        self.svc.add_file(batch, "a.pdf", self.pdf, self.CLERK)
+        with self.assertRaises(self.ws.BatchError) as e:
+            self.svc.run(batch, self.CLERK, dry_run=False)          # a clerk may preview, never run for real
+        self.assertEqual(e.exception.status, 403)
+        with self.assertRaises(self.ws.BatchError) as e:
+            self.svc.run(batch, self.ADMIN, dry_run=False)          # no package on this server, so nothing can run
+        self.assertEqual(e.exception.status, 503)
+
+    def test_files_are_checked(self):
+        batch = self.svc.create("files", self.CLERK)["batch"]
+        info = self.svc.add_file(batch, "../../evil/inv 1.pdf", self.pdf, self.CLERK)
+        self.assertEqual(info["name"], "inv_1.pdf")                  # path parts stripped, stays in the batch folder
+        self.assertTrue((self.tmp / "inbox" / batch / "inv_1.pdf").exists())
+        for name, data, words in [("notes.txt", self.pdf, "not a PDF file name"), ("fake.pdf", b"hello", "not really a PDF"),
+                                  ("inv_1.pdf", self.pdf, "already in this batch")]:
+            with self.assertRaises(self.ws.BatchError) as e:
+                self.svc.add_file(batch, name, data, self.CLERK)
+            self.assertIn(words, str(e.exception))
+        with self.assertRaises(self.ws.BatchError):
+            self.svc.folder("../../etc")
+
+    def test_upload_is_logged_with_fingerprints(self):
+        batch = self.svc.create("logged", self.CLERK, event_id="e1")["batch"]
+        self.svc.add_file(batch, "a.pdf", self.pdf, self.CLERK)
+        self.svc.finish_upload(batch, self.CLERK, event_id="e2")
+        log = self.svc.read_log()
+        self.assertEqual([e["event"] for e in log], ["batch.created", "batch.uploaded"])
+        up = log[1]
+        self.assertEqual((up["by"]["name"], up["count"], up["folder"]), ("Avery Chen", 1, f"inbox/{batch}"))
+        self.assertEqual(up["files"][0]["sha256"], hashlib.sha256(self.pdf).hexdigest())
+
+    def test_http_api_refuses_requests_from_other_pages(self):
+        import threading, urllib.request, urllib.error, http.server
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self.ws.make_handler(self.svc, self.tmp / "web"))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{httpd.server_address[1]}"
+        try:
+            def post(path, body, headers):
+                req = urllib.request.Request(base + path, data=body, headers=headers, method="POST")
+                try:
+                    with urllib.request.urlopen(req) as r:
+                        return r.status, json.loads(r.read())
+                except urllib.error.HTTPError as e:
+                    return e.code, json.loads(e.read())
+            body = json.dumps({"name": "api test", "user": self.CLERK}).encode()
+            self.assertEqual(post("/api/batches", body, {"Content-Type": "application/json"})[0], 403)          # no X-Penny header
+            self.assertEqual(post("/api/batches", body, {"X-Penny": "1", "Origin": "https://evil.example"})[0], 403)
+            code, made = post("/api/batches", body, {"X-Penny": "1"})
+            self.assertEqual(code, 201)
+            code, f = post(f"/api/batches/{made['batch']}/files?name=a.pdf", self.pdf, {"X-Penny": "1", "X-Penny-User": json.dumps(self.CLERK)})
+            self.assertEqual((code, f["name"]), (201, "a.pdf"))
+            with urllib.request.urlopen(base + "/api/status") as r:
+                self.assertEqual(json.loads(r.read())["engine"], False)
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    def test_preview_run_end_to_end_without_reference_data(self):
+        """A statement in an unknown layout is decided before any lookup, so the full run path works without the package."""
+        from unittest import mock
+        svc = self.ws.BatchService(self.tmp, self.tmp, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        batch = svc.create("Statements", self.CLERK, date="2026-11-11")["batch"]
+        syn.make_statement(self.tmp / "st.pdf")
+        svc.add_file(batch, "statement.pdf", (self.tmp / "st.pdf").read_bytes(), self.CLERK)
+        svc.finish_upload(batch, self.CLERK)
+        with mock.patch.object(cli, "load_package", return_value=(None, None, None)):
+            ev = svc.run(batch, self.CLERK, dry_run=True, event_id="r1")
+        self.assertEqual((ev["run_id"], ev["documents"], ev["counts"]), ("run1_2026-11-11_statements_PREVIEW", 1, {"HOLD": 1}))
+        info = json.loads((self.tmp / "runs" / ev["run_id"] / "run_info.json").read_text())
+        self.assertEqual((info["ran_by"]["role"], info["batch_dir"], info["dry_run"]), ("clerk", f"inbox/{batch}", True))
+        data = json.loads((self.tmp / "web" / "data" / "penny-data.json").read_text())
+        self.assertEqual(data["runs"][0]["label"], "Statements (2026-11-11) preview")
+        self.assertEqual(data["documents"]["statement"]["pdf"], "data/pdfs/statement.pdf")
+        self.assertEqual(data["batch_log"][-1]["id"], "r1")
+
+    @needs_package
+    def test_preview_run_writes_a_run_and_refreshes_the_web_data(self):
+        svc = self.ws.BatchService(self.tmp, PKG, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        batch = svc.create("preview test", self.CLERK, date="2026-11-10")["batch"]
+        svc.add_file(batch, "inv.pdf", self.pdf, self.CLERK)
+        svc.finish_upload(batch, self.CLERK)
+        ev = svc.run(batch, self.CLERK, dry_run=True)
+        self.assertEqual(ev["run_id"], "run1_2026-11-10_preview-test_PREVIEW")
+        self.assertTrue(ev["dry_run"])
+        self.assertEqual(ev["by"]["name"], "Avery Chen")
+        self.assertFalse((self.tmp / "state" / "processed_register.csv").exists())   # a preview never saves the register
+        data = json.loads((self.tmp / "web" / "data" / "penny-data.json").read_text())
+        self.assertEqual(data["runs"][-1]["batch_dir"], f"inbox/{batch}")
+        self.assertEqual(data["documents"]["inv"]["pdf"], "data/pdfs/inv.pdf")
+        self.assertEqual([e["event"] for e in data["batch_log"]], ["batch.created", "batch.uploaded", "batch.run"])
 
 
 if __name__ == "__main__":

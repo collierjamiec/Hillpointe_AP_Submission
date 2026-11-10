@@ -73,20 +73,22 @@
   const CATEGORY = { construction: "Construction", stabilized: "Stabilized community", corporate: "Corporate" };
   const ROLES = {
     viewer: { name: "Viewer", can: [], blurb: "can see everything and change nothing." },
-    clerk: { name: "AP Clerk", can: ["resolve", "note"], blurb: "can resolve and reassign holds and add notes." },
+    clerk: { name: "AP Clerk", can: ["resolve", "note", "upload"], blurb: "can resolve and reassign holds, add notes, and upload and preview new batches." },
     approver: { name: "Approver", can: ["approve", "note"], blurb: "can approve or send back bills that are ready to import, and add notes." },
-    admin: { name: "Admin", can: ["resolve", "note", "approve", "rules"], blurb: "can do everything, including changing rules." },
+    admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run"], blurb: "can do everything, including changing rules and running batches for real." },
   };
   /** Which permission each kind of event needs. Checked again when the event is recorded (defense in depth). */
   const EVENT_NEEDS = {
     "hold.resolve": "resolve", "hold.reopen": "resolve", "hold.reassign": "resolve",
     "bill.approve": "approve", "bill.sendback": "approve", "note.add": "note",
     "rules.update": "rules", "rules.revert": "rules",
+    "batch.upload": "upload", "batch.run": "upload",
   };
   const EVENT_LABEL = {
     "hold.resolve": "Resolved a hold", "hold.reopen": "Reopened a hold", "hold.reassign": "Reassigned a hold",
     "bill.approve": "Approved a bill", "bill.sendback": "Sent a bill back", "note.add": "Added a note",
     "rules.update": "Changed rules", "rules.revert": "Undid a rule change", "run": "Penny ran a batch",
+    "batch.upload": "Uploaded a batch", "batch.run": "Ran a batch", "batch.created": "Created a batch folder", "batch.uploaded": "Uploaded a batch", "batch.run_failed": "A batch run failed",
   };
 
   // ------------------------------------------------------------------ helpers
@@ -109,15 +111,44 @@
   const USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
   const USD0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   const money = (c) => USD.format(c / 100);
+  /** A total that stays honest when some amounts could not be read: never shows an unread amount as $0.00. */
+  const amountKnown = (d) => !!d.amount || !!(d.ex && d.ex.total !== null && d.ex.total !== undefined && d.ex.total !== "");
+  function amountLabel(list) {
+    const known = list.filter(amountKnown), unknown = list.length - known.length;
+    const total = money(known.reduce((a, d) => a + d.amount, 0));
+    if (!list.length) return money(0);
+    if (!known.length) return unknown === 1 ? "amount unavailable" : "amounts unavailable";
+    return unknown ? `${total} plus ${unknown} not read` : total;
+  }
   const moneyShort = (c) => (Math.abs(c) >= 1000000 ? USD0.format(c / 100) : USD.format(c / 100));
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   function fmtDate(iso) {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
     return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}, ${m[1]}` : "";
   }
+  // Every time is shown in the company time zone (Rules > Time zone, display.time_zone in rules.json), with its short
+  // name, so a reviewer in another city reads the same clock as the AP team. Stored times never change.
+  const DEFAULT_TZ = "America/New_York";
+  const TZ_COMMON = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "UTC"];
+  function validTz(z) {
+    if (!z || typeof z !== "string") return false;
+    try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch (e) { return false; }
+  }
+  function tz() { const z = getPath(RULES(), "display.time_zone"); return validTz(z) ? z : DEFAULT_TZ; }
+  function tzLabel(z) {
+    if (!validTz(z)) return String(z || "");
+    if (z === "UTC") return "Coordinated Universal Time (UTC)";
+    const part = new Intl.DateTimeFormat("en-US", { timeZone: z, timeZoneName: "long" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName");
+    return `${part ? part.value : z} (${z.replace(/_/g, " ")})`;
+  }
+  /** Today's date as YYYY-MM-DD in the company time zone. */
+  function todayIn(z) {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: z, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  }
   function fmtDateTime(iso) {
     const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+    return !iso || isNaN(d) ? "" : d.toLocaleString("en-US", { timeZone: tz(), month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
   }
   const BADGE_ICON = {
     check: '<path d="M4.5 10.5l3.5 3.5 7.5-8"/>',
@@ -263,6 +294,9 @@
     EV.push(ev);
     saveSandbox();
     derive();
+    track("action", { kind: type, code: data.doc && X.docById[data.doc] ? X.docById[data.doc].primary : undefined,
+      seconds: data.doc && openedAt[data.doc] ? Math.round((Date.now() - openedAt[data.doc]) / 1000) : undefined,
+      suggestion: data.suggestion ? data.suggestion.source : undefined });
     return ev;
   }
 
@@ -329,20 +363,42 @@
     el.hidden = !n;
   }
 
-  function toast(msg) {
+  /** A short message. With an action (like Undo) it stays a little longer and the button is keyboard reachable. */
+  function toast(msg, action) {
     let t = $("#toast");
     if (!t) {
       t = document.createElement("div");
       t.id = "toast";
+      t.className = "toast";
       t.setAttribute("role", "status");
-      t.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13.5px;box-shadow:var(--shadow-lg);max-width:calc(100vw - 32px);opacity:0;transition:opacity .15s";
       document.body.appendChild(t);
     }
-    t.textContent = msg;
-    t.style.opacity = "1";
+    t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button" class="toast-btn">${esc(action.label)}</button>` : ""}`;
+    if (action) $(".toast-btn", t).addEventListener("click", () => { t.classList.remove("show"); action.fn(); });
+    t.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => (t.style.opacity = "0"), 2600);
+    toast._t = setTimeout(() => t.classList.remove("show"), action ? 8000 : 2600);
   }
+
+  // ------------------------------------------------------------------ usage insights (local, privacy-safe)
+  /* What is recorded: which screens are used, which actions are taken and how long they took, whether suggestions were
+     shown, applied or undone, searches and help searches that found nothing, shortcuts and errors.
+     What is never recorded: note text, passwords, names typed into forms, or anything that identifies a real person.
+     It stays in this browser, can be turned off, cleared or downloaded, and is shaped so a server could collect the
+     same events later. */
+  const USAGE_KEY = "penny.usage.v1", USAGE_OFF = "penny.usage.off", USAGE_MAX = 3000;
+  const usageOn = () => store.get(USAGE_OFF, "") !== "1";
+  function usageEvents() {
+    try { const j = JSON.parse(store.get(USAGE_KEY, "null")); return j && Array.isArray(j.events) ? j.events : []; } catch (e) { return []; }
+  }
+  function track(type, props = {}) {
+    if (!usageOn()) return;
+    const ev = { t: new Date().toISOString(), type, role: user ? user.role : "signed-out", ...props };
+    const list = usageEvents();
+    list.push(ev);
+    store.set(USAGE_KEY, JSON.stringify({ version: 1, events: list.slice(-USAGE_MAX) }));
+  }
+  const openedAt = {};          // invoice id -> when it was opened, for time-to-decision
 
   // ------------------------------------------------------------------ shared pieces
   function head(title, lede, right = "", crumbs = "") {
@@ -404,7 +460,7 @@
     let focus;
     if (can("resolve")) {
       focus = { kind: "hold", items: open, title: open.length ? `${plural(open.length, "invoice")} need${open.length === 1 ? "s" : ""} your review` : "Nothing needs review",
-        sub: open.length ? `${money(sum(open))} is waiting. Start with the largest; each one shows why it was held and what to do.` : "Every hold has been cleared or rejected. Penny will re-check cleared ones on its next run.",
+        sub: open.length ? `${amountLabel(open)} is waiting. Start with the largest; each one shows why it was held and what to do.` : "Every hold has been cleared or rejected. Penny will re-check cleared ones on its next run.",
         cta: open.length ? { href: `#/invoices/${encodeURIComponent(open[0].id)}`, label: "Start reviewing" } : null };
     } else if (can("approve")) {
       focus = { kind: "approval", items: waiting, title: waiting.length ? `${plural(waiting.length, "bill")} waiting for your sign-off` : "Nothing is waiting for sign-off",
@@ -433,9 +489,9 @@
           : `<div class="empty-state">${ICON.check}<p>You are all caught up.</p></div>`}
       </section>
       <section class="grid kpis" aria-label="Totals across all runs">
-        ${kpi("dot-hold", "Needs review", open.length, `${money(sum(open))} held for a person`, "#/exceptions")}
-        ${kpi("dot-ok", "Ready to import", ready.length, `${money(sum(ready))} in generated files, not uploaded`, "#/exports")}
-        ${kpi("dot-dup", "Duplicates stopped", dups.length, `${money(sum(dups))} not billed twice`, "#/invoices?status=dup")}
+        ${kpi("dot-hold", "Needs review", open.length, `${amountLabel(open)} held for a person`, "#/exceptions")}
+        ${kpi("dot-ok", "Ready to import", ready.length, `${amountLabel(ready)} in generated files, not uploaded`, "#/exports")}
+        ${kpi("dot-dup", "Duplicates stopped", dups.length, `${amountLabel(dups)} not billed twice`, "#/invoices?status=dup")}
         ${kpi("dot-accent", "Resolved by people", resolved.length, can("approve") && !can("resolve") ? `${plural(waiting.length, "bill")} awaiting sign-off` : "in this demo, see the audit trail", "#/audit")}
       </section>
       <div class="proof" role="note">
@@ -491,13 +547,13 @@
           <td><a class="main-link" href="${esc(href)}">${esc(d.vendor)}</a><span class="sub">${esc(d.billNo || "No invoice number")} · ${esc(d.id)}</span></td>
           <td class="hide-sm">${esc(fmtDate(d.date))}</td>
           ${opt.route
-            ? `<td><span class="reason-plain">${esc((CODES[d.primary] || CODES.OTHER).plain)}</span>${d.codes.length > 1 ? `<span class="sub">and ${plural(d.codes.length - 1, "more reason")}</span>` : ""}<span class="sub">Next: ${esc(routes.join("; "))}</span><div class="chips" style="margin-top:4px">${d.codes.map(codeChip).join("")}</div></td>`
+            ? `<td><span class="reason-plain">${esc((CODES[d.primary] || CODES.OTHER).plain)}</span>${d.codes.length > 1 ? `<span class="sub">and ${plural(d.codes.length - 1, "more reason")}</span>` : ""}<span class="sub">Next: ${esc(routes.join("; "))}</span><div class="chips" style="margin-top:4px">${d.codes.map(codeChip).join("")}</div>${opt.suggest ? inlineSuggestion(d) : ""}</td>`
             : `<td>${badge(d.status)}${opt.run ? "" : approvalChip(d)}${d.replacedBy && d.status === "REPLACED" ? `<span class="sub">by ${esc(d.replacedBy.doc)}</span>` :
                 d.codes.length && d.status !== "DUP" ? `<div class="chips" style="margin-top:6px">${d.codes.map(codeChip).join("")}</div>` : ""}</td>`}
           <td class="num">${!d.amount && !(d.ex && d.ex.total) ? `<span class="hint">Not read</span>` : esc(money(d.amount))}</td>
         </tr>`;
       }).join("")}</tbody>
-      ${opt.footer ? `<tfoot><tr class="tfoot"><td>${plural(rows.length, "invoice")}</td><td class="hide-sm"></td><td></td><td class="num">${esc(money(total))}</td></tr></tfoot>` : ""}
+      ${opt.footer ? `<tfoot><tr class="tfoot"><td>${plural(rows.length, "invoice")}</td><td class="hide-sm"></td><td></td><td class="num">${esc(amountLabel(rows))}</td></tr></tfoot>` : ""}
     </table></div>`;
   }
 
@@ -519,7 +575,7 @@
         const firstRun = D.runs.find((o) => o.batch === r.batch);
         return `<a class="card run-card" href="#/runs/${esc(r.id)}">
           <div class="run-card-top">
-            <div><h2>${esc(r.label)}</h2><div class="muted">${esc(r.started_at ? fmtDateTime(r.started_at) : `Run ${r.order}`)} · ${esc(r.batch)}</div></div>
+            <div><h2>${esc(r.label)}</h2><div class="muted">${esc(r.started_at ? fmtDateTime(r.started_at) : `Run ${r.order}`)} · ${esc(r.batch)}${r.ran_by ? ` · run by ${esc(r.ran_by.name)}` : ""}</div></div>
             <span class="pill ${r.preflight_failed ? "" : "pill-ok"}">${r.preflight_failed ? "Pre-flight failed" : "Pre-flight passed"}</span>
           </div>
           ${stackbar(res)}
@@ -615,7 +671,7 @@
     const { rows, sort } = filterDocs(q);
     const active = ["q", "status", "code", "category", "vendor", "from", "to"].filter((k) => q.get(k)).length;
     $("#inv-results").innerHTML = `
-      <div class="filter-summary" aria-live="polite"><span>${plural(rows.length, "invoice")}${active ? ` match${rows.length === 1 ? "es" : ""} ${plural(active, "filter")}` : ""}</span><span class="num">${esc(money(rows.reduce((a, d) => a + d.amount, 0)))} face value</span></div>
+      <div class="filter-summary" aria-live="polite"><span>${plural(rows.length, "invoice")}${active ? ` match${rows.length === 1 ? "es" : ""} ${plural(active, "filter")}` : ""}</span><span class="num">${esc(amountLabel(rows))} face value</span></div>
       ${docTable(rows, { sort, footer: false })}`;
   }
   function bindInvoices(q) {
@@ -681,6 +737,7 @@
           ${isCurrent && d.replacedBy ? replacedCallout(d) : ""}
           ${isCurrent ? humanCallout(d) : ""}
           ${outcomeCallout(r, isCurrent && (d.replacedBy || (S.holds[d.id] || {}).outcome))}
+          ${isCurrent ? suggestionCard(d) : ""}
           ${isCurrent ? actionsCard(d) : `<section class="card actions"><span class="who">You are looking at an earlier run. <a href="#/invoices/${esc(d.id)}">Open the latest result</a> to take action.</span></section>`}
           <section class="card">
             <div class="tabs" role="tablist" aria-label="Invoice details">
@@ -791,12 +848,121 @@
     </section>`;
   }
 
+  // ------------------------------------------------------------------ suggested fixes
+  /* Penny suggests ready-made resolutions for a held invoice. They come from how people resolved the same kind of hold
+     before (same main reason; same vendor counts extra; a fix that was later reopened counts against it), plus a
+     built-in playbook so there is help before any history exists. Suggestions only speed up a person's action: Penny's
+     own decision never changes, and a cleared invoice is still checked from scratch on the next run.
+     Guardrail: payment-instruction changes are never cleared in one click; Treasury must confirm first. */
+  const GUARDED = new Set(["BANKCHG"]);
+  function playbook(d) {
+    const text = (d.cur.reasons || []).join(" ");
+    const po = (/Likely match[^:]*:\s*(PO[\w-]+)/.exec(text) || [])[1];
+    const route = (c) => (RULES().routes || {})[c] || "";
+    switch (d.primary) {
+      case "OVERPO": return [{ outcome: "cleared", note: "PO change order approved by the Project Manager to cover the overage." },
+        { outcome: "rejected", note: "Returned to the vendor to bill within the PO balance." }];
+      case "NOPO": return [{ outcome: "cleared", note: po ? `Project Manager confirmed ${po}, Penny's likely match. Vendor will resend with the PO.` : "Project Manager confirmed the PO. Vendor will resend with it on the bill." }];
+      case "COI": return [{ outcome: "cleared", note: "A current certificate of insurance is now on file." }];
+      case "LIEN": return [{ outcome: "cleared", note: "Signed conditional lien waiver received, and it matches this payment." }];
+      case "UNAPPCO": return [{ outcome: "rejected", note: "Returned to the subcontractor for a revised application without the unapproved change orders." }];
+      case "NEWVEND": return [{ outcome: "reassign", route: route("NEWVEND"), note: "Vendor setup needed before this bill can be entered." },
+        { outcome: "rejected", note: "Returned: this vendor is not approved to bill Hillpointe." }];
+      case "BANKCHG": return [{ outcome: "cleared", guarded: true, note: "Treasury confirmed the new payment details by calling the phone number on file in the vendor master." }];
+      default:
+        if (/could not read this file|looks like a bill/i.test(text)) return [{ outcome: "rejected", note: "Asked the vendor for a clean PDF in their standard invoice layout." }];
+        if (/not a Hillpointe legal entity/i.test(text)) return [{ outcome: "rejected", note: "Returned to the vendor for a corrected bill-to." }];
+        if (/do not tie out/i.test(text)) return [{ outcome: "rejected", note: "Returned to the vendor: the totals on the invoice do not add up." }];
+        return [];
+    }
+  }
+  const sugKey = (x) => `${x.outcome}|${(x.route || "").toLowerCase()}|${String(x.note || "").trim().toLowerCase()}`;
+  function suggestionsFor(d) {
+    if (!openHold(d)) return [];
+    const scores = {};
+    const add = (x, pts, source) => {
+      const k = sugKey(x);
+      const cur = scores[k] || (scores[k] = { ...x, score: 0, used: 0, sameVendor: false, source });
+      cur.score += pts;
+      if (source === "learned") { cur.source = "learned"; }
+      return cur;
+    };
+    const reopened = new Set(EV.filter((e) => e.type === "hold.reopen").map((e) => e.doc));
+    for (const e of EV) {
+      if (e.doc === d.id || !["hold.resolve", "hold.reassign"].includes(e.type)) continue;
+      const other = X.docById[e.doc];
+      if (!other || other.primary !== d.primary) continue;
+      const x = e.type === "hold.reassign" ? { outcome: "reassign", route: e.route, note: e.note } : { outcome: e.outcome, note: e.note };
+      if (GUARDED.has(d.primary) && x.outcome === "cleared") x.guarded = true;
+      const same = other.vendorId && other.vendorId === d.vendorId;
+      const c = add(x, 1 + (same ? 2 : 0) - (reopened.has(e.doc) ? 1.5 : 0), "learned");
+      c.used += 1;
+      c.sameVendor = c.sameVendor || same;
+    }
+    playbook(d).forEach((x) => add(x, 0.5, "playbook"));
+    const current = routesFor(d.codes, d.id)[0];
+    return Object.values(scores).filter((x) => x.score > 0 && !(x.outcome === "reassign" && x.route === current))
+      .sort((a, b) => b.score - a.score).slice(0, 3);
+  }
+  const OUTCOME = { cleared: ["Clear for next run", "b-cleared", "redo"], rejected: ["Reject to vendor", "b-rejected", "x"], reassign: ["Reassign", "b-waiting", "clock"] };
+  function suggestionCard(d) {
+    if (!can("resolve")) return "";
+    const list = suggestionsFor(d);
+    if (!list.length) return "";
+    if (!suggestionCard.seen) suggestionCard.seen = new Set();
+    if (!suggestionCard.seen.has(d.id)) { suggestionCard.seen.add(d.id); track("suggestion_shown", { code: d.primary, count: list.length, learned: list.filter((x) => x.source === "learned").length }); }
+    return `<section class="card suggest" aria-labelledby="sug-h">
+      <div class="suggest-head"><h2 id="sug-h">${bIcon("check")}Suggested fix</h2><span class="hint">Pick one to resolve this hold in one click. You can undo it.</span></div>
+      <ul class="suggest-list">${list.map((x, n) => { const [label, cls, icon] = OUTCOME[x.outcome]; return `<li>
+        <div class="suggest-main"><span class="badge ${cls}">${bIcon(icon)}${esc(label)}${x.route ? `: ${esc(x.route)}` : ""}</span>
+          <p>${esc(x.note)}</p>
+          <p class="suggest-why">${x.source === "learned" ? `Learned from ${plural(x.used, "past resolution")}${x.sameVendor ? ", including this vendor" : ""}` : "From Penny's playbook for this reason"}${x.guarded ? " · Needs Treasury's confirmation" : ""}</p></div>
+        <button class="btn ${n === 0 ? "btn-accent" : ""}" type="button" data-apply="${esc(d.id)}" data-n="${n}">${x.guarded ? "Review and apply" : "Apply"}</button></li>`; }).join("")}</ul>
+    </section>`;
+  }
+  function applySuggestion(id, n) {
+    const d = X.docById[id];
+    const x = d && suggestionsFor(d)[n];
+    if (!x) return;
+    const meta = { source: x.source, used: x.used || 0 };
+    const commit = () => {
+      const ev = x.outcome === "reassign"
+        ? record("hold.reassign", { doc: id, route: x.route, note: x.note, suggestion: meta, before: routesFor(d.codes, d.id).join("; "), after: x.route })
+        : record("hold.resolve", { doc: id, outcome: x.outcome, note: x.note, suggestion: meta, before: "On hold", after: x.outcome === "cleared" ? "Cleared for next run" : "Rejected" });
+      if (!ev) return;
+      track("suggestion_applied", { code: d.primary, outcome: x.outcome, source: x.source });
+      render();
+      toast(x.outcome === "reassign" ? `Reassigned to ${x.route}.` : x.outcome === "cleared" ? "Hold cleared for the next run." : "Rejected and returned to the vendor.", {
+        label: "Undo", fn: () => {
+          const e2 = x.outcome === "reassign"
+            ? record("hold.reassign", { doc: id, route: ev.before, note: "Undid a suggested fix.", before: x.route, after: ev.before })
+            : record("hold.reopen", { doc: id, note: "Undid a suggested fix.", before: ev.after, after: "On hold" });
+          if (e2) { track("suggestion_undone", { code: d.primary, source: x.source }); render(); toast("Undone. The hold is open again."); }
+        },
+      });
+    };
+    if (!x.guarded) return commit();
+    openDialog("Confirm before clearing", `${esc(d.vendor)} · ${esc(d.billNo)}. A change to payment instructions is how most invoice fraud starts.`,
+      `<p class="a-note">${esc(x.note)}</p>
+       <label class="check"><input type="checkbox" name="confirm" value="yes"> Treasury called the vendor at the phone number already on file in the vendor master, not a number from this invoice, and confirmed the change.</label>`,
+      "Clear for next run", (fd) => { if (fd.get("confirm") !== "yes") return "Treasury's phone confirmation is required first."; commit(); return ""; });
+  }
+  /** One-line suggestion for queue tables, so the most likely fix is one click from the list. */
+  function inlineSuggestion(d) {
+    if (!can("resolve")) return "";
+    const x = suggestionsFor(d)[0];
+    if (!x) return "";
+    return `<div class="suggest-inline"><span class="hint">Suggested: ${esc(OUTCOME[x.outcome][0].toLowerCase())}${x.route ? ` to ${esc(x.route)}` : ""}</span>
+      <button class="btn btn-sm" type="button" data-apply="${esc(d.id)}" data-n="0">${x.guarded ? "Review" : "Apply"}</button></div>`;
+  }
+
   // ------------------------------------------------------------------ dialogs
   function teamsList() {
     return [...new Set(Object.values(RULES().routes || {}))].sort();
   }
   function openDialog(title, lede, body, submitLabel, onSubmit, opts = {}) {
     const dlg = $("#dialog");
+    dlg.classList.toggle("dialog-wide", !!opts.wide);
     dlg.innerHTML = `<form method="dialog" novalidate>
       <h2 id="dialog-title">${esc(title)}</h2>${lede ? `<p class="lede">${lede}</p>` : ""}
       ${body}
@@ -1017,6 +1183,8 @@
       case "note.add": return "added a note";
       case "rules.update": return `changed ${plural(e.changes.length, "rule")}`;
       case "rules.revert": return "undid a rule change";
+      case "batch.upload": return `uploaded ${plural(e.count || (e.files || []).length, "invoice")} to ${e.folder}`;
+      case "batch.run": return `${e.dry_run ? "previewed" : "ran"} batch ${e.batch}`;
       default: return EVENT_LABEL[e.type] || e.type;
     }
   }
@@ -1118,17 +1286,33 @@
     if (kind === "days") return plural(Number(v), "day");
     return String(v);
   }
-  const ROUTE_PATH = (code) => `routes.${code}`;
-  let ruleDraft = {};           // path -> typed value, while an Admin is editing
-
-  function settingInput(path, kind, value) {
-    const shown = kind === "pct" ? +(Number(value) * 100).toFixed(4) : value;
-    const step = kind === "days" ? 1 : 0.01;
-    const draft = ruleDraft[path];
-    return `<span class="unit-wrap">${kind === "money" ? '<span class="unit" aria-hidden="true">$</span>' : ""}<input class="num-input${draft !== undefined ? " changed" : ""}" type="number" inputmode="decimal" min="0" step="${step}"
-      data-path="${esc(path)}" data-kind="${esc(kind)}" value="${esc(draft !== undefined ? draft : shown)}">${kind === "pct" ? '<span class="unit" aria-hidden="true">%</span>' : kind === "days" ? '<span class="unit" aria-hidden="true">days</span>' : ""}</span>`;
-  }
-  /** Turn what was typed into a stored value, or return an error message. */
+  /* ---------------------------------------------------------------- rules editor
+     One schema describes every setting in rules.json: its label, help text, kind of editor and validation. Admins
+     edit a draft copy; nothing changes until they save with a reason. Saved changes are audit events and can be
+     undone. Penny reads the saved rules on its next run; past decisions never change. */
+  const RULE_FIELDS = [
+    ...Object.entries(THRESHOLDS).map(([k, [label, help, kind]]) => ({ path: `thresholds.${k}`, label, help, type: kind, group: "thresholds" })),
+    { path: "code_priority", label: "Exception code priority", help: "When an invoice has several reasons, the highest one is shown first and decides its main route.", type: "order", group: "codes" },
+    ...Object.keys(CODES).map((c) => ({ path: `routes.${c}`, label: `Team for ${c}`, help: "", type: "text", group: "codes", max: 140 })),
+    { path: "terms_days", label: "Payment terms", help: "How many days each term gives. Due dates are worked out from these.", type: "terms", group: "terms" },
+    { path: "payment_change_phrases", label: "Payment-change warning words", help: "If a document contains any of these, it goes to Treasury.", type: "words", group: "words" },
+    { path: "duplicate_stamps", label: "Duplicate stamps", help: "Watermarks that suggest a resend, mentioned on duplicates.", type: "words", group: "words", upper: true },
+    { path: "legal_bill_to_aliases.extra", label: "Extra approved bill-to names", help: "Other names that count as a Hillpointe legal entity on the bill-to line.", type: "words", group: "words" },
+    { path: "entrata_gl_keywords", label: "Entrata GL by description", help: "For apartment community bills: description words, and the Entrata GL they map to.", type: "glmap", group: "coding" },
+    { path: "corporate.gl_keywords", label: "Corporate GL by description", help: "For corporate bills: description words, and the GL account they map to.", type: "glmap", group: "coding" },
+    { path: "corporate.one_time_keywords", label: "One-time service words", help: "Lines with these words are one-time services, posted 100% to the one-time entity.", type: "words", group: "coding" },
+    { path: "corporate.subscription_keywords", label: "Subscription words", help: "Lines with these words are subscriptions, split by the allocation table.", type: "words", group: "coding" },
+    { path: "corporate.default_entity", label: "Corporate default entity", help: "", type: "code", group: "posting" },
+    { path: "corporate.one_time_acct", label: "One-time services account", help: "", type: "code", group: "posting" },
+    { path: "corporate.one_time_entity", label: "One-time services entity", help: "", type: "code", group: "posting" },
+    { path: "construction.posting_entity", label: "Construction posting entity", help: "", type: "code", group: "posting" },
+    { path: "construction.department", label: "Construction department", help: "", type: "code", group: "posting" },
+    { path: "construction.retainage_acct", label: "Retainage account", help: "", type: "code", group: "posting" },
+    { path: "display.time_zone", label: "Company time zone", help: "Every time in Penny is shown in this zone, and new batch folders are dated by it. Saved times do not change, and Penny's decisions do not depend on it.", type: "tz", group: "workspace" },
+    { path: "llm.enabled_by_default", label: "AI reader on by default", help: "Lets Claude read layouts the rules parser does not know. It was built and tested offline but never run live, so leave it off unless you have an API key.", type: "bool", group: "posting" },
+  ];
+  const FIELD = Object.fromEntries(RULE_FIELDS.map((f) => [f.path, f]));
+  /** Turn a typed number into a stored value, or return an error message. Percent is typed as 10 and stored as 0.10. */
   function parseSetting(kind, raw) {
     const n = Number(raw);
     if (raw === "" || !isFinite(n) || n < 0) return { err: "must be a number of zero or more" };
@@ -1136,29 +1320,78 @@
     if (kind === "days") return Number.isInteger(n) && n <= 365 ? { val: n } : { err: "must be a whole number of days up to 365" };
     return { val: Math.round(n * 100) / 100 };
   }
-  function draftChanges() {
-    const out = [], errors = [];
-    for (const [path, raw] of Object.entries(ruleDraft)) {
-      const before = getPath(RULES(), path);
-      if (path.startsWith("routes.")) {
-        const v = String(raw).trim();
-        if (!v || v.length > 140) { errors.push(`${path.slice(7)} route must be 1 to 140 characters`); continue; }
-        if (v !== before) out.push({ path, before, after: v, label: `Route for ${path.slice(7)}` });
-      } else {
-        const key = path.split(".")[1];
-        const [name, , kind] = THRESHOLDS[key] || [key, "", ""];
-        const p = parseSetting(kind, raw);
-        if (p.err) { errors.push(`${name} ${p.err}`); continue; }
-        if (p.val !== before) out.push({ path, before, after: p.val, label: name });
-      }
+  let ruleDraft = {};           // { rules: draft copy while editing, raw: typed number text by path }
+  const draftRules = () => ruleDraft.rules || RULES();
+  function startDraft() { if (!ruleDraft.rules) ruleDraft = { rules: JSON.parse(JSON.stringify(RULES())), raw: {} }; return ruleDraft.rules; }
+
+  function fieldErrors(f, v, raw) {
+    if (["money", "pct", "days"].includes(f.type)) {
+      if (raw === undefined) return "";
+      const p = parseSetting(f.type, raw);
+      return p.err ? `${f.label} ${p.err}` : "";
     }
-    return { changes: out, errors };
+    if (f.type === "text" || f.type === "code") {
+      const t = String(v ?? "").trim();
+      if (!t) return `${f.label} cannot be empty`;
+      if (f.type === "code" && !/^[A-Za-z0-9_-]{1,20}$/.test(t)) return `${f.label} must be a short code with letters, numbers, dashes or underscores`;
+      if (t.length > (f.max || 140)) return `${f.label} is too long`;
+      return "";
+    }
+    if (f.type === "words") {
+      const list = (v || []).map((w) => String(w).trim().toLowerCase());
+      if (list.some((w) => !w)) return `${f.label} has an empty entry`;
+      if (new Set(list).size !== list.length) return `${f.label} has the same entry twice`;
+      return "";
+    }
+    if (f.type === "tz") return v === undefined || validTz(v) ? "" : `${f.label} must be a time zone from the list`;
+    if (f.type === "glmap") return (v || []).some(([kw, gl]) => !String(kw).replace(/\|/g, "").trim() || !String(gl).trim()) ? `${f.label}: every row needs words and a GL` : "";
+    if (f.type === "terms") {
+      const names = Object.keys(v || {});
+      if (names.some((n) => !n.trim())) return "Every payment term needs a name";
+      if (Object.values(v || {}).some((d) => !Number.isInteger(d) || d < 0 || d > 365)) return "Payment term days must be whole numbers from 0 to 365";
+      return "";
+    }
+    return "";
   }
-  const fmtRuleValue = (path, v) => {
-    if (path.startsWith("routes.")) return String(v);
-    const kind = (THRESHOLDS[path.split(".")[1]] || [])[2];
-    return fmtSetting(v, kind);
-  };
+  function draftChanges() {
+    if (!ruleDraft.rules) return { changes: [], errors: [] };
+    const changes = [], errors = [];
+    for (const f of RULE_FIELDS) {
+      const before = getPath(RULES(), f.path), after = getPath(ruleDraft.rules, f.path);
+      const err = fieldErrors(f, after, (ruleDraft.raw || {})[f.path]);
+      if (err) { errors.push(err); continue; }
+      if (JSON.stringify(before) !== JSON.stringify(after)) changes.push({ path: f.path, before, after, label: f.label });
+    }
+    return { changes, errors };
+  }
+  /** A short, readable value for history, audit and previews. */
+  function fmtRuleValue(path, v) {
+    const f = FIELD[path] || { type: "text" };
+    if (["money", "pct", "days"].includes(f.type)) return fmtSetting(v, f.type);
+    if (f.type === "bool") return v ? "On" : "Off";
+    if (f.type === "tz") return v === undefined ? `${tzLabel(DEFAULT_TZ)}, the default` : tzLabel(v);
+    if (f.type === "order") return (v || []).join(" > ");
+    if (f.type === "words") return (v || []).length ? (v.length > 4 ? `${v.slice(0, 4).join(", ")} and ${v.length - 4} more` : v.join(", ")) : "none";
+    if (f.type === "glmap") return plural((v || []).length, "keyword rule");
+    if (f.type === "terms") return Object.entries(v || {}).map(([n, d]) => `${n}: ${d}`).join(", ");
+    return String(v ?? "");
+  }
+  /** What exactly changed in a list, in words a reviewer can scan. */
+  function describeChange(c) {
+    const f = FIELD[c.path] || { type: "text" };
+    if (f.type === "words") {
+      const b = new Set(c.before || []), a = new Set(c.after || []);
+      const add = [...a].filter((x) => !b.has(x)), del = [...b].filter((x) => !a.has(x));
+      return `${c.label}: ${[add.length ? `added ${add.map((x) => `“${x}”`).join(", ")}` : "", del.length ? `removed ${del.map((x) => `“${x}”`).join(", ")}` : ""].filter(Boolean).join("; ") || "reordered"}`;
+    }
+    if (f.type === "glmap") {
+      const key = (r) => `${r[0]} → ${r[1]}`;
+      const b = new Set((c.before || []).map(key)), a = new Set((c.after || []).map(key));
+      const add = [...a].filter((x) => !b.has(x)), del = [...b].filter((x) => !a.has(x));
+      return `${c.label}: ${[add.length ? `added ${add.join(", ")}` : "", del.length ? `removed ${del.join(", ")}` : ""].filter(Boolean).join("; ")}`;
+    }
+    return `${c.label}: ${fmtRuleValue(c.path, c.before)} → ${fmtRuleValue(c.path, c.after)}`;
+  }
 
   /** What a rules change would do to the invoices already on file. Penny's past decisions never change; this is a forecast. */
   function impactOf(changes) {
@@ -1195,9 +1428,22 @@
         const hit = X.docs.filter((d) => openHold(d) && d.codes.includes(code) && !(S.holds[d.id] || {}).route);
         items.push({ title: `Route for ${code} (${(CODES[code] || {}).name || code})`, lines: [
           `${plural(hit.length, "open hold")} with ${code} would go to “${c.after}” instead of “${c.before}”.`] });
+      } else if (c.path === "code_priority") {
+        const rank = (list, x) => (list.includes(x) ? list.indexOf(x) : 99);
+        const top = (list, codes) => [...codes].sort((a, b) => rank(list, a) - rank(list, b))[0];
+        const moved = X.docs.filter((d) => openHold(d) && d.codes.length > 1 && top(c.before, d.codes) !== top(c.after, d.codes));
+        items.push({ title: "Exception code priority", lines: moved.length
+          ? moved.map((d) => `${d.vendor} ${d.billNo} would show “${(CODES[top(c.after, d.codes)] || {}).plain}” first instead of “${(CODES[top(c.before, d.codes)] || {}).plain}”.`)
+          : ["No open hold would show a different main reason."] });
+      } else if (c.path === "display.time_zone") {
+        const sample = X.docs.length && D.runs.find((r) => r.started_at);
+        items.push({ title: describeChange(c), lines: [
+          "Every time in the web app will show in the new zone right away. Saved times do not change, only how they read.",
+          `New batch folders will be dated by the new zone (today there: ${todayIn(validTz(c.after) ? c.after : DEFAULT_TZ)}).`,
+          ...(sample ? [`For example, ${sample.label} started ${new Date(sample.started_at).toLocaleString("en-US", { timeZone: validTz(c.after) ? c.after : DEFAULT_TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}.`] : []),
+          "No invoice decision changes." ] });
       } else {
-        items.push({ title: `${c.label}: ${fmtRuleValue(c.path, c.before)} → ${fmtRuleValue(c.path, c.after)}`,
-          lines: ["Penny applies this on its next run. This preview cannot estimate it from the saved results."] });
+        items.push({ title: describeChange(c), lines: ["Penny applies this on its next run. This preview cannot estimate it from the saved results."] });
       }
     }
     return items;
@@ -1207,105 +1453,213 @@
     return `<ul class="impact">${impactOf(changes).map((i) => `<li><b>${esc(i.title)}</b>${i.lines.map((l) => `<div>${esc(l)}</div>`).join("")}</li>`).join("")}</ul>`;
   }
 
+  // editors -----------------------------------------------------------------------------------------------
+  const isChanged = (path) => ruleDraft.rules && JSON.stringify(getPath(RULES(), path)) !== JSON.stringify(getPath(ruleDraft.rules, path));
+  const fid = (path) => "rf-" + path.replace(/[^a-z0-9]+/gi, "-");
+  function numEditor(f, v) {
+    const raw = (ruleDraft.raw || {})[f.path];
+    const shown = raw !== undefined ? raw : f.type === "pct" ? +(Number(v) * 100).toFixed(4) : v;
+    const unitL = f.type === "money" ? '<span class="unit" aria-hidden="true">$</span>' : "";
+    const unitR = f.type === "pct" ? '<span class="unit" aria-hidden="true">%</span>' : f.type === "days" ? '<span class="unit" aria-hidden="true">days</span>' : "";
+    const legacyId = f.path.startsWith("thresholds.") ? `in-${f.path.split(".")[1]}` : fid(f.path);
+    return `<span class="unit-wrap">${unitL}<input id="${esc(legacyId)}" class="num-input${isChanged(f.path) ? " changed" : ""}" type="number" inputmode="decimal" min="0" step="${f.type === "days" ? 1 : 0.01}"
+      data-num="${esc(f.path)}" data-kind="${esc(f.type)}" value="${esc(shown)}" aria-label="${esc(f.label)}">${unitR}</span>`;
+  }
+  const textEditor = (f, v) => `<input id="${esc(fid(f.path))}" class="text-input${f.type === "code" ? " code-input" : ""}${isChanged(f.path) ? " changed" : ""}" data-text="${esc(f.path)}" maxlength="${f.type === "code" ? 20 : f.max || 140}" value="${esc(v ?? "")}" aria-label="${esc(f.label)}">`;
+  function tzEditor(f, v) {
+    const cur = validTz(v) ? v : DEFAULT_TZ;
+    const all = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone").filter((z) => !TZ_COMMON.includes(z)) : [];
+    if (!TZ_COMMON.includes(cur) && !all.includes(cur)) all.unshift(cur);
+    const opt = (z) => `<option value="${esc(z)}"${z === cur ? " selected" : ""}>${esc(tzLabel(z))}</option>`;
+    return `<span class="tz-wrap"><select id="${esc(fid(f.path))}" class="text-input tz-select${isChanged(f.path) ? " changed" : ""}" data-tz="${esc(f.path)}">
+      <optgroup label="Common in the United States">${TZ_COMMON.map(opt).join("")}</optgroup>
+      ${all.length ? `<optgroup label="All time zones">${all.map(opt).join("")}</optgroup>` : ""}</select>
+      <span class="s-help">Now there: ${esc(new Date().toLocaleString("en-US", { timeZone: cur, weekday: "short", hour: "numeric", minute: "2-digit", timeZoneName: "short" }))}</span></span>`;
+  }
+  const boolEditor = (f, v) => `<label class="switch"><input type="checkbox" data-bool="${esc(f.path)}" ${v ? "checked" : ""}><span class="switch-ui" aria-hidden="true"></span><span>${v ? "On" : "Off"}</span></label>`;
+  function wordsEditor(f, list) {
+    return `<div class="words-edit${isChanged(f.path) ? " changed-box" : ""}">
+      <ul class="chips word-chips" aria-label="${esc(f.label)}">${(list || []).map((w, i) => `<li class="chip word-chip">${esc(w)}<button type="button" class="chip-x" data-word-del="${esc(f.path)}" data-i="${i}" aria-label="Remove ${esc(w)}">×</button></li>`).join("")}</ul>
+      <div class="word-add"><input class="text-input" data-word-input="${esc(f.path)}" maxlength="80" placeholder="Add a word or phrase" aria-label="Add to ${esc(f.label)}">
+        <button type="button" class="btn btn-sm" data-word-add="${esc(f.path)}">Add</button></div></div>`;
+  }
+  function glmapEditor(f, rows) {
+    return `<div class="map-edit${isChanged(f.path) ? " changed-box" : ""}">
+      <div class="map-head" aria-hidden="true"><span>Description words (comma separated)</span><span>GL</span><span></span></div>
+      ${(rows || []).map(([kw, gl], i) => `<div class="map-row">
+        <input class="text-input" data-gl-kw="${esc(f.path)}" data-i="${i}" value="${esc(String(kw).split("|").join(", "))}" aria-label="Words for rule ${i + 1}">
+        <input class="text-input code-input" data-gl-code="${esc(f.path)}" data-i="${i}" value="${esc(gl)}" maxlength="20" aria-label="GL for rule ${i + 1}">
+        <button type="button" class="icon-btn" data-gl-del="${esc(f.path)}" data-i="${i}" aria-label="Remove rule ${i + 1}">×</button></div>`).join("")}
+      <button type="button" class="btn btn-sm" data-gl-add="${esc(f.path)}">Add a keyword rule</button></div>`;
+  }
+  function termsEditor(f, obj) {
+    return `<div class="map-edit${isChanged(f.path) ? " changed-box" : ""}">
+      <div class="map-head" aria-hidden="true"><span>Term name</span><span>Days</span><span></span></div>
+      ${Object.entries(obj || {}).map(([n, d], i) => `<div class="map-row">
+        <input class="text-input" data-term-name="${i}" value="${esc(n)}" maxlength="30" aria-label="Term ${i + 1} name">
+        <input class="text-input code-input" type="number" min="0" max="365" step="1" data-term-days="${i}" value="${esc(d)}" aria-label="Term ${i + 1} days">
+        <button type="button" class="icon-btn" data-term-del="${i}" aria-label="Remove term ${esc(n)}">×</button></div>`).join("")}
+      <button type="button" class="btn btn-sm" data-term-add>Add a payment term</button></div>`;
+  }
+  function orderEditor(list) {
+    return `<ol class="order-edit${isChanged("code_priority") ? " changed-box" : ""}">${list.map((c, i) => `<li>
+      <span class="rank">${i + 1}</span><span>${codeChip(c)} <span class="order-name">${esc((CODES[c] || {}).plain || c)}</span></span>
+      <span class="order-btns"><button type="button" class="icon-btn" data-move="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Move ${esc(c)} up">↑</button>
+      <button type="button" class="icon-btn" data-move="${i}" data-dir="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="Move ${esc(c)} down">↓</button></span></li>`).join("")}</ol>`;
+  }
+  function readOnlyValue(f, v) {
+    if (f.type === "words") return `<div class="chips">${(v || []).map((w) => `<span class="chip">${esc(w)}</span>`).join("") || '<span class="hint">None</span>'}</div>`;
+    if (f.type === "glmap") return (v || []).map(([pat, gl]) => `<div class="kw-row"><span class="chips">${String(pat).split("|").map((p) => `<span class="chip">${esc(p)}</span>`).join("")}</span><code>${esc(gl)}</code></div>`).join("");
+    if (f.type === "terms") return Object.entries(v || {}).map(([n, d]) => `<div class="setting"><span class="s-name">${esc(n)}</span><span class="s-val">${esc(plural(d, "day"))}</span></div>`).join("");
+    return `<div class="s-val">${esc(fmtRuleValue(f.path, v))}</div>`;
+  }
+
   function viewRules() {
-    const R = RULES();
-    const th = R.thresholds || {};
-    const pr = R.code_priority || [];
-    const routes = R.routes || {};
+    const R = draftRules();
     const editing = can("rules");
     const changedPaths = new Set(EV.filter((e) => e.type === "rules.update" && !S.revoked.has(e.id)).flatMap((e) => e.changes.map((c) => c.path)));
-    const tag = (path) => changedPaths.has(path) ? `<span class="changed-tag">Changed</span>` : "";
-    const kw = (pairs) => pairs.map(([pat, gl]) => `<div class="kw-row"><span class="chips">${String(pat).split("|").map((p) => `<span class="chip">${esc(p)}</span>`).join("")}</span><code>${esc(gl)}</code></div>`).join("");
-    const words = (list) => `<div class="chips">${(list || []).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>`;
-    const corp = R.corporate || {};
-    const cons = R.construction || {};
+    const tag = (path) => changedPaths.has(path) ? `<span class="changed-tag" title="Changed from rules.json in this demo">Changed</span>` : "";
+    const editor = (f) => {
+      const v = getPath(R, f.path);
+      if (!editing) return readOnlyValue(f, v);
+      if (["money", "pct", "days"].includes(f.type)) return numEditor(f, v);
+      if (f.type === "text" || f.type === "code") return textEditor(f, v);
+      if (f.type === "bool") return boolEditor(f, v);
+      if (f.type === "tz") return tzEditor(f, v);
+      if (f.type === "words") return wordsEditor(f, v);
+      if (f.type === "glmap") return glmapEditor(f, v);
+      if (f.type === "terms") return termsEditor(f, v);
+      return readOnlyValue(f, v);
+    };
+    const row = (f) => `<div class="setting${["words", "glmap", "terms"].includes(f.type) ? " setting-block" : ""}"><div><label class="s-name" for="${esc(fid(f.path))}">${esc(f.label)}${tag(f.path)}</label>${f.help ? `<div class="s-help">${esc(f.help)}</div>` : ""}</div>${editor(f)}</div>`;
+    const group = (g) => RULE_FIELDS.filter((f) => f.group === g);
+    const pr = R.code_priority || [];
     const history = EV.filter((e) => e.type === "rules.update").slice().reverse();
     return `
-      ${head("Rules", esc(R._readme || "Every business rule a person might want to change lives in one settings file, not in the code."),
+      ${head("Rules", "Every business rule a person might want to change lives in one settings file, config/rules.json, not in the code.",
         `<button class="btn" id="download-rules" type="button">Download rules.json</button>`)}
       <div class="role-banner" role="note">
         <span>${editing
-          ? `<strong>You can edit thresholds and routes.</strong> Change a value and Penny shows what it would do to the invoices on file before you save. Saved changes apply to Penny's next run; past decisions stay as Penny made them.`
+          ? `<strong>You can edit every rule.</strong> Change anything below and Penny shows what it would do to the invoices on file before you save. Saved changes apply to Penny's next run; past decisions stay as Penny made them.`
           : `<strong>Read only.</strong> Only Admins can change rules. Sign in as Sam Rivera (Admin) to try the editor.`}</span>
         <span class="pill">Source: config/rules.json</span>
       </div>
       <div class="grid rules-grid">
-        <section class="card"><div class="card-head"><h2>Thresholds</h2></div><div class="card-body">
-          ${Object.entries(th).map(([k, v]) => {
-            const [name, help, kind] = THRESHOLDS[k] || [k.replace(/_/g, " "), "", ""];
-            const path = `thresholds.${k}`;
-            return `<div class="setting"><div><div class="s-name">${esc(name)}${tag(path)}</div>${help ? `<div class="s-help">${esc(help)}</div>` : ""}</div>
-              ${editing && kind ? `<label class="sr-only" for="in-${esc(k)}">${esc(name)}${kind === "pct" ? " (percent)" : kind === "money" ? " (dollars)" : kind === "days" ? " (days)" : ""}</label>${settingInput(path, kind, v).replace("<input", `<input id="in-${esc(k)}"`)}`
-                : `<div class="s-val">${esc(fmtSetting(v, kind))}</div>`}</div>`;
-          }).join("")}
-        </div></section>
-        <section class="card"><div class="card-head"><h2>Exception codes and routes</h2><p>Highest priority first</p></div><div class="card-body">
-          <ul class="route-list">${pr.map((c, i) => {
-            const path = ROUTE_PATH(c);
-            const draft = ruleDraft[path];
-            return `<li><span class="rank">${i + 1}</span><span>${codeChip(c)}<br><span style="font-size:13px">${esc((CODES[c] || {}).name || "")}</span></span><span>
-              ${editing ? `<label class="sr-only" for="rt-${esc(c)}">Route for ${esc(c)}</label><input class="route-input${draft !== undefined ? " changed" : ""}" id="rt-${esc(c)}" data-path="${esc(path)}" maxlength="140" value="${esc(draft !== undefined ? draft : routes[c] || "")}">`
-                : esc(routes[c] || "")}${tag(path)}<br><span class="s-help" style="font-size:12.5px;color:var(--text-3)">${esc((CODES[c] || {}).help || "")}</span></span></li>`;
-          }).join("")}</ul>
+        <section class="card"><div class="card-head"><h2>Thresholds</h2><p>Dollar triggers and tolerances</p></div><div class="card-body">${group("thresholds").map(row).join("")}</div></section>
+        <section class="card"><div class="card-head"><h2>Exception codes</h2><p>Priority and the team each one goes to</p></div><div class="card-body">
+          ${editing ? `<h3 class="sub-h" style="margin-top:0">Priority, highest first${tag("code_priority")}</h3>${orderEditor(pr)}<h3 class="sub-h">Team for each code</h3>` : ""}
+          <ul class="route-list">${pr.map((c, i) => { const f = FIELD[`routes.${c}`] || { path: `routes.${c}`, label: `Team for ${c}`, type: "text" }; return `<li><span class="rank">${i + 1}</span><span>${codeChip(c)}<br><span style="font-size:13px">${esc((CODES[c] || {}).plain || "")}</span></span>
+            <span>${editing ? `<label class="sr-only" for="${esc(fid(f.path))}">Team for ${esc(c)}</label>${textEditor(f, getPath(R, f.path))}` : esc(getPath(R, f.path) || "")}${tag(f.path)}</span></li>`; }).join("")}</ul>
         </div></section>
       </div>
+      <div class="grid rules-grid" style="margin-top:16px">
+        <section class="card"><div class="card-head"><h2>Words Penny looks for</h2></div><div class="card-body">${group("words").map(row).join("")}</div></section>
+        <section class="card"><div class="card-head"><h2>Coding by description</h2></div><div class="card-body">${group("coding").map(row).join("")}</div></section>
+        <section class="card"><div class="card-head"><h2>Payment terms</h2></div><div class="card-body">${group("terms").map(row).join("")}</div></section>
+        <section class="card"><div class="card-head"><h2>Posting and reading</h2></div><div class="card-body">${group("posting").map(row).join("")}</div></section>
+      </div>
+      <section class="card" style="margin-top:16px"><div class="card-head"><h2>Time zone</h2><p>How Penny shows dates and times</p></div><div class="card-body">${group("workspace").map(row).join("")}</div></section>
       ${editing ? `<div class="edit-bar" id="edit-bar" hidden></div>` : ""}
       ${history.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>Change history</h2><p>Newest first. Undo adds a new entry; nothing is erased.</p></div><div class="card-body">
-        <ul class="approvals">${history.map((e) => `<li><span class="who-line"><b>${esc(e.changes.map((c) => `${c.label}: ${fmtRuleValue(c.path, c.before)} → ${fmtRuleValue(c.path, c.after)}`).join("; "))}</b>
+        <ul class="approvals">${history.map((e) => `<li><span class="who-line"><b>${esc(e.changes.map(describeChange).join("; "))}</b>
           <small>${esc(e.user.name)} · ${esc(fmtDateTime(e.at))} · “${esc(e.note)}”</small></span>
           ${S.revoked.has(e.id) ? `<span class="badge b-skip">Undone</span>` : editing ? `<button class="btn" data-undo="${esc(e.id)}">Undo</button>` : `<span class="badge b-approved">In effect</span>`}</li>`).join("")}</ul>
-      </div></section>` : ""}
-      <div class="grid rules-grid" style="margin-top:16px">
-        <section class="card"><div class="card-head"><h2>Payment change warning words</h2><p>Any of these sends a bill to Treasury</p></div><div class="card-body">${words(R.payment_change_phrases)}</div></section>
-        <section class="card"><div class="card-head"><h2>Duplicate stamps</h2><p>Watermarks that suggest a resend</p></div><div class="card-body">${words(R.duplicate_stamps)}</div></section>
-        <section class="card"><div class="card-head"><h2>Entrata GL by description</h2><p>Stabilized communities</p></div><div class="card-body">${kw(R.entrata_gl_keywords || [])}</div></section>
-        <section class="card"><div class="card-head"><h2>Corporate coding</h2><p>Default entity ${esc(corp.default_entity || "")}</p></div><div class="card-body">
-          ${kw(corp.gl_keywords || [])}
-          <h3 class="sub-h">One-time services (account ${esc(corp.one_time_acct || "")})</h3>${words(corp.one_time_keywords)}
-          <h3 class="sub-h">Subscriptions (split by the allocation table)</h3>${words(corp.subscription_keywords)}
-        </div></section>
-        <section class="card"><div class="card-head"><h2>Payment terms</h2></div><div class="card-body">
-          ${Object.entries(R.terms_days || {}).map(([t, n]) => `<div class="setting"><span class="s-name">${esc(t)}</span><span class="s-val">${esc(plural(n, "day"))}</span></div>`).join("")}
-        </div></section>
-        <section class="card"><div class="card-head"><h2>Construction posting</h2></div><div class="card-body">
-          <div class="setting"><span class="s-name">Posting entity</span><span class="s-val">${esc(cons.posting_entity || "")}</span></div>
-          <div class="setting"><span class="s-name">Department</span><span class="s-val">${esc(cons.department || "")}</span></div>
-          <div class="setting"><span class="s-name">Retainage account</span><span class="s-val">${esc(cons.retainage_acct || "")}</span></div>
-          <div class="setting"><span class="s-name">AI extraction</span><span class="s-val">${R.llm && R.llm.enabled_by_default ? "On" : "Off (rules parser)"}</span></div>
-        </div></section>
-      </div>`;
+      </div></section>` : ""}`;
   }
+
+  let rulesBound = false;
   function bindRules() {
     const dl = $("#download-rules");
     if (dl) dl.addEventListener("click", () => download("rules.json", JSON.stringify(RULES(), null, 2) + "\n", "application/json"));
-    const bar = $("#edit-bar");
-    if (!bar) return;
-    const paint = () => {
+    if (!$("#edit-bar")) return;
+    paintRulesBar();
+    if (rulesBound) return;          // #main outlives each render, so its listeners are attached once
+    rulesBound = true;
+    bindRulesEditor();
+  }
+  function paintRulesBar() {
+      const bar = $("#edit-bar");
+      if (!bar) return;
       const { changes, errors } = draftChanges();
       bar.hidden = !changes.length && !errors.length;
-      bar.innerHTML = errors.length ? `<span class="form-error">${esc(errors.join(". "))}.</span><button class="btn" type="button" id="rules-discard">Discard</button>`
+      bar.innerHTML = errors.length ? `<div style="flex:1"><strong>Fix this before saving:</strong><ul class="notes">${errors.map((x) => `<li class="form-error">${esc(x)}.</li>`).join("")}</ul></div><button class="btn" type="button" id="rules-discard">Discard changes</button>`
         : `<div style="flex:1;min-width:240px"><strong>${plural(changes.length, "unsaved change")}.</strong> What it would do to the invoices on file:${impactHtml(changes)}</div>
            <div style="display:flex;gap:8px"><button class="btn" type="button" id="rules-discard">Discard</button><button class="btn btn-accent" type="button" id="rules-save">Save changes</button></div>`;
       const disc = $("#rules-discard", bar);
       if (disc) disc.addEventListener("click", () => { ruleDraft = {}; render(); });
       const save = $("#rules-save", bar);
       if (save) save.addEventListener("click", () => openDialog("Save rule changes", "Saved changes apply to Penny's next run. You can undo them later.",
-        `<ul class="impact">${changes.map((c) => `<li><b>${esc(c.label)}</b>${esc(fmtRuleValue(c.path, c.before))} → ${esc(fmtRuleValue(c.path, c.after))}</li>`).join("")}</ul>${noteField("Why are you making this change?", true, "For example: Controller approved a $1,000 PO tolerance for Q4.")}`,
+        `<ul class="impact">${changes.map((c) => `<li>${esc(describeChange(c))}</li>`).join("")}</ul>${noteField("Why are you making this change?", true, "For example: Controller approved a $1,000 PO tolerance for Q4.")}`,
         "Save changes", (fd) => {
           const err = needNote(fd, 10); if (err) return err;
           if (record("rules.update", { changes, note: String(fd.get("note")).trim() })) { ruleDraft = {}; render(); toast(`Saved ${plural(changes.length, "rule change")}.`); }
           return "";
         }));
-    };
-    $$("[data-path]").forEach((inp) => inp.addEventListener("input", () => {
-      const path = inp.dataset.path;
-      const current = getPath(RULES(), path);
-      const shown = inp.dataset.kind === "pct" ? String(+(Number(current) * 100).toFixed(4)) : String(current);
-      if (inp.value === shown) delete ruleDraft[path]; else ruleDraft[path] = inp.value;
-      inp.classList.toggle("changed", ruleDraft[path] !== undefined);
+  }
+  function bindRulesEditor() {
+    const main = $("#main");
+    const onRules = () => !!$("#edit-bar");
+    const rerender = (focusSel) => { render(); if (focusSel) { const el = $(focusSel); if (el) el.focus(); } };
+    const paint = paintRulesBar;
+    const mark = (el, path) => el.classList.toggle("changed", !!isChanged(path));
+    main.addEventListener("input", (e) => {
+      if (!onRules()) return;
+      const t = e.target;
+      if (t.dataset.num) {
+        const f = FIELD[t.dataset.num]; const d = startDraft();
+        ruleDraft.raw[f.path] = t.value;
+        const p = parseSetting(f.type, t.value);
+        if (!p.err) setPath(d, f.path, p.val);
+        mark(t, f.path);
+      } else if (t.dataset.text) { setPath(startDraft(), t.dataset.text, t.value.trim()); mark(t, t.dataset.text); }
+      else if (t.dataset.glKw !== undefined && t.dataset.glKw) {
+        const rows = getPath(startDraft(), t.dataset.glKw);
+        rows[+t.dataset.i][0] = t.value.split(",").map((w) => w.trim()).filter(Boolean).join("|");
+      } else if (t.dataset.glCode) { getPath(startDraft(), t.dataset.glCode)[+t.dataset.i][1] = t.value.trim(); }
+      else if (t.dataset.termName !== undefined || t.dataset.termDays !== undefined) {
+        const d = startDraft();
+        const names = $$("[data-term-name]", main).map((x) => x.value.trim());
+        const days = $$("[data-term-days]", main).map((x) => (x.value === "" ? NaN : Number(x.value)));
+        d.terms_days = Object.fromEntries(names.map((n, i) => [n, days[i]]));
+      } else return;
       paint();
-    }));
-    paint();
+    });
+    main.addEventListener("change", (e) => {
+      if (!onRules()) return;
+      const t = e.target;
+      if (t.dataset.bool) { setPath(startDraft(), t.dataset.bool, t.checked); rerender(`[data-bool="${t.dataset.bool}"]`); }
+      else if (t.dataset.tz) { setPath(startDraft(), t.dataset.tz, t.value); rerender(`[data-tz="${t.dataset.tz}"]`); }
+    });
+    const addWord = (path) => {
+      const inp = $(`[data-word-input="${path}"]`, main);
+      const f = FIELD[path];
+      let w = inp.value.trim();
+      if (!w) { inp.focus(); return; }
+      if (f.upper) w = w.toUpperCase();
+      const d = startDraft();
+      const list = getPath(d, path) || [];
+      if (list.some((x) => x.toLowerCase() === w.toLowerCase())) { toast(`“${w}” is already on the list.`); inp.select(); return; }
+      setPath(d, path, [...list, w]);
+      rerender(`[data-word-input="${path}"]`);
+    };
+    main.addEventListener("keydown", (e) => { if (onRules() && e.key === "Enter" && e.target.dataset.wordInput) { e.preventDefault(); addWord(e.target.dataset.wordInput); } });
+    main.addEventListener("click", (e) => {
+      if (!onRules()) return;
+      const b = e.target.closest("button");
+      if (!b || !main.contains(b)) return;
+      const d = () => startDraft();
+      if (b.dataset.wordAdd) addWord(b.dataset.wordAdd);
+      else if (b.dataset.wordDel) { const list = getPath(d(), b.dataset.wordDel).slice(); list.splice(+b.dataset.i, 1); setPath(d(), b.dataset.wordDel, list); rerender(`[data-word-input="${b.dataset.wordDel}"]`); }
+      else if (b.dataset.glAdd) { const rows = getPath(d(), b.dataset.glAdd) || []; rows.push(["", ""]); setPath(d(), b.dataset.glAdd, rows); rerender(`[data-gl-kw="${b.dataset.glAdd}"][data-i="${rows.length - 1}"]`); }
+      else if (b.dataset.glDel) { const rows = getPath(d(), b.dataset.glDel); rows.splice(+b.dataset.i, 1); rerender(`[data-gl-add="${b.dataset.glDel}"]`); }
+      else if (b.dataset.termAdd !== undefined) { const t = d().terms_days; let n = "New term", k = 2; while (t[n] !== undefined) n = `New term ${k++}`; t[n] = 30; rerender(`[data-term-name="${Object.keys(t).length - 1}"]`); }
+      else if (b.dataset.termDel !== undefined) { const t = d().terms_days; delete t[Object.keys(t)[+b.dataset.termDel]]; rerender("[data-term-add]"); }
+      else if (b.dataset.move !== undefined) {
+        const list = d().code_priority; const i = +b.dataset.move, to = i + +b.dataset.dir;
+        [list[i], list[to]] = [list[to], list[i]];
+        rerender(`[data-move="${to}"][data-dir="${b.dataset.dir}"]`);
+      }
+    });
   }
   function undoRule(id) {
     const e = EV.find((x) => x.id === id && x.type === "rules.update");
@@ -1314,7 +1668,7 @@
       noteField("Why undo it?", true), "Undo change", (fd) => {
         const err = needNote(fd, 5); if (err) return err;
         if (record("rules.revert", { target: id, note: String(fd.get("note")).trim(),
-          changes: e.changes.map((c) => ({ ...c, before: c.after, after: c.before })) })) { render(); toast("Change undone."); }
+          changes: e.changes.map((c) => ({ ...c, before: c.after, after: c.before })) })) { ruleDraft = {}; render(); toast("Change undone."); }
         return "";
       }, { danger: true });
   }
@@ -1339,7 +1693,7 @@
       const route = (RULES().routes || {})[c] || "";
       return `<section class="card exc-card" id="code-${esc(c)}" aria-labelledby="exc-${esc(c)}">
         <div class="exc-head"><div><h2 id="exc-${esc(c)}">${esc(k.plain)}</h2><span class="hint">${codeChip(c)} ${esc(k.name)}</span></div>
-          <span class="exc-count">${rows.length ? `${plural(rows.length, "invoice")} · ${esc(money(rows.reduce((a, d) => a + d.amount, 0)))}` : "None open"}</span></div>
+          <span class="exc-count">${rows.length ? `${plural(rows.length, "invoice")} · ${esc(amountLabel(rows))}` : "None open"}</span></div>
         <div class="exc-grid">
           <div><h3 class="callout-h">Why it happens</h3><p>${esc(k.why)}</p></div>
           <div><h3 class="callout-h">What to do next</h3><p>${esc(k.next)}</p></div>
@@ -1355,26 +1709,375 @@
   }
 
   // ------------------------------------------------------------------ exports
+  /* Every file a run creates, described as a noun a person recognizes: what is inside, who uses it, and what it is
+     not. Penny's own file names stay visible as secondary detail. */
   const FILE_INFO = {
-    "intacct_bill_import.csv": ["Sage Intacct bill import", "Generated, not uploaded. A person reviews it and uploads it in Intacct. Penny never connects to Intacct."],
-    "entrata_handoff.csv": ["Entrata handoff list", "For Property Accounting to post in Entrata. Not posted by Penny."],
-    "exception_log.csv": ["Exception log", "Every document held or stopped, with its reason, route and confidence."],
-    "approvals_for_entered_bills.csv": ["Required approvers", "Who must approve each bill in the import file. Lists who is required; it does not record approvals."],
-    "review_workbook.xlsx": ["Review workbook", "All of the above as tabs in one Excel file, with a sheet that checks bill totals."],
-    "run_report.md": ["Run report", "A short written summary of the run."],
+    "intacct_bill_import.csv": { title: "Intacct bill import file", type: "CSV", unit: ["bill line", "bill lines"], who: "AP team, to upload to Sage Intacct",
+      what: "Bills that passed every check, laid out in Sage Intacct's import format. Upload it in Intacct after review. Penny does not upload it." },
+    "entrata_handoff.csv": { title: "Entrata handoff list", type: "CSV", unit: ["row", "rows"], who: "Property Accounting",
+      what: "Apartment community bills, one row per GL account, ready for Property Accounting to post in Entrata." },
+    "exception_log.csv": { title: "Invoices needing review", type: "CSV", unit: ["invoice", "invoices"], who: "AP Manager and the assigned teams",
+      what: "Every invoice Penny held or stopped, with the reason, the team it goes to, and Penny's confidence." },
+    "approvals_for_entered_bills.csv": { title: "Approvals needed", type: "CSV", unit: ["bill", "bills"], who: "Approvers",
+      what: "Who must sign off on each bill in the import file. It lists who is required; it does not record approvals." },
+    "review_workbook.xlsx": { title: "Review workbook", type: "Excel", unit: null, who: "Anyone reviewing the run",
+      what: "All of the files above as tabs in one Excel workbook, plus a sheet that checks every bill total with formulas." },
+    "run_report.md": { title: "Run summary", type: "Summary", unit: null, who: "Anyone", view: true,
+      what: "One page with the counts, every decision, and the result of Penny's Intacct pre-flight check." },
   };
+  const FILE_ORDER = Object.keys(FILE_INFO);
+  const friendlyName = (run, f) => `Penny - ${run.label} - ${(FILE_INFO[f.name] || { title: f.name }).title}.${f.name.split(".").pop()}`;
+  function fileCount(f) {
+    const info = FILE_INFO[f.name] || {};
+    if (f.rows === null || f.rows === undefined || !info.unit) return "";
+    return f.rows === 0 ? "Empty: nothing new in this run" : plural(f.rows, info.unit[0], info.unit[1]);
+  }
   function viewExports() {
     const runs = D.runs.slice().reverse();
-    return `${head("Exports", "The files each run wrote. Penny writes files for people to review and upload; it does not post, import or pay anything.")}
-      <div class="role-banner" role="note"><span><strong>Generated is not imported.</strong> A bill in an Intacct import file still has to be uploaded by a person, and approved, before it is paid.</span></div>
-      ${runs.map((r) => `<section class="card" style="margin-bottom:16px"><div class="card-head"><div><h2>${esc(r.label)}</h2>
-          <p>${esc(r.started_at ? fmtDateTime(r.started_at) : `Run ${r.order}`)} · ${esc(r.batch)}${r.dry_run ? " · dry run, register not changed" : ""}</p></div>
-          <a href="#/runs/${esc(r.id)}">Open run</a></div>
-        <div class="card-body" style="padding:12px 0 0">${(r.files || []).length ? `<div class="table-wrap"><table class="data files"><thead><tr><th scope="col">File</th><th scope="col" class="hide-sm">What it is</th><th scope="col" class="num">Rows</th><th scope="col"><span class="sr-only">Download</span></th></tr></thead><tbody>
-          ${r.files.map((f) => { const [t, why] = FILE_INFO[f.name] || [f.name, ""]; return `<tr><td><b>${esc(t)}</b><span class="sub"><code>${esc(f.name)}</code></span></td>
-            <td class="hide-sm">${esc(why)}</td><td class="num">${f.rows === null ? "" : f.rows === 0 ? "None" : esc(f.rows)}</td>
-            <td class="num"><a class="btn btn-sm" href="${esc(f.path)}" download>Download</a></td></tr>`; }).join("")}
-        </tbody></table></div>` : `<p class="empty">No files were exported for this run.</p>`}</div></section>`).join("")}`;
+    return `${head("Exports", "The files each run created, for people to review, upload and keep. Penny never uploads, posts or pays anything; a person does.")}
+      <div class="role-banner" role="note"><span><strong>Created is not uploaded.</strong> A bill in the Intacct bill import file is not in Intacct until a person uploads it, and it is not paid until it is approved.</span></div>
+      ${runs.map((r) => {
+        const res = X.byRun[r.id] || [];
+        const st = runStats(res);
+        const files = (r.files || []).slice().sort((a, b) => FILE_ORDER.indexOf(a.name) - FILE_ORDER.indexOf(b.name));
+        return `<section class="card export-run" aria-labelledby="ex-${esc(r.id)}">
+          <div class="export-head"><div><h2 id="ex-${esc(r.id)}">${esc(r.label)}</h2>
+            <p>${esc(r.started_at ? fmtDateTime(r.started_at) : `Run ${r.order}`)} · folder <code>${esc(r.batch)}</code>${r.dry_run ? ` · <span class="badge b-skip">${bIcon("minus")}Dry run</span>` : ""}</p>
+            <p class="export-tally">${plural(res.length, "document")} read: ${st.entered} ready to import, ${st.held} need review, ${st.dup} duplicate${st.dup === 1 ? "" : "s"}${st.skip ? `, ${st.skip} skipped` : ""}</p></div>
+            <a class="btn btn-sm" href="#/runs/${esc(r.id)}">Open run</a></div>
+          ${files.length ? `<ul class="file-list">${files.map((f) => {
+            const info = FILE_INFO[f.name] || { title: f.name, type: f.name.split(".").pop().toUpperCase(), what: "", who: "" };
+            const count = fileCount(f);
+            return `<li class="file-row">
+              <span class="file-type t-${esc(info.type.toLowerCase())}" aria-hidden="true">${esc(info.type)}</span>
+              <div class="file-main"><b>${esc(info.title)}</b><p>${esc(info.what)}</p>
+                <p class="file-meta"><span>For: ${esc(info.who)}</span>${count ? `<span>${esc(count)}</span>` : ""}<span><code>${esc(f.name)}</code></span></p></div>
+              <div class="file-actions">${info.view ? `<button class="btn btn-sm btn-accent" type="button" data-view-summary="${esc(f.path)}" data-run="${esc(r.id)}">View</button>` : ""}
+                <a class="btn btn-sm" href="${esc(f.path)}" download="${esc(friendlyName(r, f))}" aria-label="Download ${esc(info.title)} for ${esc(r.label)}">Download</a></div>
+            </li>`; }).join("")}</ul>` : `<p class="empty">No files were saved for this run.</p>`}
+        </section>`;
+      }).join("")}`;
+  }
+  /** Show a run summary on the page. The file is Markdown, which most people cannot open, so it is turned into a
+      readable page here, with Penny's result codes shown as plain labels. */
+  function mdToHtml(md) {
+    const lines = md.split(/\r?\n/);
+    const out = [];
+    const inline = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    const cell = (t) => { const v = t.trim(); return STATUS[v] ? esc(STATUS[v].label) : inline(v); };
+    for (let k = 0; k < lines.length; k++) {
+      const l = lines[k];
+      if (/^#\s/.test(l)) continue;                       // the dialog has its own title
+      if (/^##\s/.test(l)) { out.push(`<h3 class="sub-h">${inline(l.replace(/^##\s*/, ""))}</h3>`); continue; }
+      if (/^\|/.test(l)) {
+        const rows = [];
+        while (k < lines.length && /^\|/.test(lines[k])) { rows.push(lines[k]); k++; }
+        k--;
+        const split = (r) => r.replace(/^\||\|$/g, "").split("|");
+        const head = split(rows[0]), body = rows.slice(2).map(split);
+        out.push(`<div class="table-wrap"><table class="mini"><thead><tr>${head.map((h) => `<th>${inline(h.trim())}</th>`).join("")}</tr></thead><tbody>${body.map((r) =>
+          `<tr>${r.map((c) => `<td>${cell(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+        continue;
+      }
+      if (/^-\s/.test(l)) { out.push(`<p>• ${inline(l.replace(/^-\s*/, ""))}</p>`); continue; }
+      if (l.trim()) out.push(`<p>${inline(l)}</p>`);
+    }
+    return out.join("");
+  }
+  async function showRunSummary(path, runId) {
+    const run = X.runById[runId];
+    let body;
+    try {
+      const res = await fetch(path, { cache: "no-cache" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      body = `<div class="summary-body">${mdToHtml(await res.text())}</div>`;
+    } catch (e) {
+      body = `<p class="form-error">The summary could not be loaded. Try the Download button instead.</p>`;
+    }
+    openDialog(`Run summary · ${run ? run.label : runId}`, run ? `${esc(run.started_at ? fmtDateTime(run.started_at) : `Run ${run.order}`)} · folder <code>${esc(run.batch)}</code>` : "",
+      body, "", () => "", { info: true, wide: true });
+  }
+
+  // ------------------------------------------------------------------ new batch
+  /* Upload a folder of invoices and run Penny on it. Running needs Penny's engine, which only the local server has
+     (./penny web --package ...). The public demo lets people try every step and says plainly what would happen. */
+  let SERVER = null;            // { mode: "local", engine, today, max_mb } when served by ./penny web
+  const QUICK_NAMES = ["weekly-ap", "month-end", "vendor-resends", "corrections"];
+  const NB = { name: "", files: [], mode: "preview", busy: false, result: null, error: "" };
+  const slug = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  const today = () => todayIn(tz());
+  const fmtBytes = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 102.4) / 10} KB` : `${Math.round(n / 104857.6) / 10} MB`;
+  const knownHashes = () => Object.fromEntries(Object.values(D.documents).map((d) => [(d.extracted || {}).sha256, d.id]).filter(([h]) => h));
+  const maxBytes = () => ((SERVER && SERVER.max_mb) || 25) * 1048576;
+
+  async function addFiles(fileList) {
+    const known = knownHashes();
+    for (const file of Array.from(fileList)) {
+      const item = { file, name: file.name, bytes: file.size, state: "checking", note: "" };
+      NB.files.push(item);
+      paintBatch();
+      if (!/\.pdf$/i.test(file.name)) { item.state = "bad"; item.note = "Not a PDF file"; continue; }
+      if (file.size > maxBytes()) { item.state = "bad"; item.note = `Larger than ${fmtBytes(maxBytes())}`; continue; }
+      if (NB.files.filter((f) => f.name.toLowerCase() === file.name.toLowerCase()).length > 1) { item.state = "bad"; item.note = "Same file name twice"; continue; }
+      try {
+        const head = new TextDecoder().decode(await file.slice(0, 1024).arrayBuffer());
+        if (!head.trimStart().startsWith("%PDF")) { item.state = "bad"; item.note = "Not really a PDF"; continue; }
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer())), (b) => b.toString(16).padStart(2, "0")).join("");
+        item.sha256 = hash;
+        if (known[hash]) { item.state = "warn"; item.note = `Already read as ${known[hash]}. Penny will skip or flag it.`; }
+        else if (NB.files.some((f) => f !== item && f.sha256 === hash)) { item.state = "bad"; item.note = "Same file added twice"; }
+        else { item.state = "ok"; item.note = "Ready"; }
+      } catch (e) { item.state = "bad"; item.note = "Could not read this file"; }
+    }
+    paintBatch();
+  }
+  const readyFiles = () => NB.files.filter((f) => f.state === "ok" || f.state === "warn");
+
+  function viewBatch() {
+    if (!can("upload")) {
+      return `${head("New batch", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>AP Clerks and Admins add batches</h2>
+        <p>Sign in as Avery Chen (AP Clerk) or Sam Rivera (Admin) to upload invoices.</p></div></section>`;
+    }
+    const banner = !SERVER
+      ? `<div class="mode-banner mode-demo" role="note"><b>This public demo cannot run Penny's engine.</b> Try every step here; nothing is uploaded. To process real invoices, run Penny on your computer with <code>./penny web --package &lt;package folder&gt;</code>. <a href="#/help/new-batch">How it works</a></div>`
+      : SERVER.engine
+        ? `<div class="mode-banner mode-ok" role="note"><b>Connected to Penny on this computer.</b> Uploads go to the <code>inbox</code> folder and runs use Penny's real engine.</div>`
+        : `<div class="mode-banner mode-warn" role="note"><b>Uploads work, but Penny cannot run yet.</b> Restart with <code>./penny web --package &lt;package folder&gt;</code> so it can read the reference data.</div>`;
+    return `${head("New batch", "Give the batch a name, add the invoice PDFs, then preview it or run it. Every step is recorded in the audit trail.")}
+      ${banner}
+      <div class="batch-flow" id="batch-flow">${batchBody()}</div>`;
+  }
+  function batchBody() {
+    if (NB.result || NB.busy) return batchProgress();
+    const name = slug(NB.name);
+    const folder = `inbox/${today()}_${name || "your-batch-name"}`;
+    const ready = readyFiles();
+    const bad = NB.files.filter((f) => f.state === "bad");
+    const canRun = can("run");
+    const nameOk = name.length >= 2;
+    const go = nameOk && ready.length && !NB.files.some((f) => f.state === "checking");
+    const stIcon = { ok: "check", warn: "alert", bad: "x", checking: "clock" };
+    return `
+      <section class="card step"><div class="step-n">1</div><div class="step-body">
+        <h2><label for="nb-name">Name the batch</label></h2>
+        <p class="hint">Use a short name you will recognize later. Penny adds today's date in front, so folders sort by date.</p>
+        <div class="nb-name"><input id="nb-name" class="text-input" maxlength="40" autocomplete="off" placeholder="weekly-ap" value="${esc(NB.name)}" aria-describedby="nb-folder">
+          <div class="chips">${QUICK_NAMES.map((q) => `<button type="button" class="chip chip-btn${name === q ? " on" : ""}" data-quick="${q}">${q}</button>`).join("")}</div></div>
+        <p class="nb-folder" id="nb-folder">Folder: <code>${esc(folder)}</code>${NB.name && !nameOk ? ` <span class="form-error">Use at least 2 letters or numbers.</span>` : ""}</p>
+      </div></section>
+      <section class="card step"><div class="step-n">2</div><div class="step-body">
+        <h2>Add the invoices</h2>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-describedby="drop-hint">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <p><b>Drag invoice PDFs here</b> or <span class="link-like">choose files</span></p>
+          <p class="hint" id="drop-hint">PDF only, up to ${fmtBytes(maxBytes())} each. Penny checks every file before anything is uploaded.</p>
+          <input type="file" id="nb-files" accept="application/pdf,.pdf" multiple hidden>
+        </div>
+        ${NB.files.length ? `<div class="nb-summary"><span>${plural(ready.length, "invoice")} ready${bad.length ? `, ${bad.length} can't be added` : ""} · ${fmtBytes(ready.reduce((a, f) => a + f.bytes, 0))}</span><button type="button" class="link-btn" data-clear-files>Remove all</button></div>
+          <ul class="nb-files" aria-live="polite">${NB.files.map((f, i) => `<li class="nb-file st-${f.state}">
+            <span class="nb-ic" aria-hidden="true">${bIcon(stIcon[f.state])}</span>
+            <span class="nb-main"><b>${esc(f.name)}</b><span class="sub">${esc(fmtBytes(f.bytes))} · ${esc(f.state === "checking" ? "Checking…" : f.note)}</span></span>
+            <button type="button" class="icon-btn" data-rm-file="${i}" aria-label="Remove ${esc(f.name)}">×</button></li>`).join("")}</ul>` : ""}
+      </div></section>
+      <section class="card step"><div class="step-n">3</div><div class="step-body">
+        <h2>Preview or run</h2>
+        <div class="choice" role="radiogroup" aria-label="How to run">
+          <label><input type="radio" name="nb-mode" value="preview" ${NB.mode === "preview" ? "checked" : ""}><b>Preview first (recommended)</b><small>Penny reads every invoice and writes the files for review, but does not update its register. Nothing is marked as processed.</small></label>
+          <label class="${canRun ? "" : "is-disabled"}"><input type="radio" name="nb-mode" value="real" ${NB.mode === "real" && canRun ? "checked" : ""} ${canRun ? "" : "disabled"}><b>Run for real</b><small>${canRun ? "Penny updates its register, so these bills can never be written to an import file twice." : "Only an Admin can run for real. Preview now; an Admin can run it after."}</small></label>
+        </div>
+        <dl class="nb-review"><div><dt>Folder</dt><dd><code>${esc(folder)}</code></dd></div><div><dt>Invoices</dt><dd>${ready.length}</dd></div><div><dt>Uploaded and run by</dt><dd>${esc(user.name)} (${esc(ROLES[user.role].name)})</dd></div></dl>
+        ${NB.error ? `<p class="auth-error" role="alert">${esc(NB.error)}</p>` : ""}
+        <button class="btn btn-accent btn-lg" type="button" id="nb-go" ${go ? "" : "disabled"}>${NB.mode === "real" && canRun ? "Upload and run" : "Upload and preview"}</button>
+        ${go ? "" : `<p class="hint">${!nameOk ? "Name the batch to continue." : !ready.length ? "Add at least one PDF to continue." : "Checking files…"}</p>`}
+      </div></section>`;
+  }
+  function batchProgress() {
+    const r = NB.result;
+    if (r && r.done) {
+      const c = r.counts || {};
+      const readyN = (c.ENTER_INTACCT || 0) + (c.ENTER_ENTRATA || 0);
+      return `<section class="card nb-done"><div class="callout-title">${bIcon("check")}<h2>${r.dry_run ? "Preview finished" : "Batch finished"}: ${esc(r.batch)}</h2></div>
+        <p>Penny read ${plural(r.documents, "invoice")} in ${esc(r.seconds)} seconds${r.dry_run ? ". Nothing was saved to the register." : ", and saved them to the register."}</p>
+        <ul class="nb-counts"><li><b>${readyN}</b> ready to import</li><li><b>${c.HOLD || 0}</b> need review</li><li><b>${c.DUP || 0}</b> duplicates</li><li><b>${c.SKIP_ALREADY_ENTERED || 0}</b> skipped</li></ul>
+        <p class="hint">Intacct pre-flight ${esc(r.preflight)}. Recorded in the audit trail as run <code>${esc(r.run_id)}</code>.</p>
+        <div class="nb-actions"><a class="btn btn-accent" href="#/runs/${esc(r.run_id)}">Open this run</a>${c.HOLD ? `<a class="btn" href="#/exceptions">Review what needs attention</a>` : ""}<button class="btn" type="button" data-nb-reset>Start another batch</button></div></section>`;
+    }
+    const steps = NB.steps || [];
+    return `<section class="card nb-progress" aria-live="polite"><h2>Working on ${esc(NB.batchName || "your batch")}</h2>
+      <ol class="nb-steps">${steps.map((st) => `<li class="ns-${st.state}"><span class="nb-ic" aria-hidden="true">${st.state === "done" ? bIcon("check") : st.state === "error" ? bIcon("x") : '<span class="spin"></span>'}</span><span>${esc(st.label)}${st.detail ? `<span class="sub">${esc(st.detail)}</span>` : ""}</span></li>`).join("")}</ol>
+      ${NB.upPct !== undefined ? `<div class="splash-bar nb-bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${NB.upPct}"><span style="width:${NB.upPct}%"></span></div>` : ""}
+      ${NB.error ? `<p class="auth-error" role="alert">${esc(NB.error)}</p><div class="nb-actions"><button class="btn" type="button" data-nb-back>Back to the batch</button></div>` : ""}</section>`;
+  }
+  function paintBatch() {
+    const el = $("#batch-flow");
+    if (!el) return;
+    const focusId = document.activeElement && document.activeElement.id;
+    el.innerHTML = batchBody();
+    if (focusId && $(`#${focusId}`)) { const f = $(`#${focusId}`); f.focus(); if (f.setSelectionRange && f.value) f.setSelectionRange(f.value.length, f.value.length); }
+  }
+  async function api(path, opts = {}) {
+    const res = await fetch(path, { ...opts, headers: { "X-Penny": "1", ...(opts.headers || {}) } });
+    let body = {};
+    try { body = await res.json(); } catch (e) { /* empty */ }
+    if (!res.ok) throw new Error(body.error || `The Penny server answered ${res.status}.`);
+    return body;
+  }
+  async function runBatch() {
+    const real = NB.mode === "real" && can("run");
+    const files = readyFiles();
+    if (!SERVER) {
+      openDialog("Running needs Penny on your computer", "This public demo has no server, so it cannot upload or read invoices. Nothing was sent anywhere.",
+        `<ol class="notes"><li>Open Terminal in the project folder, then <code>cd 04_Workflow</code>.</li>
+          <li>Start Penny with <code>./penny web --package ~/Downloads/Hillpointe_AP_Technical_Screen</code>.</li>
+          <li>Come back to New batch in the window that opens. The same steps will upload to <code>inbox/${esc(today())}_${esc(slug(NB.name))}</code> and run Penny for real.</li></ol>`,
+        "", () => "", { info: true });
+      track("batch_demo_attempt", { files: files.length });
+      return;
+    }
+    const who = { id: user.id, name: user.name, role: user.role };
+    NB.busy = true; NB.error = ""; NB.steps = []; NB.upPct = 0;
+    const step = (label, state = "doing", detail = "") => { NB.steps.push({ label, state, detail }); paintBatch(); return NB.steps[NB.steps.length - 1]; };
+    let st;
+    try {
+      st = step("Creating the batch folder");
+      const made = await api("api/batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: NB.name, user: who, date: today(), event_id: newId() }) });
+      NB.batchName = made.batch;
+      st.state = "done"; st.detail = made.folder;
+      st = step(`Uploading ${plural(files.length, "invoice")}`);
+      for (let k = 0; k < files.length; k++) {
+        st.detail = `${k + 1} of ${files.length}: ${files[k].name}`; NB.upPct = Math.round((k / files.length) * 100); paintBatch();
+        await api(`api/batches/${encodeURIComponent(made.batch)}/files?name=${encodeURIComponent(files[k].name)}`, { method: "POST", headers: { "X-Penny-User": JSON.stringify(who), "Content-Type": "application/pdf" }, body: files[k].file });
+      }
+      NB.upPct = 100; st.state = "done"; st.detail = `${plural(files.length, "file")}, ${fmtBytes(files.reduce((a, f) => a + f.bytes, 0))}`;
+      const upId = newId();
+      const up = await api(`api/batches/${encodeURIComponent(made.batch)}/uploaded`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: who, event_id: upId }) });
+      record("batch.upload", { id: upId, batch: made.batch, folder: up.folder, files: up.files, count: up.count, bytes: up.bytes });
+      NB.upPct = undefined;
+      st = step(`Penny is reading ${plural(files.length, "invoice")}${real ? "" : " (preview)"}`, "doing", "This can take a few seconds per invoice.");
+      const runId = newId();
+      const ran = await api(`api/batches/${encodeURIComponent(made.batch)}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: who, dry_run: !real, event_id: runId }) });
+      record("batch.run", { id: runId, batch: ran.batch, folder: ran.folder, run_id: ran.run_id, dry_run: ran.dry_run, counts: ran.counts, documents: ran.documents, preflight: ran.preflight });
+      st.state = "done";
+      step("Refreshing the web app", "doing");
+      await reloadData();
+      track("batch_run", { files: files.length, dry_run: ran.dry_run });
+      NB.result = { ...ran, done: true }; NB.busy = false; NB.files = [];
+      paintBatch();
+      toast(ran.dry_run ? "Preview finished." : "Batch finished.");
+    } catch (e) {
+      if (st) st.state = "error";
+      NB.error = `${e.message} Nothing after this step was done.`;
+      paintBatch();
+    }
+  }
+  async function reloadData() {
+    const res = await fetch("data/penny-data.json", { cache: "no-cache" });
+    D = await res.json();
+    SERVER = D.server && D.server.mode === "local" ? D.server : SERVER;
+    X = buildIndex(D);
+    derive();
+    $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
+  }
+  function bindBatch() {
+    const flow = $("#batch-flow");
+    if (!flow || flow.dataset.bound) return;
+    flow.dataset.bound = "1";
+    flow.addEventListener("input", (e) => {
+      if (e.target.id === "nb-name") { NB.name = e.target.value; NB.error = ""; paintBatch(); }
+    });
+    flow.addEventListener("change", (e) => {
+      if (e.target.id === "nb-files") { addFiles(e.target.files); e.target.value = ""; }
+      if (e.target.name === "nb-mode") { NB.mode = e.target.value; paintBatch(); }
+    });
+    flow.addEventListener("click", (e) => {
+      const q = e.target.closest("[data-quick]");
+      if (q) { NB.name = q.dataset.quick; paintBatch(); return; }
+      if (e.target.closest("[data-rm-file]")) { NB.files.splice(+e.target.closest("[data-rm-file]").dataset.rmFile, 1); paintBatch(); return; }
+      if (e.target.closest("[data-clear-files]")) { NB.files = []; paintBatch(); return; }
+      if (e.target.closest("#nb-go")) { runBatch(); return; }
+      if (e.target.closest("[data-nb-reset]")) { Object.assign(NB, { name: "", files: [], result: null, error: "", busy: false, steps: [] }); paintBatch(); return; }
+      if (e.target.closest("[data-nb-back]")) { Object.assign(NB, { result: null, busy: false, error: "", steps: [] }); paintBatch(); return; }
+      if (e.target.closest("#dropzone")) $("#nb-files").click();
+    });
+    flow.addEventListener("keydown", (e) => { if (e.target.id === "dropzone" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); $("#nb-files").click(); } });
+    flow.addEventListener("dragover", (e) => { const z = e.target.closest("#dropzone"); if (z) { e.preventDefault(); z.classList.add("drag"); } });
+    flow.addEventListener("dragleave", (e) => { const z = e.target.closest("#dropzone"); if (z) z.classList.remove("drag"); });
+    flow.addEventListener("drop", (e) => { const z = e.target.closest("#dropzone"); if (z) { e.preventDefault(); z.classList.remove("drag"); addFiles(e.dataTransfer.files); } });
+  }
+
+  // ------------------------------------------------------------------ insights
+  const PAGE_NAMES = { overview: "Overview", work: "My work", invoices: "Invoices", invoice: "Invoice review", exceptions: "Exceptions", exports: "Exports",
+    runs: "Run history", audit: "Audit trail", rules: "Rules", help: "Help center", insights: "Insights" };
+  function countBy(list, f) { const o = {}; list.forEach((x) => { const k = f(x); if (k !== undefined && k !== null && k !== "") o[k] = (o[k] || 0) + 1; }); return Object.entries(o).sort((a, b) => b[1] - a[1]); }
+  function median(nums) { if (!nums.length) return null; const s2 = nums.slice().sort((a, b) => a - b); const m = Math.floor(s2.length / 2); return s2.length % 2 ? s2[m] : Math.round((s2[m - 1] + s2[m]) / 2); }
+  const dur = (sec) => sec === null ? "Not enough data" : sec < 60 ? plural(sec, "second") : `${Math.round(sec / 6) / 10} minutes`;
+  function bars(rows, label = (k) => k) {
+    if (!rows.length) return `<p class="hint">Nothing recorded yet.</p>`;
+    const max = Math.max(...rows.map((r) => r[1]));
+    return `<ul class="hbars">${rows.slice(0, 8).map(([k, n]) => `<li class="hbar"><span class="hbar-label">${esc(label(k))}</span><span class="hbar-track" aria-hidden="true"><span class="hbar-fill ins-fill" style="display:block;width:${(n / max) * 100}%"></span></span><span class="hbar-n">${n}</span></li>`).join("")}</ul>`;
+  }
+  function viewInsights() {
+    if (!can("rules")) return `${head("Insights", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>Admins only</h2><p>Usage insights are for the person who improves Penny. Sign in as Sam Rivera (Admin) to see them.</p></div></section>`;
+    const ev = usageEvents();
+    const on = usageOn();
+    const views = ev.filter((e) => e.type === "view");
+    const actions = ev.filter((e) => e.type === "action");
+    const shown = ev.filter((e) => e.type === "suggestion_shown").length;
+    const applied = ev.filter((e) => e.type === "suggestion_applied");
+    const undone = ev.filter((e) => e.type === "suggestion_undone");
+    const resolveTimes = actions.filter((e) => e.kind === "hold.resolve" && typeof e.seconds === "number").map((e) => e.seconds);
+    const sessions = ev.filter((e) => e.type === "session_start").length;
+    const emptySearch = countBy(ev.filter((e) => e.type === "search" && e.hits === 0), (e) => e.q);
+    const emptyHelp = countBy(ev.filter((e) => e.type === "help_search" && e.hits === 0), (e) => e.q);
+    const errors = ev.filter((e) => e.type === "error");
+    const introDone = ev.filter((e) => e.type === "intro").length, introSkip = ev.filter((e) => e.type === "intro" && e.skipped).length;
+    const acceptance = shown ? Math.round((applied.length / shown) * 100) : null;
+    // plain-language signals a person can act on
+    const signals = [];
+    const undoneBy = countBy(undone, (e) => e.code);
+    undoneBy.forEach(([code, n]) => { if (n >= 1) signals.push(`Suggested fixes for “${(CODES[code] || {}).plain || code}” were undone ${plural(n, "time")}. Review the playbook wording for that reason.`); });
+    emptySearch.slice(0, 3).forEach(([q, n]) => signals.push(`Search found nothing for “${q}” (${plural(n, "time")}). Consider making that searchable.`));
+    emptyHelp.slice(0, 3).forEach(([q, n]) => signals.push(`Help search found nothing for “${q}” (${plural(n, "time")}). That may need a help article.`));
+    const slow = median(resolveTimes);
+    if (slow !== null && slow > 120) signals.push(`Resolving a hold takes ${dur(slow)} at the median. Suggested fixes may help more invoices.`);
+    if (introDone >= 3 && introSkip / introDone > 0.5) signals.push(`Most people skip the intro (${introSkip} of ${introDone}). It may be too long.`);
+    if (errors.length) signals.push(`${plural(errors.length, "error")} happened in the browser. See the list below.`);
+    const holdCodes = countBy(X.docs.filter(openHold).flatMap((d) => d.codes), (c) => c);
+    if (holdCodes.length) signals.push(`The most common open hold is “${(CODES[holdCodes[0][0]] || {}).plain}” (${holdCodes[0][1]}). A rule or vendor process change there would help the most.`);
+    return `${head("Insights", "How Penny is being used in this browser, and signals for improving it. Nothing here leaves your browser.",
+        `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="usage-download" type="button">Download data</button><button class="btn" id="usage-toggle" type="button">${on ? "Turn off" : "Turn on"}</button><button class="btn btn-danger" id="usage-clear" type="button">Clear</button></div>`)}
+      ${on ? "" : `<div class="role-banner" role="note"><span><strong>Usage tracking is off.</strong> Nothing new is being recorded. Turn it on to collect insights again.</span></div>`}
+      <section class="grid kpis" aria-label="Usage totals">
+        ${kpi("dot-accent", "Sessions", sessions, `${plural(views.length, "screen view")}`)}
+        ${kpi("dot-ok", "Actions taken", actions.length, `${plural(new Set(actions.map((a) => a.role)).size, "role")} acted`)}
+        ${kpi("dot-hold", "Suggestions accepted", acceptance === null ? "None yet" : `${acceptance}%`, `${applied.length} applied, ${undone.length} undone`)}
+        ${kpi("dot-dup", "Time to resolve a hold", slow === null ? "None yet" : dur(slow), "median, from opening to resolving")}
+      </section>
+      <section class="card" style="margin-bottom:16px"><div class="card-head"><h2>Signals to improve Penny</h2><p>Built from the numbers below</p></div><div class="card-body">
+        ${signals.length ? `<ul class="notes">${signals.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="hint">Not enough activity yet. Use Penny for a while and come back.</p>`}</div></section>
+      <div class="grid two">
+        <section class="card"><div class="card-head"><h2>Screens people use</h2></div><div class="card-body">${bars(countBy(views, (e) => e.page), (k) => PAGE_NAMES[k] || k)}</div></section>
+        <section class="card"><div class="card-head"><h2>Actions by kind</h2></div><div class="card-body">${bars(countBy(actions, (e) => e.kind), (k) => EVENT_LABEL[k] || k)}</div></section>
+        <section class="card"><div class="card-head"><h2>Suggested fixes applied, by reason</h2></div><div class="card-body">${bars(countBy(applied, (e) => e.code), (k) => (CODES[k] || {}).plain || k)}
+          <p class="hint" style="margin-top:10px">${applied.filter((e) => e.source === "learned").length} came from what people did before; ${applied.filter((e) => e.source === "playbook").length} came from the playbook.</p></div></section>
+        <section class="card"><div class="card-head"><h2>Actions by role</h2></div><div class="card-body">${bars(countBy(actions, (e) => e.role), (k) => (ROLES[k] || {}).name || k)}</div></section>
+        <section class="card"><div class="card-head"><h2>Searches with no results</h2></div><div class="card-body">${bars(emptySearch)}</div></section>
+        <section class="card"><div class="card-head"><h2>Help articles read</h2></div><div class="card-body">${bars(countBy(ev.filter((e) => e.type === "help_view"), (e) => e.slug), (k) => ((window.PENNY_HELP || []).find((a) => a.slug === k) || {}).title || k)}</div></section>
+      </div>
+      ${errors.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>Errors</h2></div><div class="card-body"><ul class="notes">${errors.slice(-10).reverse().map((e) => `<li><code>${esc(e.message)}</code> <span class="hint">${esc(fmtDateTime(e.t))}</span></li>`).join("")}</ul></div></section>` : ""}
+      <section class="card card-pad prose" style="margin-top:16px"><h2 style="margin-bottom:8px">What is collected, and what is not</h2>
+        <p><strong>Collected:</strong> which screens are opened, which actions are taken (and how many seconds they took), whether suggested fixes were shown, applied or undone, searches and help searches that found nothing, keyboard shortcuts, the intro, and browser errors. Each event has a time and the role (not the person).</p>
+        <p><strong>Never collected:</strong> note text, passwords, anything typed into forms other than search words, or anything that identifies a real person.</p>
+        <p><strong>Where it lives:</strong> only in this browser, capped at the latest ${USAGE_MAX.toLocaleString()} events. You can turn it off, clear it, or download it. On a real server the same events would be collected for the whole team with an opt-out.</p>
+      </section>`;
+  }
+  function bindInsights() {
+    const dl = $("#usage-download");
+    if (!dl) return;
+    dl.addEventListener("click", () => download("penny-usage.json", JSON.stringify({ exported_at: new Date().toISOString(), events: usageEvents() }, null, 2) + "\n", "application/json"));
+    $("#usage-toggle").addEventListener("click", () => { if (usageOn()) { track("tracking_off"); store.set(USAGE_OFF, "1"); toast("Usage tracking is off."); } else { store.del(USAGE_OFF); track("tracking_on"); toast("Usage tracking is on."); } render(); });
+    $("#usage-clear").addEventListener("click", () => openDialog("Clear usage data", "This erases the usage events saved in this browser. The audit trail is not affected.", "", "Clear usage data",
+      () => { store.del(USAGE_KEY); render(); toast("Usage data cleared."); return ""; }, { danger: true }));
   }
 
   // ------------------------------------------------------------------ my work
@@ -1391,8 +2094,8 @@
       const teams = {};
       w.holds.forEach((d) => { const t = routesFor(d.codes, d.id)[0] || "Unassigned"; (teams[t] = teams[t] || []).push(d); });
       body = w.holds.length ? Object.entries(teams).sort((a, b) => b[1].length - a[1].length).map(([t, rows]) =>
-        `<section class="card" style="margin-bottom:16px"><div class="team-head"><h2>${esc(t)}</h2><span>${plural(rows.length, "hold")} · ${esc(money(rows.reduce((a, d) => a + d.amount, 0)))}</span></div>
-          ${docTable(rows.sort((a, b) => b.amount - a.amount), { route: true })}</section>`).join("")
+        `<section class="card" style="margin-bottom:16px"><div class="team-head"><h2>${esc(t)}</h2><span>${plural(rows.length, "hold")} · ${esc(amountLabel(rows))}</span></div>
+          ${docTable(rows.sort((a, b) => b.amount - a.amount), { route: true, suggest: true })}</section>`).join("")
         : `<section class="card"><div class="empty-state">${ICON.check}<h2>No open holds</h2><p>Every hold has been resolved. Nice work.</p></div></section>`;
     } else {
       body = w.approvals.length ? `<section class="card">${docTable(w.approvals, {})}</section>`
@@ -1407,15 +2110,27 @@
   }
 
   // ------------------------------------------------------------------ audit trail
+  // The browser writes UTC times and Penny's disk log writes local times with an offset, so both are turned into
+  // UTC before sorting. Comparing the raw text would put a 9:00 -05:00 entry before a 10:00 UTC one.
+  const iso = (t) => { const d = new Date(t); return t && !isNaN(d) ? d.toISOString() : ""; };
   function auditRows() {
-    const people = EV.map((e) => ({ ...e, sort: e.at }));
-    const runs = D.runs.map((r) => ({ id: `run-${r.id}`, type: "run", at: r.started_at || "", run: r, sort: r.started_at || `0000-${String(r.order).padStart(4, "0")}`,
+    const serverLog = (D.batch_log || []).map((e) => ({ ...e, type: e.event === "batch.uploaded" ? "batch.upload" : e.event, user: { id: e.by.id, name: e.by.name, role: e.by.role, initials: e.by.name.split(" ").map((w) => w[0]).join("").slice(0, 2) },
+      count: e.count, sort: iso(e.at), server: true }));
+    const onServer = new Set(serverLog.map((e) => e.id).filter(Boolean));
+    const people = [...EV.filter((e) => !onServer.has(e.id)).map((e) => ({ ...e, sort: iso(e.at) })), ...serverLog];
+    const runs = D.runs.map((r) => ({ id: `run-${r.id}`, type: "run", at: r.started_at || "", run: r, sort: iso(r.started_at) || `0000-${String(r.order).padStart(4, "0")}`,
       user: { id: "penny", name: "Penny", role: "system", initials: "P" } }));
-    return [...people, ...runs].sort((a, b) => (a.sort < b.sort ? 1 : a.sort > b.sort ? -1 : 0));
+    // Newest first. The disk log keeps whole seconds, so entries from the same second fall back to the order the
+    // steps really happen in: folder created, files uploaded, Penny's run, then the run record.
+    const STEP = { "batch.created": 0, "batch.upload": 1, run: 2, "batch.run": 3, "batch.run_failed": 3 };
+    const sec = (x) => String(x.sort || "").slice(0, 19);
+    const rank = (x) => (x.type in STEP ? STEP[x.type] : 1.5);
+    return [...people, ...runs].sort((a, b) => (sec(a) < sec(b) ? 1 : sec(a) > sec(b) ? -1 : rank(b) - rank(a) || (a.sort < b.sort ? 1 : a.sort > b.sort ? -1 : 0)));
   }
   function auditTarget(e) {
     if (e.type === "run") return { html: `<a href="#/runs/${esc(e.run.id)}">${esc(e.run.label)}</a>`, text: e.run.label };
     if (e.doc) { const d = X.docById[e.doc]; const t = d ? `${d.vendor} ${d.billNo}` : e.doc; return { html: `<a href="#/invoices/${esc(e.doc)}">${esc(t)}</a>`, text: t }; }
+    if (e.type && e.type.startsWith("batch.")) return e.run_id && X.runById[e.run_id] ? { html: `<a href="#/runs/${esc(e.run_id)}">${esc(e.batch)}</a>`, text: e.batch } : { html: `<code>${esc(e.batch)}</code>`, text: e.batch };
     if (e.type.startsWith("rules.")) return { html: `<a href="#/rules">Rules</a>`, text: "Rules" };
     return { html: "", text: "" };
   }
@@ -1425,7 +2140,11 @@
       const st = runStats(res);
       return `${res.length} documents: ${st.entered} ready to import, ${st.held} need review, ${st.dup} duplicates, ${st.skip} skipped`;
     }
-    if (e.changes) return e.changes.map((c) => `${c.label}: ${fmtRuleValue(c.path, c.before)} → ${fmtRuleValue(c.path, c.after)}`).join("; ");
+    if (e.changes) return e.changes.map(describeChange).join("; ");
+    if (e.type === "batch.created") return `Folder ${e.folder}`;
+    if (e.type === "batch.run_failed") return `${e.dry_run ? "Preview" : "Real run"} ${e.run_id} on ${e.folder} did not finish: ${e.error}`;
+    if (e.type === "batch.upload") return `${plural(e.count || (e.files || []).length, "file")} to ${e.folder}${e.bytes ? `, ${fmtBytes(e.bytes)}` : ""}: ${(e.files || []).slice(0, 4).map((f) => f.name).join(", ")}${(e.files || []).length > 4 ? "…" : ""}`;
+    if (e.type === "batch.run") return `${e.dry_run ? "Preview" : "Real run"} ${e.run_id} on ${e.folder}: ${plural(e.documents, "document")}, ${Object.entries(e.counts || {}).map(([k, n]) => `${n} ${(STATUS[k] || { short: k }).short.toLowerCase()}`).join(", ")}; pre-flight ${e.preflight}${e.seconds ? `; ${e.seconds} s` : ""}`;
     if (e.before !== undefined) return `${e.before} → ${e.after}`;
     return "";
   }
@@ -1446,7 +2165,7 @@
         ${rows.length ? `<div class="table-wrap"><table class="data audit"><thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col" class="hide-sm">On</th><th scope="col">Details</th></tr></thead><tbody>
           ${rows.map((e) => `<tr><td style="white-space:nowrap">${esc(e.at ? fmtDateTime(e.at) : `Run ${e.run.order}`)}</td>
             <td><span style="display:inline-flex;gap:8px;align-items:center"><span class="avatar ${e.type === "run" ? "sys-avatar" : `av-${esc(e.user.role)}`}" style="width:26px;height:26px;font-size:10.5px" aria-hidden="true">${esc(e.user.initials)}</span>${esc(e.user.name)}</span></td>
-            <td>${esc(EVENT_LABEL[e.type] || e.type)}${S.revoked.has(e.id) ? ` <span class="badge b-skip">Undone</span>` : ""}</td>
+            <td>${esc(e.type === "batch.run" && e.dry_run ? "Previewed a batch" : EVENT_LABEL[e.type] || e.type)}${S.revoked.has(e.id) ? ` <span class="badge b-skip">Undone</span>` : ""}${e.server ? ` <span class="pill" title="Recorded in state/batch_log.jsonl on the Penny computer">On disk</span>` : ""}</td>
             <td class="hide-sm">${auditTarget(e).html}</td>
             <td><span class="diff">${esc(auditDetail(e))}</span>${e.note ? `<span class="sub" style="display:block;color:var(--text-2)">“${esc(e.note)}”</span>` : ""}</td></tr>`).join("")}
         </tbody></table></div>` : `<p class="empty">No entries match.</p>`}
@@ -1477,9 +2196,9 @@
   const HELP = () => window.PENNY_HELP || [];
   const ROLE_ROWS = [
     ["Viewer", "Every run, invoice, check, rule, export and the audit trail.", "Nothing. Read-only for auditors and leaders."],
-    ["AP Clerk", "Everything a Viewer sees, plus a queue of holds by team.", "Resolve, reject, reassign and reopen holds. Add notes."],
+    ["AP Clerk", "Everything a Viewer sees, plus a queue of holds by team.", "Resolve, reject, reassign and reopen holds, apply suggested fixes, add notes, upload new batches and run previews."],
     ["Approver", "Everything a Viewer sees, plus bills waiting for sign-off.", "Approve or send back bills. Add notes."],
-    ["Admin", "Everything.", "All of the above, plus change rules with a preview first, and undo."],
+    ["Admin", "Everything, plus usage Insights.", "All of the above, plus run batches for real, and edit every rule with a preview first and undo."],
   ];
   /** Fill the live parts of an article from the same data the app uses. */
   function helpFill(html) {
@@ -1521,9 +2240,12 @@
     const toc = helpSections().map(([sec, list]) => `<div class="toc-group"><p class="toc-h">${esc(sec)}</p><ul>${list.map((x) =>
       `<li><a href="#/help/${esc(x.slug)}"${x.slug === slug ? ' aria-current="page"' : ""}>${esc(x.title)}</a></li>`).join("")}</ul></div>`).join("");
     return `<div class="help-layout">
-      <aside class="help-toc" aria-label="Help articles"><details ${matchMedia("(min-width: 861px)").matches ? "open" : ""} class="toc-wrap"><summary>All help articles</summary>${toc}</details></aside>
+      <aside class="help-toc" aria-label="Help articles">
+        <a class="toc-home" href="#/help"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9l7-6 7 6v8H3z"/><path d="M8 17v-5h4v5"/></svg>Help center home</a>
+        <details ${matchMedia("(min-width: 861px)").matches ? "open" : ""} class="toc-wrap"><summary>All help articles</summary>${toc}</details></aside>
       <article class="help-article card">
-        <nav class="crumbs" aria-label="Breadcrumb"><a href="#/help">Help center</a><span aria-hidden="true">/</span><span>${esc(a.section)}</span></nav>
+        <a class="back-link help-back" href="#/help">← Back to Help center</a>
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#/help">Help center</a><span aria-hidden="true">/</span><a href="#/help?section=${encodeURIComponent(a.section)}">${esc(a.section)}</a><span aria-hidden="true">/</span><span aria-current="page">${esc(a.title)}</span></nav>
         <h1>${esc(a.title)}</h1><p class="lede">${esc(a.summary)}</p>
         <div class="help-body">${helpFill(a.html)}</div>
         <nav class="help-pager" aria-label="More articles">
@@ -1539,14 +2261,18 @@
       return `<p class="hint" aria-live="polite" style="margin:4px 0 12px">${plural(hits.length, "article")} match “${esc(term)}”.</p>
         ${hits.length ? `<div class="help-grid">${hits.map(helpCard).join("")}</div>` : `<div class="card"><div class="empty-state"><p>No articles match. Try a shorter word, like “hold” or “import”.</p></div></div>`}`;
     }
-    return helpSections().map(([sec, list]) => `<section class="help-sec"><h2>${esc(sec)}</h2><div class="help-grid">${list.map(helpCard).join("")}</div></section>`).join("");
+    return helpSections().map(([sec, list]) => `<section class="help-sec" id="sec-${esc(sec.toLowerCase().replace(/[^a-z]+/g, "-"))}"><h2>${esc(sec)}</h2><div class="help-grid">${list.map(helpCard).join("")}</div></section>`).join("");
   }
   const helpCard = (a) => `<a class="card help-card" href="#/help/${esc(a.slug)}"><b>${esc(a.title)}</b><span>${esc(a.summary)}</span></a>`;
   function bindHelp() {
+    const sec = parseHash().q.get("section");
+    if (sec) { const t = document.getElementById(`sec-${sec.toLowerCase().replace(/[^a-z]+/g, "-")}`); if (t) { t.scrollIntoView(); t.classList.add("flash"); } }
     const input = $("#help-q");
     if (!input) return;
     input.addEventListener("input", () => {
       $("#help-results").innerHTML = helpResults(input.value);
+      clearTimeout(bindHelp._t);
+      bindHelp._t = setTimeout(() => { const q = input.value.trim(); if (q.length >= 3) { const hits = $$("#help-results .help-card").length; track("help_search", { hits, q: hits ? undefined : q.slice(0, 40) }); } }, 1200);
       history.replaceState(null, "", `#/help${input.value.trim() ? `?q=${encodeURIComponent(input.value.trim())}` : ""}`);
     });
   }
@@ -1574,6 +2300,8 @@
       const v = input.value;
       if (!v.trim()) return close();
       items = searchMatches(v);
+      clearTimeout(bindSearch._t);
+      bindSearch._t = setTimeout(() => { if (input.value.trim().length >= 3) track("search", { hits: items.length, q: items.length ? undefined : input.value.trim().slice(0, 40) }); }, 1200);
       list.innerHTML = (items.length ? items.map((d, i) => `<li role="option" id="sr-${i}"><a href="#/invoices/${esc(d.id)}" tabindex="-1">
         <span class="sr-title">${esc(d.vendor)}</span><span class="sr-amt">${esc(money(d.amount))}</span>
         <span class="sr-meta">${esc(d.billNo || d.id)} · ${esc(STATUS[d.status].label)}</span></a></li>`).join("")
@@ -1630,6 +2358,12 @@
     else if (a === "rules") { html = viewRules(); title = "Rules"; nav = "rules"; after = bindRules; }
     else if (a === "exceptions") { html = viewExceptions(); title = "Exceptions"; nav = "exceptions"; }
     else if (a === "exports") { html = viewExports(); title = "Exports"; nav = "exports"; }
+    else if (a === "batch") {
+      // Arriving from another page starts a fresh batch; a finished result stays only until you leave it.
+      if (lastPath !== "batch" && !NB.busy && NB.result) Object.assign(NB, { name: "", files: [], result: null, error: "", steps: [], mode: "preview" });
+      html = viewBatch(); title = "New batch"; nav = "batch"; after = bindBatch;
+    }
+    else if (a === "insights") { html = viewInsights(); title = "Insights"; nav = "insights"; after = bindInsights; }
     else if (a === "work") { html = viewWork(q); title = "My work"; nav = "work"; after = () => $$(".queue-tabs button").forEach((b) => b.addEventListener("click", () => (location.hash = `#/work?tab=${b.dataset.tab}`))); }
     else if (a === "audit") { html = viewAudit(q); title = "Audit trail"; nav = "audit"; after = bindAudit; }
     else if (a === "about") { location.replace("#/help/about"); return; }
@@ -1644,6 +2378,9 @@
     const path = parts.join("/");
     if (path !== "rules") ruleDraft = {};
     if (path !== lastPath) {
+      track("view", { page: !a ? "overview" : a === "invoices" && b ? "invoice" : a });
+      if (a === "invoices" && b) openedAt[b] = Date.now();
+      if (a === "help" && b) track("help_view", { slug: b });
       const back = scrollMemo[location.hash];
       window.scrollTo(0, back || 0);
       if (lastPath !== null) main.focus({ preventScroll: true });
@@ -1711,6 +2448,10 @@
       if (!e.target.closest(".user-menu")) closeUserMenu();
       const act = e.target.closest("[data-act]");
       if (act) { e.preventDefault(); doAction(act.dataset.act, act.dataset.doc); return; }
+      const ap = e.target.closest("[data-apply]");
+      if (ap) { e.preventDefault(); applySuggestion(ap.dataset.apply, +ap.dataset.n); return; }
+      const sum = e.target.closest("[data-view-summary]");
+      if (sum) { e.preventDefault(); showRunSummary(sum.dataset.viewSummary, sum.dataset.run); return; }
       const undo = e.target.closest("[data-undo]");
       if (undo) { e.preventDefault(); undoRule(undo.dataset.undo); return; }
       const row = e.target.closest("tr[data-href]");
@@ -1729,7 +2470,7 @@
   const SHORTCUTS = [
     ["/", "Search invoices"], ["?", "Show these shortcuts"],
     ["g then o", "Go to Overview"], ["g then w", "Go to My work"], ["g then i", "Go to Invoices"], ["g then e", "Go to Exceptions"],
-    ["g then x", "Go to Exports"], ["g then r", "Go to Run history"], ["g then a", "Go to Audit trail"], ["g then h", "Go to Help center"],
+    ["g then b", "Go to New batch (AP Clerk, Admin)"], ["g then x", "Go to Exports"], ["g then n", "Go to Insights (Admin)"], ["g then r", "Go to Run history"], ["g then a", "Go to Audit trail"], ["g then h", "Go to Help center"],
     ["j", "Next invoice in your list"], ["k", "Previous invoice in your list"], ["b", "Back to your list"],
     ["r", "Resolve hold (AP Clerk, Admin)"], ["v", "Review approval (Approver, Admin)"], ["n", "Add a note"],
   ];
@@ -1741,15 +2482,15 @@
   function bindShortcuts() {
     document.addEventListener("click", (e) => { if (e.target.closest("[data-shortcuts]")) { e.preventDefault(); showShortcuts(); } });
     let g = 0;
-    const go = { o: "#/", w: "#/work", i: "#/invoices", e: "#/exceptions", x: "#/exports", a: "#/audit", h: "#/help", r: "#/runs" };
+    const go = { o: "#/", w: "#/work", i: "#/invoices", e: "#/exceptions", x: "#/exports", a: "#/audit", h: "#/help", r: "#/runs", n: "#/insights", b: "#/batch" };
     document.addEventListener("keydown", (e) => {
       if (!user || e.metaKey || e.ctrlKey || e.altKey || e.target.closest("input, select, textarea, [contenteditable]") || $("#dialog").open) return;
       const k = e.key;
-      if (Date.now() - g < 1200 && go[k.toLowerCase()]) { e.preventDefault(); g = 0; location.hash = go[k.toLowerCase()]; return; }
+      if (Date.now() - g < 1200 && go[k.toLowerCase()]) { e.preventDefault(); g = 0; track("shortcut", { key: `g ${k.toLowerCase()}` }); location.hash = go[k.toLowerCase()]; return; }
       g = 0;
       if (k === "g") { g = Date.now(); return; }
       if (k === "?") { e.preventDefault(); showShortcuts(); return; }
-      const click = (sel) => { const el = $(sel); if (el) { e.preventDefault(); el.click(); } };
+      const click = (sel) => { const el = $(sel); if (el) { e.preventDefault(); track("shortcut", { key: k }); el.click(); } };
       if (k === "j") click('[data-key="next"]');
       else if (k === "k") click('[data-key="prev"]');
       else if (k === "b") click(".back-link");
@@ -1771,6 +2512,11 @@
     $("#user-role").textContent = ROLES[u.role].name;
     $("#user-pop-head").innerHTML = `<strong>${esc(u.name)}</strong>${esc(u.title)} · ${esc(ROLES[u.role].name)}<br>${esc(u.email)}`;
     $("[data-needs=work]").hidden = !(can("resolve") || can("approve"));
+    $("[data-needs=insights]").hidden = !can("rules");
+    $("[data-needs=upload]").hidden = !can("upload");
+    const pill = $(".demo-pill");
+    if (pill && SERVER) { pill.textContent = "Local"; pill.title = "Connected to Penny on this computer. Batches run with the real engine; demo sign-in and actions still stay in this browser."; }
+    track("session_start");
     $("#auth").hidden = true;
     $("#shell").hidden = false;
     lastPath = null;
@@ -1881,7 +2627,11 @@
   }
 
   // ------------------------------------------------------------------ intro
-  /** The penny toss. Plays once per visit, can be skipped, and is a short fade for people who prefer less motion. */
+  /* The intro. The penny is tossed and lands; a progress bar under it tracks real loading (it never runs ahead of
+     the data), with plain status steps; then a welcome fades in and out. Plays once per visit, Skip ends it at once,
+     and people who prefer less motion get a short, still version. */
+  let realProgress = 0;
+  const loaded = (pct) => { realProgress = Math.max(realProgress, pct); };
   function playIntro() {
     const el = $("#splash");
     let seen = false;
@@ -1889,38 +2639,74 @@
     if (seen || !el) { if (el) el.remove(); return Promise.resolve(); }
     try { sessionStorage.setItem("penny.introSeen", "1"); } catch (e) { /* fine */ }
     const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const t = calm ? { land: 500, welcome: 700, done: 2600 } : { land: 2500, welcome: 2800, done: 4700 };
+    const STEPS = calm
+      ? [[0, "Loading invoices…", 35], [500, "Reading your AP rules…", 65], [900, "Preparing your workspace…", 90]]
+      : [[1600, "Loading invoices…", 22], [2600, "Reading your AP rules…", 46], [3600, "Checking the audit trail…", 70], [4500, "Preparing your workspace…", 90]];
+    const READY_AT = calm ? 1300 : 5300;
+    const fill = $("#splash-fill"), pct = $("#splash-pct"), status = $("#splash-status"), bar = $("#splash .splash-bar");
     return new Promise((resolve) => {
+      const t0 = performance.now();
       const timers = [];
-      let finished = false;
-      const finish = () => {
+      let shown = 0, finished = false, ending = false;
+      const paint = (p, label) => {
+        shown = Math.max(shown, p);
+        fill.style.width = `${shown}%`;
+        pct.textContent = `${Math.round(shown)}%`;
+        bar.setAttribute("aria-valuenow", String(Math.round(shown)));
+        if (label && status.textContent !== label) status.textContent = label;
+      };
+      const finish = (skipped) => {
         if (finished) return;
         finished = true;
         timers.forEach(clearTimeout);
+        introResult = { skipped: skipped === true, seconds: Math.round((performance.now() - t0) / 100) / 10 };
         el.classList.add("done");
         setTimeout(() => { el.remove(); resolve(); }, 600);
       };
-      timers.push(setTimeout(() => el.classList.add("landed"), t.land));
-      timers.push(setTimeout(() => el.classList.add("welcome"), t.welcome));
-      timers.push(setTimeout(finish, t.done));
-      $("#splash-skip").addEventListener("click", finish);
-      document.addEventListener("keydown", function onKey(e) { if (e.key === "Escape" || e.key === "Enter") { document.removeEventListener("keydown", onKey); finish(); } });
+      const end = () => {
+        ending = true;
+        paint(100, "Ready");
+        timers.push(setTimeout(() => el.classList.add("landed"), 450));
+        timers.push(setTimeout(() => el.classList.add("welcome"), 750));
+        timers.push(setTimeout(finish, calm ? 2200 : 2850));
+      };
+      const tick = () => {
+        if (finished || ending) return;
+        const t = performance.now() - t0;
+        let target = 0, label = null;
+        for (const [at, l, p] of STEPS) if (t >= at) { target = p; label = l; }
+        target = Math.min(target, realProgress >= 100 ? 100 : Math.max(realProgress, 18));
+        if (t >= READY_AT && realProgress >= 100) { end(); return; }
+        if (target) paint(target, label);
+        timers.push(setTimeout(tick, 120));
+      };
+      tick();
+      $("#splash-skip").addEventListener("click", () => finish(true));
+      document.addEventListener("keydown", function onKey(e) { if (e.key === "Escape" || e.key === "Enter") { document.removeEventListener("keydown", onKey); finish(true); } });
     });
   }
+  let introResult = null;
 
   async function loadData() {
+    loaded(10);
     try {
       const res = await fetch("data/penny-data.json", { cache: "no-cache" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       D = await res.json();
     } catch (e) {
+      loaded(100);
       return false;
     }
+    loaded(55);
+    SERVER = D.server && D.server.mode === "local" ? D.server : null;   // added by ./penny web; absent on the public site
     X = buildIndex(D);
+    loaded(75);
     loadSandbox();
     derive();
+    loaded(92);
     $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
     bindSearch();
+    loaded(100);
     return true;
   }
 
@@ -1935,6 +2721,8 @@
         <pre class="card card-pad" style="overflow:auto">./penny web-export --package ~/Downloads/Hillpointe_AP_Technical_Screen\n./penny web</pre></section></div>`;
       return;
     }
+    if (introResult) track("intro", introResult);
+    window.addEventListener("error", (e) => track("error", { message: String(e.message || "error").slice(0, 160) }));
     const u = PennyAuth.currentUser();
     if (u) enterApp(u); else showLogin();
   }

@@ -23,7 +23,7 @@ cd 04_Workflow
 ./penny install                                         # once
 ./penny demo --package /path/to/Hillpointe_AP_Technical_Screen
 ./penny web-export --package /path/to/Hillpointe_AP_Technical_Screen
-./penny web                                             # opens the web view in your browser
+./penny web --package /path/to/Hillpointe_AP_Technical_Screen   # opens the web app; New batch can run invoices
 ```
 
 In the web view, pick any of the four demo roles on the sign-in screen. Everything you do stays in your browser.
@@ -37,7 +37,8 @@ In the web view, pick any of the four demo roles on the sign-in screen. Everythi
   commands.
 * **Added after submission:** bad files are held with a clear reason instead of crashing a run (v1.1), a web view
   (v1.2), and then sign-in with four roles, real actions, an audit trail, a rules editor with an impact preview, a
-  redesigned interface, a help center, and an honest reason for bills in unfamiliar layouts (v1.3).
+  redesigned interface, a help center, and an honest reason for bills in unfamiliar layouts (v1.3), then uploading
+  and running new batches from the browser, suggested fixes that learn, and usage insights (v1.4).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

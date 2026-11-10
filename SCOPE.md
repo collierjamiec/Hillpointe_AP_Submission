@@ -12,6 +12,7 @@ and what I chose to build on my own.
 | 1.1 | November 2026 | **After submission:** bad or unreadable files no longer stop a run. | Pull request #1 |
 | 1.2 | November 2026 | **After submission:** a web view in the browser, phase 1 (view only). | Pull request #2, `04_Workflow/web/` |
 | 1.3 | November 2026 | **After submission:** honest handling of unfamiliar layouts, sign-in with roles, real actions, an audit trail, a rules editor, a redesigned interface and a help center. | Pull request #2 |
+| 1.4 | November 2026 | **After submission:** upload and run new batches from the web app, suggested fixes that learn, usage insights, every rule editable, plainer exports, a longer intro with a loading bar. | Pull request #3 |
 
 ---
 
@@ -131,7 +132,7 @@ it, which was safe, but the reason said "Not a bill (for example a standalone li
 * **Exports:** download the files each run wrote, each labeled honestly (generated is not imported).
 * **Review flow:** previous and next record, keyboard shortcuts (press `?`), and the list you came from keeps its
   filters and scroll position.
-* **Help center:** 27 searchable articles covering getting started, the web app, the terminal, how Penny decides,
+* **Help center:** 31 searchable articles covering getting started, the web app, the terminal, how Penny decides,
   every exception code and rule, roles, a glossary, security and an FAQ. Articles that list codes, rules, roles or
   shortcuts are built from the live data, so they cannot fall out of date.
 * **An intro:** a copper penny tosses, flips and lands, then a welcome fades in and out. It plays once per visit, can
@@ -179,13 +180,79 @@ neutralize spreadsheet formulas. The help center's "Security and this demo" arti
 
 ---
 
+## Version 1.4: new batches, suggested fixes and insights (November 2026, after submission)
+
+### Upload and run new batches from the web app
+
+* **New batch page:** name the batch (quick picks like weekly-ap and month-end), drag in the PDFs, then preview or run.
+  Every file is checked before upload: a real PDF by content, 25 MB or less, not added twice, and flagged if Penny has
+  already read the same file (matched by SHA-256 fingerprint).
+* **Folder naming:** `inbox/<YYYY-MM-DD>_<short-name>`, for example `inbox/2026-11-10_weekly-ap`. Dates first so
+  folders sort in order; `-2`, `-3` are added if a name is reused the same day.
+* **Permissions:** AP Clerks and Admins upload and run previews (a dry run that leaves the register alone). Only Admins
+  run for real. That is a separation-of-duties control.
+* **Audit:** every step is appended to `state/batch_log.jsonl` on the Penny computer and shown in the audit trail marked
+  "On disk": who created the batch, who uploaded which files (name, size, SHA-256), who ran it, when, the folder, the
+  run ID, preview or real, the result counts, the pre-flight result, and failures.
+* **Where it runs:** reading invoices needs Penny's Python engine, so `./penny web --package <folder>` now starts a small
+  local server (`ap_workflow/webserver.py`). It listens only on this computer, refuses write requests from other sites
+  (custom header and origin check), and only writes inside the batch folder. Uploaded invoices are left out of git.
+  The public demo lets visitors try every step and explains that running needs Penny on a computer; nothing is
+  uploaded and no results are invented.
+
+### Suggested fixes that learn
+
+* A held invoice shows up to three ready-made resolutions with one-click Apply and an Undo button.
+* Suggestions rank how people resolved the same reason before (same vendor counts more; fixes that were later reopened
+  count less), plus a built-in playbook before any history exists. For a missing PO it uses the likely PO match
+  Penny already found.
+* Guardrail: a payment-instruction change is never cleared in one click; Treasury's phone confirmation is required.
+* Suggestions only speed up a person's action. Penny's decisions stay in tested code, and a cleared invoice is still
+  checked from scratch on the next run.
+
+### Usage insights
+
+An Admin-only Insights page: sessions, actions, suggestion acceptance, time to resolve a hold, screens used, searches
+and help searches with no results, errors, and plain-language signals for improving Penny. Events carry a time and a
+role, never note text, passwords or personal details. They stay in the browser and can be turned off, cleared or
+downloaded, in a shape a server could collect later.
+
+### Everything else
+
+* **Every rule is editable for Admins:** thresholds, routes, code priority (reorder), payment terms, word lists,
+  keyword-to-GL rules, posting codes and the AI reader switch, with validation, a preview, a reason, and undo.
+* **Company time zone:** Admins pick it on the Rules page (Eastern by default), with the same preview, reason and undo
+  as any rule. Every time in the web app shows in that zone with its short name, such as EST, so people in different
+  cities read the same clock. New batch folders and the on-disk batch log use it too (`display.time_zone` in
+  `rules.json`). Saved times never change, and no invoice decision depends on it.
+* **Audit trail order:** times from the browser and from the Penny computer are put on one clock before sorting, and
+  steps logged in the same second show in the order they happened.
+* **Exports in plain words:** "Intacct bill import file", "Invoices needing review", "Approvals needed", "Run summary"
+  (viewable on the page), each with what is inside and who uses it, and readable download names.
+* **Help center:** a clear "Back to Help center" link, a working breadcrumb, and three new articles (34 in all).
+* **Intro:** easier-to-read lettering on the coin, a loading bar that tracks real loading, and a few seconds longer.
+* **Honesty fix on the coin:** the back read "ENTERED ONCE"; it now reads "NEVER BILLED TWICE".
+
+### Testing
+
+* 49 Python tests. 19 run without the assessment package, including the batch server: naming, permissions, file
+  checks, path tricks, the audit log, the company time zone, refusing requests from other sites, and a full preview run.
+* Browser runs as each role: the rules editor (add, remove, reorder, validate, save, undo, time zone from a laptop set
+  to another zone), suggested fixes (apply,
+  undo, learning from a new resolution, the bank-change guardrail, one-click from My work), Insights, and a batch
+  uploaded and previewed through a real local server, plus the public demo's behavior.
+
+---
+
 ## What comes next (planned, not built)
 
 | Next step | What it adds |
 |---|---|
-| A real server | Sign-in, permissions and the audit trail checked and stored on a server, shared by the whole team. |
-| Run batches from the browser | Upload a folder, name the batch, dry run first, then run for real. |
+| Next release: blockers, evidence and recheck | Each blocker on an invoice gets its own owner, target date, status (Open, Waiting for evidence, Ready for recheck, Cleared), notes, attachments and verifier, so an invoice can show "1 of 2 blockers cleared". A recheck preview runs Penny on the corrected document and shows before and after, with the document, data and rules versions used, without touching the register. |
+| Next release: manual entry for unreadable invoices | When Penny cannot read a file but a person can open it elsewhere: keep the original, attach evidence (a screenshot or re-saved PDF, fingerprinted), key the invoice beside it with a reason, and let Penny run every normal check on the keyed data. A second person blindly re-keys the invoice number and total above a dollar limit set in Rules (maker-checker); below it, one person with a reason. Marked as manually entered everywhere. |
+| A shared server | Sign-in, permissions, the audit trail and usage insights checked and stored on a server for the whole team. |
 | Single sign-on | Sign in with the company's identity provider instead of demo accounts. |
+| Watched inbox folder | Pick up new invoices from an email inbox or shared folder automatically, then preview them. |
 
 These grow out of two ideas I recorded during the assessment: a full audit trail, and a safe way to handle new invoice
 types and vendors.
