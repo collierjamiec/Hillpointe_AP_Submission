@@ -380,6 +380,59 @@ def update(state_dir, check_only=False, skip_it=False):
     sys.exit(subprocess.run([sys.executable, str(ROOT / "ap.py"), "check"]).returncode)
 
 
+def users_cmd(state_dir, action, email=None, name=None, role="viewer", title="", base="http://127.0.0.1:8765"):
+    """(added after submission, v1.7) Manage people from the terminal. This is how the first Admin is created."""
+    from .accounts import Accounts, AccountError
+    from .webserver import BatchService
+    svc = BatchService(ROOT, None, state_dir, ROOT / "runs", ROOT / "web", CFG_PATH)
+    acc = svc.accounts
+    if action == "list":
+        people = acc.list()
+        if not people:
+            print("No accounts yet, so ./penny web uses the four demo accounts. Create the first Admin:\n"
+                  '  ./penny users invite --email you@company.com --name "Your Name" --role admin')
+        for u in people:
+            print(f"  {u['status']:<9} {u['role']:<9} {u['email']:<34} {u['name']}")
+        return
+    try:
+        user, token, hours = acc.invite(None, email, name, role, title, bootstrap=True)
+    except AccountError as e:
+        sys.exit(str(e))
+    sent = svc.account_email("invite", user, token, hours, "The Penny administrator", base)
+    print(f"Invited {user['name']} <{user['email']}> as {role}. Accounts are now on: ./penny web asks everyone to sign in.")
+    if sent["status"] == "sent":
+        print("The invitation was emailed. The link works once and expires in 72 hours.")
+    else:
+        print(f"Email is not set up ({sent['error'] or 'no PENNY_SMTP_HOST'}), so here is the link to open on this computer once ./penny web is running:")
+        print(f"  {base}/#/activate?token={token}")
+
+
+def email_cmd(state_dir, action, to=None):
+    """(added after submission, v1.7) Check the mail settings, or send one test email and say what went wrong."""
+    from .mailer import Outbox, settings, configured, explain
+    if action == "status":
+        print("Email settings (environment variables):")
+        for k, v in settings().items():
+            print(f"  {k:<20} {v or '(not set)'}")
+        print("\nEmail is " + ("set up." if configured() else "not set up, so emails are saved to state/outbox/ instead of sent. See Help > Emailing exports."))
+        return
+    if not to:
+        sys.exit("Example:  ./penny email test --to you@company.com")
+    text = ("This is a test from Penny. If you can read it, Penny can send invitations, password resets, exports and "
+            "approval requests through this mail account.\n\nPenny AP")
+    try:
+        entry = Outbox(state_dir).send([to], "Penny email test", text, {"id": "terminal", "name": "Terminal", "role": "admin"}, "test")
+    except ValueError as e:
+        sys.exit(str(e))
+    if entry["status"] == "sent":
+        print(f"Sent a test email to {to}. Check that inbox (or your Mailtrap test inbox).")
+    elif entry["status"] == "saved":
+        print("Email is not set up, so the test was saved to state/outbox/, not sent. Set PENNY_SMTP_HOST and the other "
+              "settings (./penny email status shows them), then try again.")
+    else:
+        sys.exit(f"The test email failed: {entry['error']}\nWhat to check: {explain(entry['error'])}")
+
+
 def publish_release(version, summary, notes, required):
     from .version import release, VersionError
     try:
@@ -417,7 +470,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 73 automated checks")
+    t = sub.add_parser("test", help="run the 85 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
@@ -432,6 +485,12 @@ def main(argv=None):
     u = sub.add_parser("update", help="check for a new Penny version and update to it")
     u.add_argument("--check", action="store_true", help="only show what is new"); u.add_argument("--skip", action="store_true", help="skip an optional version until the next one")
     u.add_argument("--state", default=str(ROOT / "state"))
+    em = sub.add_parser("email", help="(added after submission) check the mail settings, or send a test email")
+    em.add_argument("action", choices=["status", "test"]); em.add_argument("--to"); em.add_argument("--state", default=str(ROOT / "state"))
+    us = sub.add_parser("users", help="(added after submission) list people, or invite one; the first invite turns on real accounts")
+    us.add_argument("action", choices=["list", "invite"]); us.add_argument("--email"); us.add_argument("--name"); us.add_argument("--title", default="")
+    us.add_argument("--role", choices=["viewer", "clerk", "approver", "admin"], default="viewer"); us.add_argument("--state", default=str(ROOT / "state"))
+    us.add_argument("--port", type=int, default=8765, help="the port ./penny web uses, for the link")
     rl = sub.add_parser("release", help="(maintainer) publish a new version: VERSION, releases.json and the web app")
     rl.add_argument("version", help="like 1.7.0"); rl.add_argument("--summary", required=True); rl.add_argument("--note", action="append", default=[])
     rl.add_argument("--required", action="store_true", help="older copies must update before real runs or changes")
@@ -464,6 +523,12 @@ def main(argv=None):
         run_tests(a.package)
     elif a.cmd == "update":
         update(a.state, a.check, a.skip)
+    elif a.cmd == "email":
+        email_cmd(a.state, a.action, a.to)
+    elif a.cmd == "users":
+        if a.action == "invite" and not (a.email and a.name):
+            sys.exit('Example:  ./penny users invite --email you@company.com --name "Your Name" --role admin')
+        users_cmd(a.state, a.action, a.email, a.name, a.role, a.title, f"http://127.0.0.1:{a.port}")
     elif a.cmd == "release":
         publish_release(a.version, a.summary, a.note, a.required)
     elif a.cmd == "reset":

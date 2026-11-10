@@ -29,13 +29,16 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 73 automated checks
+./penny test                                  # run the 85 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
 ./penny --version                             # (added after submission, v1.6) which Penny this is
 ./penny update                                # (added after submission, v1.6) see what is new and update; --check only looks, --skip waits
 ./penny release 1.7.0 --summary "..."         # (added after submission, v1.6, maintainer) publish a version; add --required to make it the minimum
+./penny users invite --email you@co.com --name "You" --role admin   # (added after submission, v1.7) turn on real accounts
+./penny users list                            # (added after submission, v1.7) who has an account
+./penny email test --to you@co.com            # (added after submission, v1.7) send one test email; `email status` shows the settings
 ```
 
 `./penny install` needs Python 3.9 or newer and an internet connection, and it touches nothing outside this folder. It ends with a check that says "Penny is ready". On Windows type `penny` instead of `./penny`. If `./penny` says permission denied, type `bash penny run 1`.
@@ -73,6 +76,12 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **People, email and appearance (v1.7.0):** Admins invite people, set roles, turn accounts off and send resets
+  (`ap_workflow/accounts.py`; real accounts once `./penny users invite` creates the first Admin). Exports and approval
+  requests are emailed with the file attached (`ap_workflow/mailer.py`; set `PENNY_SMTP_HOST`, `PENNY_SMTP_PORT`,
+  `PENNY_SMTP_USER`, `PENNY_SMTP_PASSWORD`, and optionally `PENNY_SMTP_FROM` and `PENNY_PUBLIC_URL`; without them
+  emails are saved to `state/outbox/`). Only users and `email.allowed_domains` may be emailed. Everyone can choose
+  themes and comfort settings; Admins set the company look (`display.theme`).
 * **Versions and updates (v1.6.0):** `VERSION` and `releases.json` are the single source of truth (`ap_workflow/version.py`).
   The footer shows the version and opens What's new; "Check for updates" in the account menu checks on demand. A required release pauses real runs and changes until
   `./penny update` (reading, dry runs, previews and rechecks keep working); an optional one can be skipped.
@@ -179,6 +188,8 @@ Most changes are one line in `config/rules.json`. Nothing needs to be edited in 
 | Terms days | `terms_days` |
 | The company time zone for times in the web app and batch folder dates (added after submission) | `display.time_zone` |
 | The total above which a manual entry needs a second person (added after submission) | `thresholds.manual_entry_check_over` |
+| Who Penny may email, and how many at once (added after submission) | `email.allowed_domains`, `email.max_recipients` |
+| The company look: colors and corners (added after submission; set it on the Appearance page) | `display.theme` |
 | Open and closed periods, allocation percentages, vendors, projects, POs | The master data and the PDFs in the package. They are read fresh every run. |
 
 Logic that needs a code change is small and has one home: duplicate rules in `_duplicates`, pay application rules in

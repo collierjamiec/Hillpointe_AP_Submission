@@ -11,7 +11,7 @@
      ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
   /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
      fails if they ever disagree. */
-  const APP_VERSION = "1.6.0";
+  const APP_VERSION = "1.7.0";
   const STATUS = {
     ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
     ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -76,9 +76,9 @@
   const CATEGORY = { construction: "Construction", stabilized: "Stabilized community", corporate: "Corporate" };
   const ROLES = {
     viewer: { name: "Viewer", can: [], blurb: "can see everything and change nothing." },
-    clerk: { name: "AP Clerk", can: ["resolve", "note", "upload"], blurb: "can work holds and their blockers, recheck invoices, key unreadable invoices by hand, add notes, and upload and preview new batches." },
-    approver: { name: "Approver", can: ["approve", "note"], blurb: "can approve or send back bills that are ready to import, and add notes." },
-    admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run"], blurb: "can do everything, including changing and testing rules and running batches for real." },
+    clerk: { name: "AP Clerk", can: ["resolve", "note", "upload", "email"], blurb: "can work holds and their blockers, recheck invoices, key unreadable invoices by hand, add notes, and upload and preview new batches." },
+    approver: { name: "Approver", can: ["approve", "note", "email"], blurb: "can approve or send back bills that are ready to import, and add notes." },
+    admin: { name: "Admin", can: ["resolve", "note", "approve", "rules", "upload", "run", "users", "email"], blurb: "can do everything, including changing and testing rules and running batches for real." },
   };
   /** Which permission each kind of event needs. Checked again when the event is recorded (defense in depth). */
   const EVENT_NEEDS = {
@@ -88,6 +88,7 @@
     "batch.upload": "upload", "batch.run": "upload",
     "blocker.update": "resolve", "blocker.clear": "resolve", "blocker.reopen": "resolve",
     "manual.keyed": "resolve", "manual.check": "resolve", "manual.saved": "resolve",
+    "user.invited": "users", "user.updated": "users", "user.reset_sent": "users", "user.invite_resent": "users", "email.sent": "email",
   };
   const EVENT_LABEL = {
     "hold.resolve": "Resolved a hold", "hold.reopen": "Reopened a hold", "hold.reassign": "Reassigned a hold",
@@ -97,6 +98,9 @@
     "blocker.update": "Updated a blocker", "blocker.clear": "Cleared a blocker", "blocker.reopen": "Reopened a blocker",
     "manual.keyed": "Keyed an invoice by hand", "manual.check": "Checked a manual entry", "manual.saved": "Saved a manual entry for the next run",
     "recheck.preview": "Rechecked an invoice (preview)",
+    "user.invited": "Invited someone", "user.updated": "Changed someone's account", "user.reset_sent": "Sent a password reset", "user.invite_resent": "Resent an invitation",
+    "user.activated": "Set up their account", "user.password_reset": "Chose a new password", "user.reset_requested": "Asked for a password reset", "user.signed_in": "Signed in",
+    "email.sent": "Sent an email", "email.saved": "Saved an email (not sent)", "email.failed": "An email failed to send",
   };
 
   // ------------------------------------------------------------------ helpers
@@ -295,9 +299,9 @@
   function record(type, data) {
     const need = EVENT_NEEDS[type];
     if (!user || !need || !can(need)) { toast("Your role cannot do that."); return null; }
-    if (!PennyAuth.currentUser()) { endSession("expired"); return null; }
+    if (!AUTH().currentUser()) { endSession("expired"); return null; }
     if (UPD.state === "required") { toast(`Paused until you update: Penny ${UPD.minimum} is required. You can still look at everything.`); showUpdateHelp(); return null; }
-    PennyAuth.touch();
+    AUTH().touch();
     const ev = { id: newId(), at: new Date().toISOString(), type,
       user: { id: user.id, name: user.name, role: user.role, initials: user.initials }, ...data };
     EV.push(ev);
@@ -864,6 +868,7 @@
     if (a && can("approve") && a.steps.some((st) => st.status !== "approved")) {
       btns.push(`<button class="btn btn-accent" data-act="approve" data-doc="${esc(d.id)}">Review approval</button>`);
     }
+    if (a && can("email") && a.state === "waiting") btns.push(`<button class="btn" data-act="email-approval" data-doc="${esc(d.id)}">Email for approval</button>`);
     if (can("note")) btns.push(`<button class="btn" data-act="note" data-doc="${esc(d.id)}">Add a note</button>`);
     const lock = ICON.lock.replace("<svg", '<svg style="width:15px;height:15px;vertical-align:-3px;margin-right:6px"');
     return `<section class="card actions" aria-label="Actions">
@@ -1723,6 +1728,7 @@
     const done = (msg) => { render(); toast(msg); };
     if (act === "blocker" || act === "blocker-clear" || act === "blocker-reopen") return blockerDialog(id, data.code, act === "blocker" ? "update" : act.slice(8));
     if (act === "recheck") return recheckDialog(id);
+    if (act === "email-approval") return emailDialog({ kind: "approval", doc: d });
     if (act === "resolve") {
       const bs = blockerSummary(d);
       const open = bs ? bs.total - bs.done : 0;
@@ -2047,6 +2053,7 @@
     { path: "construction.posting_entity", label: "Construction posting entity", help: "", type: "code", group: "posting" },
     { path: "construction.department", label: "Construction department", help: "", type: "code", group: "posting" },
     { path: "construction.retainage_acct", label: "Retainage account", help: "", type: "code", group: "posting" },
+    { path: "display.theme", label: "Company look", help: "The colors and corners everyone sees unless they choose their own. Set it on the Appearance page.", type: "theme", group: "appearance" },
     { path: "display.time_zone", label: "Company time zone", help: "Every time in Penny is shown in this zone, and new batch folders are dated by it. Saved times do not change, and Penny's decisions do not depend on it.", type: "tz", group: "workspace" },
     { path: "llm.enabled_by_default", label: "AI reader on by default", help: "Lets Claude read layouts the rules parser does not know. It was built and tested offline but never run live, so leave it off unless you have an API key.", type: "bool", group: "posting" },
   ];
@@ -2109,6 +2116,7 @@
     if (["money", "pct", "days"].includes(f.type)) return fmtSetting(v, f.type);
     if (f.type === "bool") return v ? "On" : "Off";
     if (f.type === "tz") return v === undefined ? `${tzLabel(DEFAULT_TZ)}, the default` : tzLabel(v);
+    if (f.type === "theme") return lookName({ ...LOOK_DEFAULT, ...(v || {}) });
     if (f.type === "order") return (v || []).join(" > ");
     if (f.type === "words") return (v || []).length ? (v.length > 4 ? `${v.slice(0, 4).join(", ")} and ${v.length - 4} more` : v.join(", ")) : "none";
     if (f.type === "glmap") return plural((v || []).length, "keyword rule");
@@ -2525,7 +2533,8 @@
               <div class="file-main"><b>${esc(info.title)}</b><p>${esc(info.what)}</p>
                 <p class="file-meta"><span>For: ${esc(info.who)}</span>${count ? `<span>${esc(count)}</span>` : ""}<span><code>${esc(f.name)}</code></span></p></div>
               <div class="file-actions">${info.view ? `<button class="btn btn-sm btn-accent" type="button" data-view-summary="${esc(f.path)}" data-run="${esc(r.id)}">View</button>` : ""}
-                <a class="btn btn-sm" href="${esc(f.path)}" download="${esc(friendlyName(r, f))}" aria-label="Download ${esc(info.title)} for ${esc(r.label)}">Download</a></div>
+                <a class="btn btn-sm" href="${esc(f.path)}" download="${esc(friendlyName(r, f))}" aria-label="Download ${esc(info.title)} for ${esc(r.label)}">Download</a>
+                ${can("email") ? `<button class="btn btn-sm" type="button" data-email-file="${esc(f.name)}" data-run="${esc(r.id)}" data-bytes="${esc(f.bytes || 0)}" aria-label="Email ${esc(info.title)} for ${esc(r.label)}">Email</button>` : ""}</div>
             </li>`; }).join("")}</ul>` : `<p class="empty">No files were saved for this run.</p>`}
         </section>`;
       }).join("")}`;
@@ -2726,6 +2735,7 @@
     const res = await fetch(path, { ...opts, headers: { "X-Penny": "1", ...(opts.headers || {}) } });
     let body = {};
     try { body = await res.json(); } catch (e) { /* empty */ }
+    if (res.status === 401 && serverAccounts() && user && !/^api\/auth\//.test(path)) { endSession("expired"); }
     if (!res.ok) throw new Error(body.error || `The Penny server answered ${res.status}.`);
     return body;
   }
@@ -3095,6 +3105,681 @@
       <p><button type="button" class="btn" data-update-check>Check for updates</button></p>`;
   }
 
+  // ------------------------------------------------------------------ appearance (v1.7)
+  /* Two layers, so a company can have one look and people can still be comfortable:
+     - The look (colors and corners): a preset, or a fully custom color. Admins set the company default (saved as the
+       rule display.theme, with a reason and undo); anyone can follow it or choose their own.
+     - Personal comfort: light or dark, text size, density and motion. Always each person's own choice.
+     Custom colors are checked for contrast: if a color would make text hard to read, Penny darkens it (or lightens it
+     in dark mode) just enough to meet WCAG AA, and says so. Settings save to the person's account. */
+  const LOOK_DEFAULT = { preset: "teal", accent: "#0f766e", bg: "default", corners: "rounded" };
+  const FEEL_DEFAULT = { mode: "system", text: "m", density: "comfortable", motion: "system" };
+  const PRESETS = {
+    teal: { name: "Penny teal", accent: "#0f766e", note: "The original" },
+    harbor: { name: "Harbor blue", accent: "#1d4ed8" },
+    evergreen: { name: "Evergreen", accent: "#15803d" },
+    plum: { name: "Plum", accent: "#7e22ce" },
+    copper: { name: "Copper", accent: "#b45309" },
+    graphite: { name: "Graphite", accent: "#334155" },
+    contrast: { name: "High contrast", accent: "#0047b3", note: "Strongest text and borders" },
+  };
+  const TEXT_ZOOM = { s: 0.92, m: 1, l: 1.1, xl: 1.22 };
+  let MYPREFS = { follow: true, look: { ...LOOK_DEFAULT }, ...FEEL_DEFAULT };
+
+  // color math: hex <-> rgb <-> hsl, WCAG contrast
+  const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || "").trim()); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const rgbHex = (r) => "#" + r.map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0")).join("");
+  const lum = (h) => { const c = hexRgb(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  function rgbHsl([r, g, b]) {
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+    if (mx === mn) return [0, 0, l];
+    const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [h / 6, s, l];
+  }
+  function hslRgb([h, s, l]) {
+    if (!s) return [l * 255, l * 255, l * 255];
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    const f = (t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+    return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+  }
+  const shade = (hex, dl) => { const [h, s, l] = rgbHsl(hexRgb(hex)); return rgbHex(hslRgb([h, s, Math.max(0, Math.min(1, l + dl))])); };
+  const mix = (a, b, t) => { const x = hexRgb(a), y = hexRgb(b); return rgbHex(x.map((v, i) => v * t + y[i] * (1 - t))); };
+  /** Move a color lighter or darker until it reaches the contrast needed against a background. */
+  function readable(hex, bg, need = 4.5, dir = -1) {
+    let c = hex, n = 0;
+    while (contrast(c, bg) < need && n++ < 60) c = shade(c, dir * 0.02);
+    return c;
+  }
+  const LIGHT_SURFACE = "#ffffff", DARK_SURFACE = "#172231", DARK_SIDE = "#0b121c", LIGHT_SIDE = "#15212f";
+  /** Everything a look needs, for light and dark, plus what was adjusted so the person can be told. */
+  function lookPalette(look) {
+    const base = look.preset === "custom" ? (hexRgb(look.accent) ? look.accent : LOOK_DEFAULT.accent) : (PRESETS[look.preset] || PRESETS.teal).accent;
+    const light = readable(base, LIGHT_SURFACE, 4.5, -1);
+    let dark = readable(shade(base, 0.25), DARK_SURFACE, 4.5, +1);
+    if (look.preset === "contrast") dark = "#ffd400";
+    const adjusted = light.toLowerCase() !== base.toLowerCase();
+    const onLight = contrast("#ffffff", light) >= 4.5 ? "#ffffff" : "#000000";
+    const onDark = contrast("#062621", dark) >= 4.5 ? "#062621" : "#000000";
+    return { base, light, dark, adjusted, onLight, onDark,
+      lightStrong: shade(light, -0.08), darkStrong: shade(dark, 0.1),
+      lightSoft: mix(light, LIGHT_SURFACE, 0.12), darkSoft: mix(dark, DARK_SURFACE, 0.2),
+      sideLightBg: mix(light, LIGHT_SIDE, 0.3), sideDarkBg: mix(dark, DARK_SIDE, 0.22) };
+  }
+  function lookCss(look) {
+    const plain = look.preset === "teal" && look.bg === "default" && look.corners === "rounded";
+    if (plain) return "";
+    const p = lookPalette(look);
+    const sideText = (bg, c) => readable(c, bg, 4.5, +1);
+    let light = "", dark = "";
+    if (look.preset !== "teal") {
+      light += `--accent:${p.light};--accent-strong:${p.lightStrong};--accent-soft:${p.lightSoft};--on-accent:${p.onLight};--focus:${p.light};--info:${p.light};--info-soft:${p.lightSoft};--side-active-bg:${p.sideLightBg};--side-active-text:${sideText(p.sideLightBg, shade(p.light, 0.3))};`;
+      dark += `--accent:${p.dark};--accent-strong:${p.darkStrong};--accent-soft:${p.darkSoft};--on-accent:${p.onDark};--focus:${p.darkStrong};--info:${p.dark};--info-soft:${p.darkSoft};--side-active-bg:${p.sideDarkBg};--side-active-text:${sideText(p.sideDarkBg, p.darkStrong)};`;
+    }
+    if (look.preset === "contrast") {
+      light += "--text:#000000;--text-2:#1f2937;--text-3:#374151;--border:#6b7280;--border-strong:#374151;--control-border:#111827;--bg:#ffffff;--surface-2:#f3f4f6;";
+      dark += "--bg:#000000;--surface:#0b0b0b;--surface-2:#161616;--surface-3:#222222;--th-bg:#161616;--text:#ffffff;--text-2:#e5e7eb;--text-3:#d1d5db;--border:#9ca3af;--border-strong:#e5e7eb;--control-border:#f3f4f6;";
+    }
+    if (look.bg === "warm") {
+      light += "--bg:#f8f5ef;--surface-2:#f3efe7;--surface-3:#e9e3d8;--th-bg:#f3efe7;--border:#e6dfd2;";
+      dark += "--bg:#14120f;--surface:#1d1a16;--surface-2:#25211c;--surface-3:#2f2a24;--th-bg:#25211c;--border:#3a342c;";
+    } else if (look.bg === "cool") {
+      light += "--bg:#f2f6fb;--surface-2:#ecf1f8;--surface-3:#e1e8f2;--th-bg:#ecf1f8;--border:#dae2ee;";
+    }
+    if (look.corners === "square") light += "--radius:4px;--radius-sm:3px;";
+    const both = look.corners === "square" ? "--radius:4px;--radius-sm:3px;" : "";
+    return `:root{${light}}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){${dark}${both}}}:root[data-theme="dark"]{${dark}${both}}`;
+  }
+  const companyLook = () => ({ ...LOOK_DEFAULT, ...((RULES().display || {}).theme || {}) });
+  const myLook = () => (MYPREFS.follow !== false ? companyLook() : { ...LOOK_DEFAULT, ...(MYPREFS.look || {}) });
+  const lookName = (l) => (l.preset === "custom" ? `Custom ${l.accent}` : (PRESETS[l.preset] || PRESETS.teal).name) + (l.bg !== "default" ? `, ${l.bg} background` : "") + (l.corners === "square" ? ", square corners" : "");
+  function applyLook() {
+    const css = lookCss(myLook());
+    let st = $("#appearance");
+    if (!st) { st = document.createElement("style"); st.id = "appearance"; document.head.appendChild(st); }
+    st.textContent = css;
+    store.set("penny.appearance.css", css);
+    const f = { ...FEEL_DEFAULT, ...MYPREFS };
+    if (f.mode === "system") { delete document.documentElement.dataset.theme; store.del("penny.theme"); }
+    else { document.documentElement.dataset.theme = f.mode; store.set("penny.theme", f.mode); }
+    document.body.style.zoom = TEXT_ZOOM[f.text] && f.text !== "m" ? String(TEXT_ZOOM[f.text]) : "";
+    document.body.classList.toggle("density-compact", f.density === "compact");
+    document.body.classList.toggle("reduce-motion", f.motion === "reduce");
+  }
+  function loadMyLook(u) {
+    const saved = (u && u.prefs) || {};
+    const legacy = store.get("penny.theme", "");          // the moon/sun choice from before v1.7
+    MYPREFS = { follow: true, look: { ...LOOK_DEFAULT }, ...FEEL_DEFAULT, ...(legacy && !saved.mode ? { mode: legacy } : {}), ...saved };
+    applyLook();
+  }
+  let saveTimer = null;
+  function setLook(change) {
+    MYPREFS = { ...MYPREFS, ...change, look: { ...MYPREFS.look, ...(change.look || {}) } };
+    applyLook();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try { if (user) await DIRECTORY().setPrefs(user.id, MYPREFS); paintLookSaved("Saved to your account"); }
+      catch (e) { paintLookSaved("Could not save. Your choice applies until you reload."); }
+    }, 350);
+    if ($("#look-page")) paintAppearance();
+  }
+  function paintLookSaved(msg) { const el = $("#look-saved"); if (el) { el.textContent = msg; el.hidden = false; } }
+  const SEG_LABEL = { bg: "Background", corners: "Corners", mode: "Mode", text: "Text size", density: "Density", motion: "Motion" };
+  const seg = (name, cur, opts) => `<div class="segmented look-seg" role="radiogroup" aria-label="${esc(SEG_LABEL[name] || name)}">${opts.map(([v, l]) => `<button type="button" role="radio" aria-checked="${v === cur}" data-feel="${esc(name)}" data-v="${esc(v)}">${esc(l)}</button>`).join("")}</div>`;
+  function swatches(cur, follow) {
+    return `<div class="presets" role="radiogroup" aria-label="Color theme">${Object.entries(PRESETS).map(([k, p]) => {
+      const pal = lookPalette({ ...LOOK_DEFAULT, preset: k });
+      return `<button type="button" class="preset${!follow && cur.preset === k ? " on" : ""}" role="radio" aria-checked="${!follow && cur.preset === k}" data-preset="${k}">
+        <span class="sw" aria-hidden="true"><i style="background:${pal.light}"></i><i style="background:${pal.lightSoft}"></i><i style="background:${pal.dark}"></i></span>
+        <b>${esc(p.name)}</b>${p.note ? `<span class="sub">${esc(p.note)}</span>` : ""}</button>`;
+    }).join("")}
+      <button type="button" class="preset${!follow && cur.preset === "custom" ? " on" : ""}" role="radio" aria-checked="${!follow && cur.preset === "custom"}" data-preset="custom">
+        <span class="sw sw-custom" aria-hidden="true"><i style="background:${esc(cur.preset === "custom" ? cur.accent : "conic-gradient(#e11d48,#f59e0b,#16a34a,#2563eb,#9333ea,#e11d48)")}"></i></span><b>Custom</b><span class="sub">Any color you like</span></button></div>`;
+  }
+  function appearanceBody() {
+    const f = { ...FEEL_DEFAULT, ...MYPREFS };
+    const follow = MYPREFS.follow !== false;
+    const look = myLook();
+    const pal = lookPalette(look);
+    const company = companyLook();
+    return `
+      <section class="card card-pad look-card"><h2>Colors</h2>
+        <div class="choice look-follow" role="radiogroup" aria-label="Whose colors">
+          <label><input type="radio" name="follow" value="company" ${follow ? "checked" : ""}><b>Use the company look</b><small>${esc(lookName(company))}${can("rules") ? ". As an Admin, you can change it below." : ". Your Admin chooses it."}</small></label>
+          <label><input type="radio" name="follow" value="mine" ${follow ? "" : "checked"}><b>Choose my own</b><small>Pick a preset or any color. Only you see it.</small></label>
+        </div>
+        <div class="${follow ? "look-dim" : ""}">${swatches(MYPREFS.look || LOOK_DEFAULT, follow)}
+          ${!follow && look.preset === "custom" ? `<div class="custom-row"><label for="look-color">Your color</label><input type="color" id="look-color" value="${esc(hexRgb(look.accent) ? look.accent : "#0f766e")}">
+            <input class="text-input code-input" id="look-hex" value="${esc(look.accent)}" maxlength="7" aria-label="Color as a hex code" spellcheck="false">
+            ${pal.adjusted ? `<span class="hint">Penny uses <b style="color:${pal.light}">${esc(pal.light)}</b> for text and buttons, a little darker than your color, so it stays easy to read (WCAG AA).</span>` : `<span class="hint ok-hint">Easy to read: ${contrast(pal.light, "#ffffff").toFixed(1)} to 1 contrast.</span>`}</div>` : ""}
+          <div class="look-row"><span class="look-label">Background</span>${seg("bg", follow ? company.bg : (MYPREFS.look || {}).bg || "default", [["default", "Cool gray"], ["warm", "Warm paper"], ["cool", "Soft blue"]])}</div>
+          <div class="look-row"><span class="look-label">Corners</span>${seg("corners", follow ? company.corners : (MYPREFS.look || {}).corners || "rounded", [["rounded", "Rounded"], ["square", "Square"]])}</div>
+        </div>
+      </section>
+      <section class="card card-pad look-card"><h2>Comfort</h2><p class="hint">Always your own choice.</p>
+        <div class="look-row"><span class="look-label">Mode</span>${seg("mode", f.mode, [["system", "Match my device"], ["light", "Light"], ["dark", "Dark"]])}</div>
+        <div class="look-row"><span class="look-label">Text size</span>${seg("text", f.text, [["s", "Small"], ["m", "Default"], ["l", "Large"], ["xl", "Larger"]])}</div>
+        <div class="look-row"><span class="look-label">Density</span>${seg("density", f.density, [["comfortable", "Comfortable"], ["compact", "Compact"]])}</div>
+        <div class="look-row"><span class="look-label">Motion</span>${seg("motion", f.motion, [["system", "Match my device"], ["reduce", "Reduce motion"]])}</div>
+      </section>
+      <section class="card card-pad look-card look-preview" aria-label="Preview"><h2>Preview</h2>
+        <div class="pv-row"><button class="btn btn-accent" type="button" tabindex="-1">Resolve hold</button><button class="btn" type="button" tabindex="-1">Reassign</button><a href="#/appearance" tabindex="-1">A link</a></div>
+        <div class="pv-row">${badge("ENTER_INTACCT")}${badge("HOLD")}<span class="badge b-ready">${bIcon("redo")}Ready for recheck</span>${codeChip("OVERPO")}</div>
+        <div class="table-wrap"><table class="data"><thead><tr><th>Vendor and invoice</th><th class="num">Amount</th></tr></thead><tbody><tr><td><span class="main-link">Pinecrest Building Supply Co</span><span class="sub">PBS-604418 · APINBOX_0001</span></td><td class="num">$15,102.07</td></tr></tbody></table></div>
+      </section>
+      ${can("rules") ? `<section class="card card-pad look-card"><h2>Company look (Admin)</h2>
+        <p>Everyone who uses the company look sees this. Right now: <b>${esc(lookName(company))}</b>.</p>
+        <div class="nb-actions"><button class="btn btn-accent" type="button" id="look-make-company" ${follow ? "disabled" : ""}>Make my colors the company look</button>
+          <button class="btn" type="button" id="look-company-reset" ${company.preset === "teal" && company.bg === "default" && company.corners === "rounded" ? "disabled" : ""}>Back to Penny teal</button></div>
+        ${follow ? `<p class="hint">Choose your own colors above first, then make them the company look.</p>` : ""}
+        <p class="hint">Saved as the rule <code>display.theme</code>, with your reason, in the Rules change history and the audit trail. You can undo it there.</p></section>` : ""}`;
+  }
+  function viewAppearance() {
+    return `${head("Appearance", "Make Penny comfortable to look at. Changes show right away and are saved to your account.")}<p class="look-saved" id="look-saved" role="status" hidden></p><div id="look-page">${appearanceBody()}</div>`;
+  }
+  function paintAppearance() {
+    const box = $("#look-page");
+    if (!box) return;
+    const focus = document.activeElement && (document.activeElement.dataset.preset || document.activeElement.dataset.v || document.activeElement.id);
+    box.innerHTML = appearanceBody();
+    try {
+      const el = focus && (box.querySelector(`[data-preset="${CSS.escape(focus)}"]`) || box.querySelector(`[aria-checked="true"][data-v="${CSS.escape(focus)}"]`) || box.querySelector(`#${CSS.escape(focus)}`));
+      if (el) el.focus();
+    } catch (e) { /* focus is a nicety */ }
+  }
+  function setCompanyLook(look, why) {
+    const before = (RULES().display || {}).theme;
+    openDialog(why, `New company look: <b>${esc(lookName(look))}</b>. People who follow the company look see it at once.`, noteField("Why are you changing it?", true, "For example: matches our brand colors."), "Save company look", (fd) => {
+      const err = needNote(fd, 5); if (err) return err;
+      if (record("rules.update", { changes: [{ path: "display.theme", before, after: look, label: "Company look" }], note: String(fd.get("note")).trim() })) { applyLook(); paintAppearance(); toast("Company look saved."); }
+      return "";
+    });
+  }
+  function bindAppearance() {
+    const box = $("#look-page");
+    if (!box) return;
+    box.addEventListener("click", (e) => {
+      const p = e.target.closest("[data-preset]");
+      if (p) return setLook({ follow: false, look: { preset: p.dataset.preset, ...(p.dataset.preset === "custom" && !(MYPREFS.look || {}).accent ? { accent: "#0f766e" } : {}) } });
+      const f = e.target.closest("[data-feel]");
+      if (f) {
+        const k = f.dataset.feel, v = f.dataset.v;
+        if (k === "bg" || k === "corners") return setLook({ follow: false, look: { ...(MYPREFS.follow !== false ? companyLook() : {}), [k]: v } });
+        return setLook({ [k]: v });
+      }
+      if (e.target.closest("#look-make-company")) return setCompanyLook({ ...myLook() }, "Make this the company look");
+      if (e.target.closest("#look-company-reset")) return setCompanyLook({ ...LOOK_DEFAULT }, "Go back to Penny teal");
+    });
+    box.addEventListener("change", (e) => {
+      if (e.target.name === "follow") setLook(e.target.value === "company" ? { follow: true } : { follow: false, look: { ...companyLook(), ...(MYPREFS.look || {}) } });
+      if (e.target.id === "look-color") setLook({ look: { preset: "custom", accent: e.target.value } });
+    });
+    box.addEventListener("input", (e) => {
+      if (e.target.id === "look-hex" && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) setLook({ look: { preset: "custom", accent: e.target.value.trim().toLowerCase() } });
+    });
+  }
+
+  // ------------------------------------------------------------------ accounts (v1.7)
+  /* Two kinds of sign-in, one interface:
+     - The public demo and Penny on a computer without accounts use PennyAuth (penny-auth.js): the four public demo
+       accounts plus anyone an Admin invites in this browser. Emails go to a demo Outbox in this browser.
+     - Penny on a computer with accounts (state/users.json) uses ServerAuth: the server checks passwords, keeps the
+       session in an HttpOnly cookie, and sends real email (or saves it when no mail server is set up). */
+  let ME = null;
+  const serverAccounts = () => !!(SERVER && SERVER.accounts);
+  const jsonPost = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const ServerAuth = {
+    IDLE_MINUTES: 30, MAX_TRIES: 5, reason: "",
+    async signIn(email, password) {
+      try { const r = await jsonPost("api/auth/login", { email: String(email || "").trim(), password }); ME = r.user; return { ok: true, user: r.user }; }
+      catch (e) { return { ok: false, message: e.message }; }
+    },
+    currentUser() { return ME; },
+    touch() { /* the server slides the session on every request */ },
+    signOut(reason) { ServerAuth.reason = reason || ""; ME = null; fetch("api/auth/logout", { method: "POST", headers: { "X-Penny": "1", "Content-Type": "application/json" }, body: "{}" }).catch(() => null); },
+    takeSignOutReason() { const r = ServerAuth.reason; ServerAuth.reason = ""; return r; },
+    directory: {
+      passwordProblem: (...a) => PennyAuth.directory.passwordProblem(...a),
+      async list() { return (await api("api/users")).users; },
+      async invite(actor, f) { return jsonPost("api/users", f); },
+      async resend(actor, id) { return jsonPost(`api/users/${encodeURIComponent(id)}/resend`, {}); },
+      async sendReset(actor, id) { return jsonPost(`api/users/${encodeURIComponent(id)}/reset`, {}); },
+      async update(actor, id, changes) { return jsonPost(`api/users/${encodeURIComponent(id)}`, { changes }); },
+      async checkToken(t) { return api(`api/auth/token?token=${encodeURIComponent(t)}`); },
+      async useToken(t, password, name, purpose) { return (await jsonPost(purpose === "reset" ? "api/auth/reset" : "api/auth/activate", { token: t, password, name })).user; },
+      async forgot(email) { await jsonPost("api/auth/forgot", { email }); return null; },
+      async setPrefs(id, prefs) { return (await jsonPost("api/me/prefs", { prefs })).prefs; },
+    },
+  };
+  const AUTH = () => (serverAccounts() ? ServerAuth : PennyAuth);
+  const DIRECTORY = () => AUTH().directory;
+  const appLink = (route) => `${location.origin}${location.pathname}#/${route}`;
+  function linkRoute() {
+    const m = /^#\/(activate|reset)\?token=([A-Za-z0-9_-]{16,})/.exec(location.hash);
+    return m ? { purpose: m[1] === "activate" ? "invite" : "reset", token: m[2] } : null;
+  }
+  async function refreshLog() {
+    if (!SERVER) return;
+    try { D.batch_log = (await api("api/log")).log; } catch (e) { /* the audit trail refreshes on the next load */ }
+  }
+  const msgOf = (e) => (e && (e.userMessage || e.message)) || "Something went wrong.";
+
+  // ---- demo outbox: emails the public demo would send, kept in this browser
+  const OUTBOX_KEY = "penny.outbox.v1";
+  const demoOutbox = () => { try { return JSON.parse(store.get(OUTBOX_KEY, "[]")); } catch (e) { return []; } };
+  function demoSend(mail) {
+    const entry = { id: newId(), at: new Date().toISOString(), status: "demo", attachments: [], ...mail };
+    const list = demoOutbox();
+    list.unshift(entry);
+    store.set(OUTBOX_KEY, JSON.stringify(list.slice(0, 200)));
+    return entry;
+  }
+  function accountMail(purpose, u, token, hours, byName) {
+    const link = appLink(`${purpose === "invite" ? "activate" : "reset"}?token=${token}`);
+    const first = u.name.split(" ")[0];
+    const body = purpose === "invite"
+      ? `Hi ${first},\n\n${byName} invited you to Penny, the accounts payable workspace, as ${ROLES[u.role].name}.\n\nSet up your account and choose a password:\n${link}\n\nThis link works once and expires in ${hours} hours. If you did not expect this email, you can ignore it.\n\nPenny AP`
+      : `Hi ${first},\n\n${byName ? `${byName} sent you a link` : "Someone (most likely you) asked on the sign-in page for a link"} to choose a new Penny password:\n${link}\n\nThis link works once and expires in ${hours} hour${hours === 1 ? "" : "s"}. If you did not ask for this, you can ignore it.\n\nPenny AP`;
+    return demoSend({ to: [u.email], subject: purpose === "invite" ? "You're invited to Penny" : "Reset your Penny password", body, kind: purpose,
+      by: byName ? { id: user ? user.id : "", name: byName, role: user ? user.role : "system" } : { id: u.id, name: u.name, role: "system" } });
+  }
+  const STATUS_MAIL = { sent: ["Sent", "b-approved"], saved: ["Saved, not sent", "b-waiting"], failed: ["Failed", "b-rejected"], demo: ["Demo: not sent", "b-skip"] };
+  const mailBadge = (st) => { const [l, c] = STATUS_MAIL[st] || [st, "b-skip"]; return `<span class="badge ${c}">${esc(l)}</span>`; };
+  /** After an invite or reset: what happened to the email, in words. */
+  function mailOutcome(res, what) {
+    if (!res.email) return `${what} is in the Outbox. This demo has no real email, so open the Outbox to see the message and its link.`;
+    if (res.email.status === "sent") return `${what} was emailed.`;
+    if (res.email.status === "failed") return `${what} could not be emailed (${res.email.error}). It is saved in the Outbox.`;
+    return `${what} was saved to the Outbox, not sent, because no mail server is set up. Copy the link from the Outbox and pass it on.`;
+  }
+
+  // ---- forgot password (both sign-in screens)
+  function bindForgot(box) {
+    const b = $("[data-forgot]", box);
+    if (!b) return;
+    b.addEventListener("click", () => {
+      const main = $(".auth-main", box);
+      const prefill = ($("#login-email", box) || {}).value || "";
+      main.innerHTML = `<h2 id="signin-title">Reset your password</h2>
+        <p class="auth-sub">Enter the email you sign in with. If it has an active Penny account, we will send a link to choose a new password. The link works once and expires in 1 hour.</p>
+        <form class="auth-form" id="forgot-form" novalidate>
+          <div class="field"><label for="forgot-email">Email</label><input id="forgot-email" name="email" type="email" autocomplete="username" spellcheck="false" value="${esc(prefill)}" required></div>
+          <p class="auth-error" id="forgot-error" role="alert" hidden></p>
+          <button class="btn btn-primary" type="submit">Send the link</button>
+          <button class="link-btn forgot-link" type="button" id="forgot-back">Back to sign in</button>
+        </form><div id="forgot-done" aria-live="polite"></div>`;
+      $("#forgot-back").addEventListener("click", () => showLogin());
+      $("#forgot-email").focus();
+      $("#forgot-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const v = $("#forgot-email").value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { const er = $("#forgot-error"); er.textContent = "Enter the email you sign in with."; er.hidden = false; return; }
+        let demo = null;
+        try { const r = await DIRECTORY().forgot(v); if (r && !serverAccounts()) demo = accountMail("reset", r.user, r.token, r.hours, null); } catch (x) { /* same message either way */ }
+        track("password_forgot", {});
+        $("#forgot-form").hidden = true;
+        $("#forgot-done").innerHTML = `<p class="auth-info" role="status">If <b>${esc(v)}</b> has an active Penny account, a reset link is on its way. Check your email.</p>
+          ${!serverAccounts() ? `<p class="hint">This demo has no real email.${demo ? ` Here is the message Penny would send:</p><pre class="mail-body">${linkify(demo.body)}</pre>` : " The four demo accounts keep their published passwords, so a reset is only sent for people an Admin invited in this browser.</p>"}` : ""}
+          <button class="btn" type="button" id="forgot-done-back">Back to sign in</button>`;
+        $("#forgot-done-back").addEventListener("click", () => showLogin());
+      });
+    });
+  }
+
+  // ---- sign in when Penny on a computer has real accounts
+  function showServerLogin(reason) {
+    $("#shell").hidden = true;
+    const box = $("#auth");
+    box.hidden = false;
+    document.title = "Sign in · Penny";
+    const msg = reason === "expired" ? `<p class="auth-info" role="status">You were signed out after 30 minutes without activity, or your access changed. Please sign in again.</p>`
+      : reason === "signed-out" ? `<p class="auth-info" role="status">You are signed out.</p>`
+      : reason === "ready" ? `<p class="auth-info" role="status">Your password is set. Sign in to start.</p>` : "";
+    box.innerHTML = `<div class="auth-wrap"><div class="auth-card auth-card-solo">
+        <section class="auth-main" aria-labelledby="signin-title">
+          <div class="auth-logo"><svg class="auth-coin" aria-hidden="true"><use href="#coin-front"/></svg><span>Penny</span></div>
+          <h2 id="signin-title">Sign in</h2>
+          <p class="auth-sub">Use the email your Admin invited. Your password is checked by Penny on this computer and never stored as text.</p>
+          ${msg}
+          <form class="auth-form" id="login-form" novalidate>
+            <div class="field"><label for="login-email">Email</label><input id="login-email" name="email" type="email" autocomplete="username" spellcheck="false" value="${esc(ServerAuth.lastEmail || "")}" required></div>
+            <div class="field"><label for="login-pw">Password</label><div class="pw-wrap"><input id="login-pw" name="password" type="password" autocomplete="current-password" required>
+              <button class="pw-toggle" type="button" id="pw-toggle" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+            <p class="auth-error" id="login-error" role="alert" hidden></p>
+            <button class="btn btn-primary" type="submit" id="login-submit"><span class="spin" aria-hidden="true"></span><span class="lbl">Sign in</span></button>
+            <button class="link-btn forgot-link" type="button" data-forgot>Forgot your password?</button>
+          </form>
+        </section></div>
+      <p class="auth-credit"><svg class="credit-coin" aria-hidden="true"><use href="#coin-front"/></svg>Designed and built by <strong>Jamie Collier</strong> · <span id="auth-version">Penny v${esc(APP_VERSION)}</span></p></div>`;
+    const pw = $("#login-pw"), em = $("#login-email"), err = $("#login-error"), btn = $("#login-submit");
+    (em.value ? pw : em).focus();
+    $("#pw-toggle").addEventListener("click", (e) => { const show = pw.type === "password"; pw.type = show ? "text" : "password"; e.currentTarget.textContent = show ? "Hide" : "Show"; e.currentTarget.setAttribute("aria-pressed", String(show)); pw.focus(); });
+    $("#login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      if (!em.value.trim() || !pw.value) { err.textContent = "Enter your email and password."; err.hidden = false; return; }
+      btn.disabled = true; btn.classList.add("busy"); $(".lbl", btn).textContent = "Checking…";
+      ServerAuth.lastEmail = em.value.trim();
+      const res = await ServerAuth.signIn(em.value, pw.value);
+      if (res.ok) {
+        const ok = await loadData();
+        if (ok === true) { pw.value = ""; enterApp(res.user); toast(`Welcome, ${res.user.name.split(" ")[0]}.`); return; }
+      }
+      btn.disabled = false; btn.classList.remove("busy"); $(".lbl", btn).textContent = "Sign in";
+      err.textContent = res.ok ? "Signed in, but Penny could not load its data. Reload the page." : res.message; err.hidden = false;
+      pw.value = ""; pw.focus();
+    });
+    bindForgot(box);
+  }
+
+  // ---- invitation and reset links
+  async function showAccountLink(purpose, token) {
+    $("#shell").hidden = true;
+    const box = $("#auth");
+    box.hidden = false;
+    document.title = purpose === "invite" ? "Set up your account · Penny" : "Choose a new password · Penny";
+    const shell = (inner) => `<div class="auth-wrap"><div class="auth-card auth-card-solo"><section class="auth-main" aria-labelledby="link-title">
+        <div class="auth-logo"><svg class="auth-coin" aria-hidden="true"><use href="#coin-front"/></svg><span>Penny</span></div>${inner}</section></div>
+      <p class="auth-credit">Designed and built by <strong>Jamie Collier</strong> · Penny v${esc(APP_VERSION)}</p></div>`;
+    box.innerHTML = shell(`<h2 id="link-title">Checking your link…</h2>`);
+    let info;
+    try { info = await DIRECTORY().checkToken(token); }
+    catch (e) {
+      box.innerHTML = shell(`<h2 id="link-title">This link does not work</h2><p class="auth-error" role="alert">${esc(msgOf(e))}</p>
+        <button class="btn btn-primary" type="button" id="link-out">Go to sign in</button>`);
+      $("#link-out").addEventListener("click", () => { history.replaceState(null, "", "#/"); showLogin(); });
+      return;
+    }
+    const invite = info.purpose === "invite";
+    box.innerHTML = shell(`<h2 id="link-title">${invite ? `Welcome to Penny, ${esc(info.name.split(" ")[0])}` : "Choose a new password"}</h2>
+      <p class="auth-sub">${invite ? `You were invited as ${esc(article(ROLES[info.role].name))}. Check your name, then choose a password.` : `For <b>${esc(info.email)}</b>. Your old password stops working once you save.`}</p>
+      <form class="auth-form" id="link-form" novalidate>
+        <div class="field"><label for="link-email">Email</label><input id="link-email" type="email" value="${esc(info.email)}" autocomplete="username" readonly></div>
+        ${invite ? `<div class="field"><label for="link-name">Your name</label><input id="link-name" name="name" value="${esc(info.name)}" autocomplete="name" maxlength="80"></div>` : ""}
+        <div class="field"><label for="link-pw">New password</label><div class="pw-wrap"><input id="link-pw" type="password" autocomplete="new-password" aria-describedby="pw-rules" required>
+          <button class="pw-toggle" type="button" id="pw-toggle" aria-label="Show password" aria-pressed="false">Show</button></div>
+          <ul class="pw-rules" id="pw-rules"><li data-r="len">At least 10 characters</li><li data-r="mine">Not your email or name</li><li data-r="easy">Not an easy one to guess</li></ul></div>
+        <div class="field"><label for="link-pw2">Type it again</label><input id="link-pw2" type="password" autocomplete="new-password" required></div>
+        <p class="auth-error" id="link-error" role="alert" hidden></p>
+        <button class="btn btn-primary" type="submit" id="link-submit">${invite ? "Create my account" : "Save my new password"}</button>
+      </form>`);
+    const pw = $("#link-pw"), pw2 = $("#link-pw2"), err = $("#link-error");
+    const nameOf = () => ($("#link-name") || { value: info.name }).value;
+    const check = () => {
+      const p = pw.value, problem = DIRECTORY().passwordProblem(p, info.email, nameOf());
+      $$("#pw-rules li").forEach((li) => {
+        const ok = li.dataset.r === "len" ? p.length >= 10 : li.dataset.r === "mine" ? !/email or name/.test(problem) && p.length > 0 : p.length >= 10 && !/easy/.test(problem);
+        li.classList.toggle("ok", ok);
+      });
+      return problem;
+    };
+    pw.addEventListener("input", check);
+    pw.focus();
+    $("#pw-toggle").addEventListener("click", (e) => { const show = pw.type === "password"; pw.type = pw2.type = show ? "text" : "password"; e.currentTarget.textContent = show ? "Hide" : "Show"; e.currentTarget.setAttribute("aria-pressed", String(show)); });
+    $("#link-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      const problem = check() || (pw.value !== pw2.value ? "The two passwords do not match." : "");
+      if (problem) { err.textContent = problem; err.hidden = false; return; }
+      $("#link-submit").disabled = true;
+      try {
+        const u = await DIRECTORY().useToken(token, pw.value, invite ? nameOf() : undefined, info.purpose);
+        if (!serverAccounts()) logEvent(invite ? "user.activated" : "user.password_reset", u, { email: u.email, user_id: u.id });
+        track(invite ? "account_activated" : "password_reset", {});
+        history.replaceState(null, "", "#/");
+        ServerAuth.lastEmail = info.email;
+        if (user) endSession("signed-out");
+        if (serverAccounts()) return showServerLogin("ready");
+        showLogin();
+        const em = $("#login-email"); if (em) { em.value = info.email; $("#login-pw").focus(); }
+        toast(invite ? "Your account is ready. Sign in with your new password." : "Password saved. Sign in with your new password.");
+      } catch (x) {
+        $("#link-submit").disabled = false;
+        err.textContent = msgOf(x); err.hidden = false;
+      }
+    });
+  }
+  /** A demo event recorded for someone who is not signed in (activating an invitation). */
+  function logEvent(type, who, data) {
+    EV.push({ id: newId(), at: new Date().toISOString(), type, user: { id: who.id, name: who.name, role: who.role, initials: who.initials || "" }, ...data });
+    saveSandbox();
+  }
+
+  // ---- Users page (Admin)
+  const PEOPLE = { list: null, error: "" };
+  const STATUS_USER = { active: ["Active", "b-approved"], invited: ["Invited", "b-waiting"], inactive: ["Turned off", "b-skip"] };
+  async function loadPeople() {
+    try { PEOPLE.list = await DIRECTORY().list(); PEOPLE.error = ""; } catch (e) { PEOPLE.error = msgOf(e); PEOPLE.list = PEOPLE.list || []; }
+    const box = $("#users-body");
+    if (box) box.innerHTML = usersTable();
+  }
+  function usersTable() {
+    if (PEOPLE.error) return `<p class="form-error">${esc(PEOPLE.error)}</p>`;
+    if (!PEOPLE.list) return `<p class="hint">Loading people…</p>`;
+    const counts = Object.fromEntries(Object.keys(STATUS_USER).map((k) => [k, PEOPLE.list.filter((u) => u.status === k).length]));
+    return `<div class="filter-summary"><span>${counts.active} active · ${counts.invited} invited · ${counts.inactive} turned off</span>${PEOPLE.list.some((u) => u.builtIn) ? "<span>Demo accounts keep their published passwords, so they have no reset.</span>" : ""}</div>
+      <div class="table-wrap"><table class="data users"><thead><tr><th scope="col">Person</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col" class="hide-sm">Last sign-in</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>${PEOPLE.list.map((u) => {
+        const [sl, sc] = STATUS_USER[u.status] || [u.status, "b-skip"];
+        const me = user && u.id === user.id;
+        return `<tr><td><span class="u-person"><span class="avatar av-${esc(u.role)}" aria-hidden="true">${esc(u.initials)}</span><span><b>${esc(u.name)}</b>${me ? ' <span class="chip">You</span>' : ""}${u.builtIn ? ' <span class="chip" title="Public demo account with a published password">Demo account</span>' : ""}
+            <span class="sub">${esc(u.email)}${u.title ? ` · ${esc(u.title)}` : ""}</span></span></span></td>
+          <td>${esc(ROLES[u.role].name)}</td><td><span class="badge ${sc}">${esc(sl)}</span></td>
+          <td class="hide-sm">${u.last_sign_in ? esc(fmtDateTime(u.last_sign_in)) : '<span class="hint">Never</span>'}</td>
+          <td><div class="u-actions"><button class="btn btn-sm" type="button" data-user-edit="${esc(u.id)}">Edit</button>
+            ${u.status === "invited" ? `<button class="btn btn-sm" type="button" data-user-resend="${esc(u.id)}">Resend invite</button>` : ""}
+            ${u.status === "active" && !u.builtIn ? `<button class="btn btn-sm" type="button" data-user-reset="${esc(u.id)}">Send password reset</button>` : ""}
+            ${me ? "" : `<button class="btn btn-sm ${u.status === "inactive" ? "" : "btn-ghost"}" type="button" data-user-toggle="${esc(u.id)}">${u.status === "inactive" ? "Turn on" : "Turn off"}</button>`}</div></td></tr>`;
+      }).join("")}</tbody></table></div>`;
+  }
+  function viewUsers() {
+    if (!can("users")) return `${head("Users", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>Only Admins manage people</h2><p>Sign in as an Admin to invite people, change roles or send password resets.</p></div></section>`;
+    if (!PEOPLE.list) loadPeople();
+    const mail = serverAccounts() ? (SERVER.email || {}) : null;
+    return `${head("Users", "Invite people, choose what each one can do, turn accounts off, and send password resets. Every change is in the audit trail.",
+        `<button class="btn btn-accent" type="button" id="user-invite">Invite someone</button>`)}
+      <div class="mode-banner ${serverAccounts() ? (mail.sends ? "mode-ok" : "mode-warn") : "mode-demo"}" role="note">${serverAccounts()
+        ? `<b>Accounts on this computer.</b> Email: ${esc(mail.how || "")}.${mail.sends ? "" : " Set PENNY_SMTP_HOST to send for real (see Help)."}`
+        : `<b>Demo directory.</b> People you invite are kept in this browser, and their emails land in the <a href="#/outbox">Outbox</a> with a working link. The four public demo accounts keep their published passwords.`}</div>
+      <section class="card" id="users-body">${usersTable()}</section>
+      <section class="card card-pad" style="margin-top:16px"><h2 class="sub-h" style="margin-top:0">Roles</h2>
+        <ul class="role-list">${Object.entries(ROLES).map(([k, r]) => `<li><b>${esc(r.name)}</b> ${esc(r.blurb)}</li>`).join("")}</ul></section>`;
+  }
+  const roleSelect = (cur) => `<select id="dlg-role" name="role">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>`;
+  async function userAction(fn, okMsg) {
+    try { const res = await fn(); await loadPeople(); await refreshLog(); toast(okMsg(res)); return ""; }
+    catch (e) { toast(msgOf(e)); return msgOf(e); }
+  }
+  function bindUsers() {
+    const main = $("#main");
+    const inv = $("#user-invite");
+    if (inv) inv.addEventListener("click", () => openDialog("Invite someone", "They get an email with a link to set up their account and choose a password. The link works once and expires in 72 hours.",
+      `<div class="field-row"><div class="field"><label for="dlg-name">Name</label><input id="dlg-name" name="name" maxlength="80" autocomplete="off" required></div>
+        <div class="field"><label for="dlg-email">Email</label><input id="dlg-email" name="email" type="email" autocomplete="off" spellcheck="false" required></div></div>
+       <div class="field-row"><div class="field"><label for="dlg-title">Job title (optional)</label><input id="dlg-title" name="title" maxlength="80"></div>
+        <div class="field"><label for="dlg-role">Role</label>${roleSelect("viewer")}</div></div>
+       <p class="hint">Start with the least access someone needs. You can change it any time.</p>`,
+      "Send invitation", (fd) => {
+        const f = { name: String(fd.get("name") || "").trim(), email: String(fd.get("email") || "").trim(), title: String(fd.get("title") || "").trim(), role: fd.get("role") };
+        if (f.name.length < 2) return "Enter their name.";
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) return "Enter a valid email address.";
+        (async () => {
+          await null;            // let the dialog that started this close first, so a follow-up message stays open
+          try {
+            const res = await DIRECTORY().invite(user, f);
+            if (!serverAccounts()) { const m = accountMail("invite", res.user, res.token, res.hours, user.name); record("user.invited", { email: res.user.email, role: res.user.role, user_id: res.user.id, email_status: "demo", outbox: m.id }); }
+            await loadPeople(); await refreshLog();
+            toast(mailOutcome(res, `${res.user.name}'s invitation`));
+          } catch (e) { openDialog("The invitation was not sent", esc(msgOf(e)), "", "", () => "", { info: true }); }
+        })();
+        return "";
+      }));
+    if (main.dataset.usersBound) return;
+    main.dataset.usersBound = "1";
+    main.addEventListener("click", (e) => {
+      if (!$("#users-body")) return;
+      const find = (attr) => { const b = e.target.closest(`[${attr}]`); return b ? (PEOPLE.list || []).find((u) => u.id === b.getAttribute(attr)) : null; };
+      let u;
+      if ((u = find("data-user-edit"))) {
+        const me = u.id === user.id;
+        openDialog(`Edit ${u.name}`, esc(u.email), `<div class="field-row"><div class="field"><label for="dlg-name">Name</label><input id="dlg-name" name="name" value="${esc(u.name)}" maxlength="80"></div>
+            <div class="field"><label for="dlg-email">Email</label><input id="dlg-email" name="email" type="email" value="${esc(u.email)}" ${u.builtIn ? "readonly" : ""}></div></div>
+          <div class="field-row"><div class="field"><label for="dlg-title">Job title</label><input id="dlg-title" name="title" value="${esc(u.title || "")}" maxlength="80"></div>
+            <div class="field"><label for="dlg-role">Role</label>${roleSelect(u.role)}</div></div>
+          ${me ? `<p class="hint">You cannot remove your own Admin role or turn off your own account. Another Admin can.</p>` : `<p class="hint">Changing someone's role or email signs them out, so the change takes effect at once.</p>`}`,
+          "Save changes", (fd) => {
+            const changes = {};
+            for (const k of ["name", "email", "title", "role"]) { const v = String(fd.get(k) || "").trim(); if (v !== String(u[k] || "")) changes[k] = v; }
+            if (!Object.keys(changes).length) return "Nothing changed.";
+            (async () => {
+          await null;            // let the dialog that started this close first, so a follow-up message stays open
+              try {
+                const res = await DIRECTORY().update(user, u.id, changes);
+                if (!serverAccounts() && Object.keys(res.changes).length) record("user.updated", { email: res.user.email, user_id: u.id, changes: res.changes });
+                await loadPeople(); await refreshLog(); toast(`${res.user.name} updated.`);
+              } catch (x) { openDialog("Not saved", esc(msgOf(x)), "", "", () => "", { info: true }); }
+            })();
+            return "";
+          });
+      } else if ((u = find("data-user-toggle"))) {
+        const off = u.status !== "inactive";
+        openDialog(off ? `Turn off ${u.name}'s account?` : `Turn ${u.name}'s account back on?`, off ? "They are signed out at once and cannot sign in until an Admin turns the account back on. Nothing they did is removed." : u.has_password ? "They can sign in again with their password." : "They never finished setting up, so they will need a new invitation.",
+          "", off ? "Turn off" : "Turn on", () => {
+            (async () => {
+          await null;            // let the dialog that started this close first, so a follow-up message stays open
+              try {
+                const res = await DIRECTORY().update(user, u.id, { status: off ? "inactive" : "active" });
+                if (!serverAccounts()) record("user.updated", { email: u.email, user_id: u.id, changes: res.changes });
+                await loadPeople(); await refreshLog(); toast(off ? `${u.name}'s account is turned off.` : `${u.name}'s account is on.`);
+              } catch (x) { openDialog("Not changed", esc(msgOf(x)), "", "", () => "", { info: true }); }
+            })();
+            return "";
+          }, { danger: off });
+      } else if ((u = find("data-user-reset")) || (u = find("data-user-resend"))) {
+        const reset = !!e.target.closest("[data-user-reset]");
+        userAction(async () => {
+          await null;            // let the dialog that started this close first, so a follow-up message stays open
+          const res = await (reset ? DIRECTORY().sendReset(user, u.id) : DIRECTORY().resend(user, u.id));
+          if (!serverAccounts()) { accountMail(reset ? "reset" : "invite", res.user, res.token, res.hours, user.name); record(reset ? "user.reset_sent" : "user.invite_resent", { email: u.email, user_id: u.id, email_status: "demo" }); }
+          return res;
+        }, (res) => mailOutcome(res, reset ? `The reset link for ${u.name}` : `The new invitation for ${u.name}`));
+      }
+    });
+  }
+
+  // ---- Outbox
+  const OB = { list: null };
+  async function loadOutbox() {
+    if (serverAccounts() || SERVER) {
+      try { OB.list = (await api("api/outbox")).emails.map((m) => ({ ...m, bodyText: m.body })); } catch (e) { OB.list = []; OB.error = msgOf(e); }
+    } else OB.list = demoOutbox().filter((m) => can("users") || !m.by || m.by.id === user.id).map((m) => ({ ...m, bodyText: m.body }));
+    const box = $("#outbox-body");
+    if (box) box.innerHTML = outboxTable();
+  }
+  function linkify(text) {
+    return esc(text).replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}" target="_self">${u}</a>`);
+  }
+  function outboxTable() {
+    if (!OB.list) return `<p class="hint">Loading…</p>`;
+    if (!OB.list.length) return `<div class="empty-state">${ICON.check}<h2>No emails yet</h2><p>Invitations, password resets, approval requests and exports you email show up here.</p></div>`;
+    return `<div class="table-wrap"><table class="data outbox"><thead><tr><th scope="col">When</th><th scope="col">To</th><th scope="col">Subject</th><th scope="col">Status</th></tr></thead><tbody>
+      ${OB.list.map((m) => `<tr data-mail="${esc(m.id)}" tabindex="0"><td style="white-space:nowrap">${esc(fmtDateTime(m.at))}</td><td>${esc((m.to || []).join(", "))}</td>
+        <td><a href="#" class="main-link" data-mail-open="${esc(m.id)}">${esc(m.subject)}</a><span class="sub">${esc((m.by || {}).name || "")}${(m.attachments || []).length ? ` · ${plural(m.attachments.length, "attachment")}` : ""}</span></td>
+        <td>${mailBadge(m.status)}</td></tr>`).join("")}</tbody></table></div>`;
+  }
+  function viewOutbox() {
+    if (!can("email")) return `${head("Outbox", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>Viewers do not send email</h2><p>AP Clerks, Approvers and Admins can email exports and approval requests.</p></div></section>`;
+    OB.list = null;
+    loadOutbox();
+    const mail = SERVER && SERVER.email;
+    return `${head("Outbox", `${can("users") ? "Every email Penny sent or saved" : "Emails you sent from Penny"}, newest first. Open one to read it exactly as it went out.`)}
+      <div class="mode-banner ${SERVER ? (mail && mail.sends ? "mode-ok" : "mode-warn") : "mode-demo"}" role="note">${SERVER ? `<b>Email:</b> ${esc((mail || {}).how || "")}.` : "<b>Demo outbox.</b> This public demo cannot send email, so each message is kept here in your browser instead. Links in it work."}</div>
+      <section class="card" id="outbox-body">${outboxTable()}</section>`;
+  }
+  function bindOutbox() {
+    const box = $("#outbox-body");
+    if (!box) return;
+    const open = (id) => {
+      const m = (OB.list || []).find((x) => x.id === id);
+      if (!m) return;
+      openDialog(m.subject, `To ${esc((m.to || []).join(", "))} · ${esc(fmtDateTime(m.at))} · ${mailBadge(m.status)}${m.error ? ` <span class="form-error">${esc(m.error)}</span>` : ""}`,
+        `<pre class="mail-body">${linkify(m.bodyText || "")}</pre>${(m.attachments || []).length ? `<p class="hint">Attached: ${m.attachments.map((f) => `${esc(f.name)} (${esc(fmtBytes(f.bytes || 0))}${f.sha256 ? `, ${esc(f.sha256.slice(0, 10))}` : ""})`).join(", ")}</p>` : ""}`,
+        "", () => "", { info: true, wide: true });
+    };
+    box.addEventListener("click", (e) => { const a = e.target.closest("[data-mail-open]"); if (a) { e.preventDefault(); open(a.dataset.mailOpen); return; } const tr = e.target.closest("tr[data-mail]"); if (tr && !e.target.closest("a")) open(tr.dataset.mail); });
+    box.addEventListener("keydown", (e) => { const tr = e.target.closest("tr[data-mail]"); if (tr && e.key === "Enter") open(tr.dataset.mail); });
+  }
+
+  // ---- Email an export or an approval request
+  async function peopleToEmail() {
+    try { return serverAccounts() ? (await api("api/people")).people : PennyAuth.directory.list().filter((u) => u.status === "active"); } catch (e) { return []; }
+  }
+  function allowedDomains() { return ((RULES().email || {}).allowed_domains || []).map((d) => String(d).toLowerCase()); }
+  async function emailDialog(o) {
+    let subject, body, attachLine, suggest;
+    const people = await peopleToEmail();
+    if (o.kind === "export") {
+      const run = X.runById[o.run], info = FILE_INFO[o.file] || { title: o.file, what: "", who: "" };
+      subject = `${info.title}: ${run.label}`;
+      attachLine = `${o.file}${o.bytes ? ` (${fmtBytes(o.bytes)})` : ""}`;
+      body = `What it is: ${info.what}`;
+      suggest = people.filter((p) => p.role === "clerk" || p.role === "admin");
+    } else {
+      const d = o.doc, steps = approvalSteps(d).filter((s2) => s2.status !== "approved").map((s2) => s2.label);
+      subject = `Approval needed: ${d.vendor} ${d.billNo} (${money(d.amount)})`;
+      attachLine = d.pdf ? `${d.file} (the original invoice)` : "No PDF on file";
+      body = `Approvals needed: ${steps.join("; ")}. The bill is ready for import; it is not posted or paid yet.`;
+      suggest = people.filter((p) => p.role === "approver" || p.role === "admin");
+    }
+    const domains = allowedDomains();
+    openDialog(o.kind === "export" ? "Email this file" : "Email for approval", esc(subject),
+      `<div class="field"><label for="dlg-to">To</label><input id="dlg-to" name="to" autocomplete="off" spellcheck="false" placeholder="name@${esc(domains[0] || "company.com")}, another@…" aria-describedby="dlg-to-hint">
+        <span class="hint" id="dlg-to-hint">Separate addresses with commas. Penny may email its users and ${domains.length ? `addresses at ${esc(domains.join(", "))}` : "no one else"}.</span>
+        ${suggest.length ? `<div class="chips" style="margin-top:6px">${suggest.slice(0, 8).map((p) => `<button type="button" class="chip chip-btn" data-add-to="${esc(p.email)}">${esc(p.name)} · ${esc(ROLES[p.role].name)}</button>`).join("")}</div>` : ""}</div>
+       ${noteField("Note", false, o.kind === "export" ? "For example: here is today's import file for review." : "For example: please approve by Friday.")}
+       <p class="hint">${esc(body)}</p><p class="hint"><b>Attached:</b> ${esc(attachLine)}</p>
+       ${SERVER ? "" : `<p class="hint">This demo cannot send email. The message goes to the <a href="#/outbox">Outbox</a> in this browser.</p>`}`,
+      "Send", (fd) => {
+        const to = String(fd.get("to") || "").split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+        if (!to.length) return "Add at least one recipient.";
+        const bad = to.find((t) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t));
+        if (bad) return `“${bad}” is not a valid email address.`;
+        const known = new Set(people.map((p) => p.email));
+        const outside = to.find((t) => !known.has(t) && !domains.includes(t.split("@")[1]));
+        if (outside) return `${outside} is outside the domains Penny may email (${domains.join(", ") || "none set"}). An Admin can add one in rules.json.`;
+        if (to.length > ((RULES().email || {}).max_recipients || 10)) return "That is too many recipients for one email.";
+        const note = String(fd.get("note") || "").trim();
+        (async () => {
+          await null;            // let the dialog that started this close first, so a follow-up message stays open
+          try {
+            if (SERVER) {
+              const res = await jsonPost("api/email", { kind: o.kind, to, note, run_id: o.kind === "export" ? o.run : o.doc.cur.run_id, doc_id: o.kind === "approval" ? o.doc.id : "", file: o.file || "",
+                user: { id: user.id, name: user.name, role: user.role } });
+              await refreshLog();
+              toast(res.status === "sent" ? "Email sent." : res.status === "saved" ? "Saved to the Outbox, not sent: no mail server is set up." : `The email failed: ${res.error}`);
+            } else {
+              const link = o.kind === "export" ? appLink(`runs/${o.run}`) : appLink(`invoices/${o.doc.id}`);
+              const m = demoSend({ to, subject, kind: o.kind, by: { id: user.id, name: user.name, role: user.role },
+                body: `${user.name} ${o.kind === "export" ? "shared a file" : "asked you to review a bill"} in Penny.\n\n${note ? `Note: ${note}\n\n` : ""}${body}\n\nOpen it in Penny: ${link}\n\nSent from Penny by ${user.name}.`,
+                attachments: [{ name: o.kind === "export" ? o.file : o.doc.file, bytes: o.bytes || 0 }] });
+              record("email.sent", { to, subject, kind: o.kind, doc: o.kind === "approval" ? o.doc.id : undefined, attachments: m.attachments, outbox: m.id });
+              toast("Saved to the demo Outbox. This demo cannot send real email.");
+            }
+          } catch (e) { openDialog("The email was not sent", esc(msgOf(e)), "", "", () => "", { info: true }); }
+        })();
+        return "";
+      });
+    $$("#dialog [data-add-to]").forEach((b) => b.addEventListener("click", () => {
+      const inp = $("#dlg-to");
+      const list = inp.value.split(/[,;\s]+/).filter(Boolean);
+      if (!list.includes(b.dataset.addTo)) list.push(b.dataset.addTo);
+      inp.value = list.join(", ");
+      b.classList.add("on");
+    }));
+  }
+
   // ------------------------------------------------------------------ audit trail
   // The browser writes UTC times and Penny's disk log writes local times with an offset, so both are turned into
   // UTC before sorting. Comparing the raw text would put a 9:00 -05:00 entry before a 10:00 UTC one.
@@ -3126,11 +3811,16 @@
       const st = runStats(res);
       return `${res.length} documents: ${st.entered} ready to import, ${st.held} need review, ${st.dup} duplicates, ${st.skip} skipped`;
     }
-    if (e.changes) return e.changes.map(describeChange).join("; ");
+    if (Array.isArray(e.changes)) return e.changes.map(describeChange).join("; ");
     if (e.type === "batch.created") return `Folder ${e.folder}`;
     if (e.type === "batch.run_failed") return `${e.dry_run ? "Preview" : "Real run"} ${e.run_id} on ${e.folder} did not finish: ${e.error}`;
     if (e.type === "batch.upload") return `${plural(e.count || (e.files || []).length, "file")} to ${e.folder}${e.bytes ? `, ${fmtBytes(e.bytes)}` : ""}: ${(e.files || []).slice(0, 4).map((f) => f.name).join(", ")}${(e.files || []).length > 4 ? "…" : ""}`;
     if (e.type === "batch.run") return `${e.dry_run ? "Preview" : "Real run"} ${e.run_id} on ${e.folder}: ${plural(e.documents, "document")}, ${Object.entries(e.counts || {}).map(([k, n]) => `${n} ${(STATUS[k] || { short: k }).short.toLowerCase()}`).join(", ")}; pre-flight ${e.preflight}${e.seconds ? `; ${e.seconds} s` : ""}`;
+    if (e.type && e.type.startsWith("user.")) {
+      const ch = e.changes ? Object.entries(e.changes).map(([k, [b, a]]) => `${k}: ${k === "role" ? (ROLES[b] || {}).name || b : b || "none"} → ${k === "role" ? (ROLES[a] || {}).name || a : a}`).join("; ") : "";
+      return [e.email, e.role ? `as ${(ROLES[e.role] || {}).name || e.role}` : "", ch, e.email_status ? `email ${e.email_status}` : ""].filter(Boolean).join(" · ");
+    }
+    if (e.type && e.type.startsWith("email.")) return `To ${(e.to || []).join(", ")}: “${e.subject}”${(e.attachments || []).length ? `; attached ${e.attachments.map((f) => `${f.name} (${String(f.sha256 || "").slice(0, 10)})`).join(", ")}` : ""}${e.error ? `; ${e.error}` : ""}`;
     if (e.type === "recheck.preview") return `${RC_SOURCE[e.source] || e.source}: ${(STATUS[e.was] || { label: e.was }).label} → ${(STATUS[e.result] || { label: e.result }).label}${(e.codes || []).length ? ` (${e.codes.join(", ")})` : ""}; rules ${e.rules_fingerprint}, data ${e.data_fingerprint}. Preview only.`;
     if (e.type === "manual.saved" && e.server) return `Keyed by ${(e.keyed_by || {}).name || "?"}${e.checked_by ? `, checked by ${e.checked_by.name}` : ""}; invoice ${e.invoice_no}, total ${money(cents(e.total))}; ${plural((e.evidence || []).length, "evidence file")}; saved to ${e.folder}`;
     if (e.type === "manual.keyed") return `${e.entry.vendor_name} ${e.entry.invoice_no}, ${money(cents(e.entry.total))}; evidence ${(e.evidence || []).map((f) => `${f.name} (${f.sha256.slice(0, 10)})`).join(", ")}`;
@@ -3186,9 +3876,9 @@
   const HELP = () => window.PENNY_HELP || [];
   const ROLE_ROWS = [
     ["Viewer", "Every run, invoice, check, rule, export and the audit trail.", "Nothing. Read-only for auditors and leaders."],
-    ["AP Clerk", "Everything a Viewer sees, plus a queue of holds, most urgent first.", "Resolve, reject, reassign and reopen holds, update and clear blockers, recheck invoices, key unreadable invoices by hand and check someone else's entry, apply suggested fixes, add notes, upload new batches and run previews."],
-    ["Approver", "Everything a Viewer sees, plus bills waiting for sign-off.", "Approve or send back bills. Add notes."],
-    ["Admin", "Everything, plus usage Insights.", "All of the above, plus run batches for real, edit every rule with a preview first and undo, and test rule changes on every saved invoice."],
+    ["AP Clerk", "Everything a Viewer sees, plus a queue of holds, most urgent first.", "Resolve, reject, reassign and reopen holds, update and clear blockers, recheck invoices, key unreadable invoices by hand and check someone else's entry, apply suggested fixes, add notes, email exports and approval requests, upload new batches and run previews."],
+    ["Approver", "Everything a Viewer sees, plus bills waiting for sign-off.", "Approve or send back bills, email a bill for approval, email exports, and add notes."],
+    ["Admin", "Everything, plus usage Insights.", "All of the above, plus run batches for real, edit every rule with a preview first and undo, test rule changes on every saved invoice, manage people (invite, roles, turn off, password resets), and set the company look."],
   ];
   /** Fill the live parts of an article from the same data the app uses. */
   function helpFill(html) {
@@ -3335,6 +4025,8 @@
     try { sessionStorage.setItem("penny.list", JSON.stringify({ ids, label: title, href: location.hash || "#/" })); } catch (e) { /* fine */ }
   }
   function render() {
+    const link = linkRoute();
+    if (link) return showAccountLink(link.purpose, link.token);
     if (!user) return showLogin();
     const { parts, q } = parseHash();
     const main = $("#main");
@@ -3365,6 +4057,9 @@
     else if (a === "audit") { html = viewAudit(q); title = "Audit trail"; nav = "audit"; after = bindAudit; }
     else if (a === "about") { location.replace("#/help/about"); return; }
     else if (a === "whats-new") { html = viewWhatsNew(); title = "What's new"; nav = "help"; }
+    else if (a === "appearance") { html = viewAppearance(); title = "Appearance"; nav = "appearance"; after = bindAppearance; }
+    else if (a === "users") { html = viewUsers(); title = "Users"; nav = "users"; after = bindUsers; }
+    else if (a === "outbox") { html = viewOutbox(); title = "Outbox"; nav = "outbox"; after = bindOutbox; }
     else if (a === "help") { html = viewHelp(b, q); const art = HELP().find((x) => x.slug === b); title = art ? `${art.title} · Help` : "Help center"; nav = "help"; after = bindHelp; }
     else { html = notFound("That page"); title = "Not found"; }
     if (lastHash) scrollMemo[lastHash] = window.scrollY;
@@ -3431,9 +4126,7 @@
       const dark = document.documentElement.dataset.theme
         ? document.documentElement.dataset.theme === "dark"
         : matchMedia("(prefers-color-scheme: dark)").matches;
-      const next = dark ? "light" : "dark";
-      document.documentElement.dataset.theme = next;
-      store.set("penny.theme", next);
+      setLook({ mode: dark ? "light" : "dark" });
     });
     $("#user-btn").addEventListener("click", (e) => { e.stopPropagation(); $("#user-pop").hidden ? openUserMenu() : closeUserMenu(); });
     $("#sign-out").addEventListener("click", () => { closeUserMenu(); endSession("signed-out"); });
@@ -3441,12 +4134,14 @@
     $("#reset-demo").addEventListener("click", () => {
       closeUserMenu();
       openDialog("Reset the demo", "This erases every action saved in this browser: resolved holds, approvals, notes and rule changes. Penny's own results are not affected.",
-        "", "Erase my demo changes", () => { EV = []; store.del(SANDBOX_KEY); derive(); ruleDraft = {}; render(); toast("Demo reset. Everything is back to Penny's results."); return ""; }, { danger: true });
+        "", "Erase my demo changes", () => { EV = []; store.del(SANDBOX_KEY); store.del(OUTBOX_KEY); if (!serverAccounts()) PennyAuth.directory.reset(); derive(); ruleDraft = {}; render(); toast("Demo reset. Everything is back to Penny's results."); return ""; }, { danger: true });
     });
     document.addEventListener("click", (e) => {
       if (!e.target.closest(".user-menu")) closeUserMenu();
       const act = e.target.closest("[data-act]");
       if (act) { e.preventDefault(); doAction(act.dataset.act, act.dataset.doc, act.dataset); return; }
+      const em = e.target.closest("[data-email-file]");
+      if (em) { e.preventDefault(); emailDialog({ kind: "export", run: em.dataset.run, file: em.dataset.emailFile, bytes: +em.dataset.bytes || 0 }); return; }
       const of = e.target.closest("[data-open-file]");
       if (of) { e.preventDefault(); openFile(of.dataset.openFile); return; }
       const ap = e.target.closest("[data-apply]");
@@ -3460,9 +4155,9 @@
     });
     // Keep the session alive while someone is working; end it after the idle limit.
     let lastTouch = 0;
-    const activity = () => { if (user && Date.now() - lastTouch > 30000) { lastTouch = Date.now(); PennyAuth.touch(); } };
+    const activity = () => { if (user && Date.now() - lastTouch > 30000) { lastTouch = Date.now(); AUTH().touch(); } };
     ["click", "keydown"].forEach((t) => document.addEventListener(t, activity, true));
-    setInterval(() => { if (user && !PennyAuth.currentUser()) endSession("expired"); }, 20000);
+    setInterval(() => { if (user && !AUTH().currentUser()) endSession("expired"); }, 20000);
     bindShortcuts();
     window.addEventListener("hashchange", render);
   }
@@ -3515,6 +4210,9 @@
     $("[data-needs=work]").hidden = !(can("resolve") || can("approve"));
     $("[data-needs=insights]").hidden = !can("rules");
     $("[data-needs=upload]").hidden = !can("upload");
+    $("[data-needs=users]").hidden = !can("users");
+    loadMyLook(u);
+    $("[data-needs=email]").hidden = !can("email");
     const pill = $(".demo-pill");
     if (pill && SERVER) { pill.textContent = "Local"; pill.title = "Connected to Penny on this computer. Batches run with the real engine; demo sign-in and actions still stay in this browser."; }
     track("session_start");
@@ -3525,16 +4223,19 @@
     render();
   }
   function endSession(reason) {
-    PennyAuth.signOut(reason);
+    AUTH().signOut(reason);
     user = null;
     ruleDraft = {};
     Object.assign(MAN, { doc: null, entry: null, files: [], editing: false, error: "" });
+    MYPREFS = { follow: true, look: { ...LOOK_DEFAULT }, ...FEEL_DEFAULT, mode: MYPREFS.mode };
+    if (D) applyLook();
     const dlg = $("#dialog");
     if (dlg.open) dlg.close();
     showLogin(reason);
   }
   function showLogin(reason) {
-    reason = reason || PennyAuth.takeSignOutReason();
+    reason = reason || AUTH().takeSignOutReason();
+    if (serverAccounts()) return showServerLogin(reason);
     $("#shell").hidden = true;
     const box = $("#auth");
     box.hidden = false;
@@ -3580,6 +4281,7 @@
               <span class="hint caps" id="caps-hint" hidden>Caps Lock is on.</span></div>
             <p class="auth-error" id="login-error" role="alert" hidden></p>
             <button class="btn btn-primary" type="submit" id="login-submit"><span class="spin" aria-hidden="true"></span><span class="lbl">Sign in</span></button>
+            <button class="link-btn forgot-link" type="button" data-forgot>Forgot your password?</button>
           </form>
           <details class="cred-box"><summary>Show demo emails and passwords</summary>
             <table class="mini creds"><tbody>${PennyAuth.accounts.map((a) => `<tr><td>${esc(ROLES[a.role].name)}</td><td><code>${esc(a.email)}</code></td><td><code>${esc(a.demoPassword)}</code></td>
@@ -3626,6 +4328,7 @@
     });
     $$(".role-card", box).forEach((c) => c.addEventListener("click", () => { email.value = c.dataset.email; pw.value = c.dataset.pw; go(c); }));
     $$("[data-fill]", box).forEach((b) => b.addEventListener("click", () => { email.value = b.dataset.fill; pw.value = b.dataset.pw; validEmail(); pw.focus(); }));
+    bindForgot(box);
   }
 
   // ------------------------------------------------------------------ intro
@@ -3693,6 +4396,12 @@
     loaded(10);
     try {
       const res = await fetch("data/penny-data.json", { cache: "no-cache" });
+      if (res.status === 401) {                     // Penny on a computer with real accounts: sign in first
+        const b = await res.json().catch(() => ({}));
+        SERVER = b.server || { mode: "local", accounts: true };
+        loaded(100);
+        return "signin";
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       D = await res.json();
     } catch (e) {
@@ -3716,6 +4425,10 @@
     bindChrome();
     const [ok] = await Promise.all([loadData(), playIntro()]);
     document.body.classList.remove("booting");
+    if (ok === "signin") {
+      bindUpdates();
+      return render();                             // the sign-in page, or an invitation or reset link
+    }
     if (!ok) {
       $("#auth").hidden = false;
       $("#auth").innerHTML = `<div class="auth-card" style="grid-template-columns:1fr"><section class="auth-main"><h2>No data yet</h2>
@@ -3727,7 +4440,11 @@
     bindUpdates();
     checkUpdates();
     window.addEventListener("error", (e) => track("error", { message: String(e.message || "error").slice(0, 160) }));
-    const u = PennyAuth.currentUser();
+    if (serverAccounts()) {
+      try { ME = (await api("api/auth/me")).user; } catch (e) { ME = null; }
+    }
+    if (linkRoute()) return render();
+    const u = AUTH().currentUser();
     if (u) enterApp(u); else showLogin();
   }
   boot();

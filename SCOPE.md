@@ -15,6 +15,7 @@ and what I chose to build on my own.
 | 1.4 | November 2026 | **After submission:** upload and run new batches from the web app, suggested fixes that learn, usage insights, every rule editable, plainer exports, a longer intro with a loading bar. | Pull request #3 |
 | 1.5 | November 2026 | **After submission:** blockers with owners, dates and evidence, recheck previews, a rule simulator, manual entry with a second-person check, a most-urgent-first queue, and automatic tests on every pull request. | Pull request #4 |
 | 1.6.0 | November 2026 | **After submission:** the version on every screen, a What's new page, and updates that are either required (read-only until updated) or optional (can be skipped). From here on, versions have three parts. | Pull request #5 |
+| 1.7.0 | November 2026 | **After submission:** real user accounts with invitations, password resets, roles and on/off status; emailing exports and approval requests with the file attached; an Outbox; and appearance settings with preset themes, custom colors and a company default. | Pull request #6 |
 
 ---
 
@@ -360,13 +361,80 @@ downloaded, in a shape a server could collect later.
 
 ---
 
+## Version 1.7.0: people, email and appearance (November 2026, after submission)
+
+### User management (Admin)
+
+* **Users page:** invite someone (name, email, job title, role), edit them, change their role, turn the account off or
+  back on, resend an invitation, and send a password reset. Status shows Active, Invited or Turned off, with the last
+  sign-in.
+* **Invitations and resets:** the email carries a link that works once and expires (72 hours for an invitation, 1 hour
+  for a reset). The person checks their name and chooses a password: at least 10 characters, not their name or email,
+  not a common password, typed twice, with live hints. "Forgot your password?" on the sign-in page sends a reset and
+  never says whether an email has an account.
+* **Guards:** nobody can remove their own Admin role or turn off their own account, Penny always keeps one active
+  Admin, and changing someone's role or email signs them out so the change applies at once.
+* **On a computer, accounts are real** (`ap_workflow/accounts.py`). The first `./penny users invite ... --role admin`
+  turns them on. Passwords are salted PBKDF2-SHA256 hashes (200,000 rounds); links are stored only as SHA-256 hashes;
+  the session is a random token in an HttpOnly, SameSite=Strict cookie, kept only as a hash and ended after 30 idle
+  minutes. Every request then acts as the signed-in person: anything the browser claims about who it is is ignored,
+  and invoices, runs and the API need a session. Five wrong passwords lock an email for a minute, doubling after that.
+  `users.json`, `tokens.json` and the outbox are git-ignored.
+* **In the public demo**, the same page works inside the browser: invited people get a working link in the demo
+  Outbox, and can set up an account and sign in. The four public accounts keep their published passwords.
+* Every invitation, change, reset, activation and sign-in is in the audit trail.
+
+### Emailing exports and approval requests
+
+* **Email** next to every file on the Exports page, and **Email for approval** on a bill waiting for sign-off.
+  Recipients are suggested by role, the file (or the original invoice) is attached, and the email says what it is and
+  who uses it, with a link back to Penny.
+* Penny only emails its own users and addresses in `email.allowed_domains` (rules.json), at most 10 at a time, and
+  refuses anything else with the reason. Viewers cannot send.
+* **Real email from a computer** (`ap_workflow/mailer.py`) through the company's mail account, set with environment
+  variables so the password is never in a file. Without a mail server, each email is saved and marked "Saved, not
+  sent", so an Admin can pass an invitation link on. Once an invitation or reset is really sent, its link is blanked out
+  of the saved copy. `./penny email status` shows the settings (never the password) and `./penny email test --to ...`
+  sends one test message and says in plain words what to check if it fails. The help center explains trying it
+  safely with a free test inbox such as Mailtrap.
+* **Outbox page:** every email with who sent it, to whom, when, its attachments (name, size, SHA-256) and whether it
+  was Sent, Saved or Failed. Admins see all; others see their own. In the public demo, messages are kept in the browser.
+
+### Appearance for everyone
+
+* **Colors:** follow the company look, or choose your own: seven presets (Penny teal, Harbor blue, Evergreen, Plum,
+  Copper, Graphite, High contrast) or any custom color, plus a background (cool gray, warm paper, soft blue) and
+  rounded or square corners.
+* **Readable by design:** a custom color is checked against WCAG AA. If it is too light (or too dark in dark mode),
+  Penny uses the nearest shade that passes and says so. Every preset is generated the same way for light and dark.
+* **Comfort, always personal:** light, dark or match the device; four text sizes; comfortable or compact density;
+  and reduce motion.
+* **Company look (Admin):** saved as the rule `display.theme` with a reason, so it appears in the Rules change history
+  and the audit trail and can be undone. Settings are saved to each account (on the server when accounts are on).
+
+### Testing
+
+* 85 Python tests; 51 run without the assessment package. New ones cover invitations (single use, stored only as a
+  hash, expiry, Admin only, duplicates), passwords (weak, containing a name, never stored), sign-in (lockout, idle
+  timeout, the same message for unknown emails), Admin changes and every guard, forgot password, the mailer (saved
+  without a server, links blanked once sent, failures recorded), and the server (data needs a session, an HttpOnly
+  SameSite cookie, a Viewer cannot claim to be an Admin, invite and activate end to end, email with attachments, the
+  allowed-domain rule, and a path-trick file name refused).
+* Browser runs in both modes: the public demo (invite, activate, sign in, roles, turn off, reset, guards, forgot
+  password, email exports and approvals, Outbox, audit trail, phone width) and a computer with real accounts (server
+  sign-in, invite saved with its link, activation, a new Viewer, a forged Admin request refused, server audit log):
+  35 checks. Appearance: 16 checks, including contrast measured in the page. No page errors, and the earlier browser
+  suites still pass.
+
+---
+
 ## What comes next (planned, not built)
 
 | Next step | What it adds |
 |---|---|
 | Source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. |
 | Export history | Track each Intacct file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. |
-| A shared server | Sign-in, permissions, the audit trail and usage insights checked and stored on a server for the whole team. |
+| A shared server | Run Penny for a whole team over the network (with https), and keep the sandbox actions (resolves, approvals, notes, rules) on the server as well. Accounts and email already work on one computer (v1.7.0). |
 | Single sign-on | Sign in with the company's identity provider instead of demo accounts. |
 | Watched inbox folder | Pick up new invoices from an email inbox or shared folder automatically, then preview them. |
 

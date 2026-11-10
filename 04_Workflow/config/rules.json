@@ -73,6 +73,12 @@
     "time_zone": "America/New_York"
   },
 
+  "email": {
+    "_comment": "Who Penny may email (added after submission, v1.7). Penny users can always be emailed; anyone else must be in one of these domains. Files are attached, so keep this list to your own company.",
+    "allowed_domains": ["hillpointe.com", "penny.demo"],
+    "max_recipients": 10
+  },
+
   "llm": {
     "enabled_by_default": false,
     "model": "claude-sonnet-5-5",

@@ -6,3 +6,7 @@ __pycache__/
 04_Workflow/inbox/
 04_Workflow/state/update_check.json
 04_Workflow/state/update_skip.json
+04_Workflow/state/users.json
+04_Workflow/state/tokens.json
+04_Workflow/state/*.tmp
+04_Workflow/state/outbox/
