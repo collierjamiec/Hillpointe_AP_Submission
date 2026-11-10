@@ -40,7 +40,8 @@ In the web view, pick any of the four demo roles on the sign-in screen. Everythi
   redesigned interface, a help center, and an honest reason for bills in unfamiliar layouts (v1.3), then uploading
   and running new batches from the browser, suggested fixes that learn, and usage insights (v1.4), then blockers
   with owners and evidence, recheck previews, a rule simulator, manual entry with a second-person check, and a
-  most-urgent-first queue (v1.5), and the version on every screen with required or optional updates (v1.6.0).
+  most-urgent-first queue (v1.5), the version on every screen with required or optional updates (v1.6.0), and user
+  management, emailed exports and approvals, and appearance settings (v1.7.0).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

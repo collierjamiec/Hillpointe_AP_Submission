@@ -15,6 +15,13 @@ Permissions (from the signed-in demo account; a production server would authenti
   Admin only           run for real (the register is updated, so those bills can never be entered twice),
                        test draft rules against every saved run (v1.5)
 
+Accounts and email (added in v1.7, see accounts.py and mailer.py)
+  When state/users.json has people in it, sign-in is real: the server checks passwords and keeps the session in an
+  HttpOnly cookie, every request acts as the signed-in person (anything the browser says about who it is is
+  ignored), and invoices, runs and the API need a session. Admins invite people, edit them, set roles and status,
+  and send password resets. Invitations, resets, approval requests and exports go out through mailer.py.
+  Without users.json, the four public demo accounts work as before.
+
 Updates (added in v1.6, see version.py)
   When a required Penny version is out, creating batches, uploading, running for real and saving manual entries are
   refused with a reason until this copy is updated. Previews, rechecks and everything read-only keep working.
@@ -39,6 +46,7 @@ Safety
 """
 import base64
 import hashlib
+import os
 import http.server
 import json
 import re
@@ -62,6 +70,7 @@ NEEDS = {
     "recheck": ({"clerk", "admin"}, "Only an AP Clerk or Admin can recheck an invoice."),
     "manual": ({"clerk", "admin"}, "Only an AP Clerk or Admin can key an invoice by hand."),
     "simulate": ({"admin"}, "Only an Admin can test rule changes."),
+    "email": ({"clerk", "approver", "admin"}, "Only an AP Clerk, Approver or Admin can email from Penny."),
 }
 EVIDENCE_TYPES = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpg", b"%PDF": "pdf"}
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -115,6 +124,10 @@ class BatchService:
         self.log_path = self.state_dir / "batch_log.jsonl"
         self.lock = threading.Lock()
         self._ref = None                                   # reference data, loaded once on first use
+        from .accounts import Accounts
+        from .mailer import Outbox
+        self.accounts = Accounts(self.state_dir, log=self.log)
+        self.outbox = Outbox(self.state_dir)
 
     # ---------------------------------------------------------------- time
     def zone(self):
@@ -279,6 +292,101 @@ class BatchService:
                                 "keyed": sorted(x.name for x in p.glob("*.keyed.json")),
                                 "evidence": sorted(x.name for x in (p / "evidence").glob("*")) if (p / "evidence").is_dir() else []})
         return out
+
+    # ---------------------------------------------------------------- email (v1.7)
+    FILE_LABELS = {"intacct_bill_import.csv": "Intacct bill import file", "entrata_handoff.csv": "Entrata handoff list",
+                   "exception_log.csv": "Invoices needing review", "approvals_for_entered_bills.csv": "Approvals needed",
+                   "review_workbook.xlsx": "Review workbook", "run_report.md": "Run summary"}
+    FILE_WHAT = {"intacct_bill_import.csv": "Bills that passed every check, in Sage Intacct's import format. A person uploads it to Intacct after review; Penny does not.",
+                 "entrata_handoff.csv": "Apartment community bills, one row per GL account, for Property Accounting to post in Entrata.",
+                 "exception_log.csv": "Every invoice Penny held or stopped, with the reason, the team it goes to, and Penny's confidence.",
+                 "approvals_for_entered_bills.csv": "Who must sign off on each bill in the import file. It lists who is required; it does not record approvals.",
+                 "review_workbook.xlsx": "All of the run's files as tabs in one Excel workbook, with a sheet that checks every bill total.",
+                 "run_report.md": "One page with the counts, every decision, and the result of the Intacct pre-flight check."}
+
+    def recipients(self, to, cfg):
+        """Every address must be a Penny user or in an allowed domain (rules.json email.allowed_domains)."""
+        email_cfg = cfg.get("email") or {}
+        allowed = {d.lower() for d in email_cfg.get("allowed_domains", [])}
+        people = {u["email"] for u in self.accounts.list() if u["status"] == "active"}
+        out = []
+        for t in to if isinstance(to, list) else [to]:
+            from .mailer import ADDRESS_RE
+            e = str(t or "").strip().lower()
+            if not e:
+                continue
+            if not ADDRESS_RE.match(e):
+                raise BatchError(f"“{t}” is not a valid email address.")
+            if e not in people and e.split("@")[1] not in allowed:
+                raise BatchError(f"{e} is outside the email domains Penny may send to ({', '.join(sorted(allowed)) or 'none set'}). "
+                                 "An Admin can add the domain under email.allowed_domains in rules.json.", 403)
+            if e not in out:
+                out.append(e)
+        if not out:
+            raise BatchError("Add at least one recipient.")
+        limit = int(email_cfg.get("max_recipients", 10))
+        if len(out) > limit:
+            raise BatchError(f"Send to at most {limit} people at a time.")
+        return out
+
+    def email(self, user, kind, to, note="", run_id="", doc_id="", file="", base=""):
+        """Email an export file or an approval request, with the file attached."""
+        who = check_user(user, "email")
+        cfg, _ = self.cfg()
+        to = self.recipients(to, cfg)
+        note = re.sub(r"[ \t]+", " ", str(note or "")).strip()[:1000]
+        rd = self.run_dir(run_id)
+        from .webexport import _run_info, _label
+        info = _run_info(rd)
+        label = info.get("label") or _label(rd.name, info.get("batch", ""), False)
+        sign = f"\n\nSent from Penny by {who['name']}. Penny prepares these files; people review, approve and post them."
+        if kind == "export":
+            if file not in self.FILE_LABELS or not (rd / file).is_file():
+                raise BatchError("That file is not part of this run.", 404)
+            title = self.FILE_LABELS[file]
+            subject = f"{title}: {label}"
+            text = (f"{who['name']} shared the {title.lower()} from Penny's run “{label}”.\n\n" + (f"Note: {note}\n\n" if note else "")
+                    + f"What it is: {self.FILE_WHAT[file]}\nAttached: {file}\n" + (f"Open the run in Penny: {base}/#/runs/{rd.name}" if base else "") + sign)
+            attachments = [(file, (rd / file).read_bytes())]
+        elif kind == "approval":
+            _, d = self.saved(run_id, doc_id)
+            if not str(d.get("decision", "")).startswith("ENTER_"):
+                raise BatchError("Only a bill that is ready to import needs approval.", 409)
+            vendor, bill, amount = d.get("vendor_name") or "", d.get("bill_no") or "", d.get("amount") or "0"
+            steps = d.get("approvers") or sorted({r.get("Approver") for r in d.get("entrata_rows") or [] if r.get("Approver")})
+            subject = f"Approval needed: {vendor} {bill} (${float(amount):,.2f})"
+            text = (f"{who['name']} asked you to review a bill in Penny.\n\n" + (f"Note: {note}\n\n" if note else "")
+                    + f"Vendor: {vendor}\nInvoice: {bill}\nAmount: ${float(amount):,.2f}\nBill date: {d.get('bill_date') or ''}\n"
+                    + "Approvals needed:\n" + "".join(f"  - {s}\n" for s in steps) + "\n"
+                    + (f"Review and approve it in Penny: {base}/#/invoices/{doc_id}\n" if base else "")
+                    + "The original invoice is attached. This bill is ready for import; it is not posted or paid yet." + sign)
+            pdf = self.web_dir / "data" / "pdfs" / d["file"]
+            attachments = [(d["file"], pdf.read_bytes())] if pdf.is_file() else []
+        else:
+            raise BatchError("Choose what to send.")
+        entry = self.outbox.send(to, subject, text, who, kind, attachments)
+        self.log({"event": "email.sent" if entry["status"] == "sent" else "email.saved" if entry["status"] == "saved" else "email.failed",
+                  "by": who, "kind": kind, "to": to, "subject": subject, "run_id": rd.name, "doc": doc_id or None, "file": file or None,
+                  "attachments": entry["attachments"], "outbox_id": entry["id"], "error": entry["error"]})
+        return entry
+
+    def account_email(self, purpose, user, token, hours, by_name, base):
+        """Send an invitation or a reset link. The link is blanked out of the saved copy once it is really sent."""
+        link = f"{base}/#/{'activate' if purpose == 'invite' else 'reset'}?token={token}"
+        from .accounts import ROLE_NAMES
+        if purpose == "invite":
+            subject = "You're invited to Penny"
+            text = (f"Hi {user['name'].split()[0]},\n\n{by_name} invited you to Penny, the accounts payable workspace, as {ROLE_NAMES[user['role']]}.\n\n"
+                    f"Set up your account and choose a password:\n{link}\n\nThis link works once and expires in {hours} hours. "
+                    "If you did not expect this email, you can ignore it.\n\nPenny AP")
+        else:
+            subject = "Reset your Penny password"
+            asked = f"{by_name} sent you a link" if by_name else "Someone (most likely you) asked on the sign-in page for a link"
+            text = (f"Hi {user['name'].split()[0]},\n\n{asked} to choose a new Penny password:\n{link}\n\n"
+                    f"This link works once and expires in {hours} hour{'s' if hours != 1 else ''}. If you did not ask for this, you can ignore it; "
+                    "your password stays the same.\n\nPenny AP")
+        who = {"id": user["id"] if not by_name else "penny", "name": by_name or user["name"], "role": "system"}
+        return self.outbox.send([user["email"]], subject, text, who, purpose, redact=[token])
 
     # ---------------------------------------------------------------- previews and manual entry (v1.5)
     def ref(self):
@@ -449,11 +557,15 @@ def make_handler(service, web_dir):
         def log_message(self, fmt, *args):            # keep the terminal quiet; the batch log is the record
             pass
 
-        def send_json(self, obj, status=200):
+        def send_json(self, obj, status=200, cookie=None):
             body = json.dumps(obj).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")
+            if cookie is not None:
+                # HttpOnly: page scripts cannot read it. SameSite=Strict: other sites cannot send it. (Secure needs https.)
+                life = "" if cookie else "; Max-Age=0"
+                self.send_header("Set-Cookie", f"penny_session={cookie}; HttpOnly; SameSite=Strict; Path=/{life}")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -465,11 +577,34 @@ def make_handler(service, web_dir):
             if origin and urlparse(origin).netloc != self.headers.get("Host"):
                 raise BatchError("Request refused: it came from another site.", 403)
 
+        def session_token(self):
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                k, _, v = part.strip().partition("=")
+                if k == "penny_session":
+                    return v
+            return ""
+
+        def me(self):
+            return service.accounts.session_user(self.session_token()) if service.accounts.enabled() else None
+
+        def actor(self, claimed):
+            """Who is acting. With accounts on, only the session counts; what the browser claims is ignored."""
+            if not service.accounts.enabled():
+                return claimed
+            who = self.me()
+            if not who:
+                raise BatchError("Please sign in again.", 401)
+            return {"id": who["id"], "name": who["name"], "role": who["role"]}
+
+        def base_url(self):
+            return (os.environ.get("PENNY_PUBLIC_URL") or f"http://{self.headers.get('Host') or '127.0.0.1'}").rstrip("/")
+
         def status(self):
             from .version import current
             info = service.update_info()
             return {"mode": "local", "engine": bool(service.package), "max_mb": MAX_FILE // (1024 * 1024), "version": current(),
                     "update": {k: info[k] for k in ("version", "latest", "minimum", "state", "newer", "note")},
+                    "accounts": service.accounts.enabled(), "email": __import__("ap_workflow.mailer", fromlist=["describe"]).describe(),
                     "inbox": "inbox/", "today": service.today(),
                     "time_zone": getattr(service.zone(), "key", None)}
 
@@ -478,11 +613,41 @@ def make_handler(service, web_dir):
             try:
                 if url.path == "/api/status":
                     return self.send_json(self.status())
+                if url.path == "/api/auth/me":
+                    who = self.me()
+                    return self.send_json({"user": who, "accounts": service.accounts.enabled()}, 200 if who or not service.accounts.enabled() else 401)
+                if url.path == "/api/auth/token":
+                    from .accounts import AccountError
+                    try:
+                        t, u = service.accounts.check_token((parse_qs(url.query).get("token") or [""])[0])
+                    except AccountError as e:
+                        raise BatchError(str(e), e.status)
+                    return self.send_json({"purpose": t["purpose"], "email": u["email"], "name": u["name"], "role": u["role"]})
+                # With accounts on, everything about invoices, runs and people needs a session. The page itself,
+                # its scripts and styles, and the public release list do not.
+                private = url.path.startswith("/api/") or (url.path.startswith("/data/") and url.path != "/data/releases.json")
+                if service.accounts.enabled() and private and not self.me():
+                    return self.send_json({"error": "Please sign in.", "signin": True, "server": self.status()}, 401)
+                if url.path == "/api/users":
+                    who = self.actor(None)
+                    if who["role"] != "admin":
+                        raise BatchError("Only an Admin can manage people.", 403)
+                    return self.send_json({"users": service.accounts.list(), "email": __import__("ap_workflow.mailer", fromlist=["describe"]).describe()})
+                if url.path == "/api/people":
+                    # Anyone signed in may see who can be emailed: name, email and role of active people only.
+                    self.actor(None)
+                    return self.send_json({"people": [{k: u[k] for k in ("name", "email", "role")} for u in service.accounts.list() if u["status"] == "active"]})
+                if url.path == "/api/log":
+                    self.actor({"role": "viewer"})
+                    return self.send_json({"log": service.read_log()})
+                if url.path == "/api/outbox":
+                    return self.send_json({"emails": service.outbox.list(self.actor({"role": "admin", "id": ""}))})
                 if url.path == "/data/penny-data.json":
                     # The web app learns it is on the local server from the data it already loads, so the public
                     # static site never makes a request that fails.
                     data = json.loads((Path(web_dir) / "data" / "penny-data.json").read_text(encoding="utf-8"))
                     data["server"] = self.status()
+                    data["batch_log"] = service.read_log()          # the live audit log, not the copy from the last export
                     return self.send_json(data)
                 if url.path == "/api/update":
                     # "Check for updates" in the web app: ask GitHub now instead of using today's cached answer.
@@ -495,6 +660,46 @@ def make_handler(service, web_dir):
                 return self.send_json({"error": str(e)}, e.status)
             return super().do_GET()
 
+        def account_routes(self, parts, raw):
+            """Sign-in, links, people and preferences. Returns a response, or None when the path is not one of these."""
+            acc = service.accounts
+            if parts[:2] != ["api", "auth"] and parts[:2] != ["api", "users"] and parts != ["api", "me", "prefs"]:
+                return None
+            body = json.loads(raw or b"{}")
+            if parts == ["api", "auth", "login"]:
+                if not acc.enabled():
+                    raise BatchError("This copy of Penny uses the demo accounts.", 409)
+                token, user = acc.sign_in(body.get("email"), body.get("password"))
+                return self.send_json({"user": user}, cookie=token)
+            if parts == ["api", "auth", "logout"]:
+                acc.sign_out(self.session_token())
+                return self.send_json({"ok": True}, cookie="")
+            if parts in (["api", "auth", "activate"], ["api", "auth", "reset"]):
+                user = acc.use_token(body.get("token"), body.get("password"), body.get("name") if parts[2] == "activate" else None)
+                return self.send_json({"user": user})
+            if parts == ["api", "auth", "forgot"]:
+                user, token, hours = acc.forgot(body.get("email"))
+                if user:
+                    service.account_email("reset", user, token, hours, None, self.base_url())
+                return self.send_json({"ok": True})
+            who = self.actor(None)
+            if parts == ["api", "me", "prefs"]:
+                return self.send_json({"prefs": acc.set_prefs(who, body.get("prefs"))})
+            if parts == ["api", "users"]:
+                service.paused("Inviting people")
+                user, token, hours = acc.invite(who, body.get("email"), body.get("name"), body.get("role"), body.get("title", ""))
+                sent = service.account_email("invite", user, token, hours, who["name"], self.base_url())
+                return self.send_json({"user": user, "email": {k: sent[k] for k in ("status", "error", "id")}}, 201)
+            if len(parts) == 4 and parts[3] in ("reset", "resend"):
+                user, token, hours = (acc.send_reset if parts[3] == "reset" else acc.resend)(who, parts[2])
+                sent = service.account_email("reset" if parts[3] == "reset" else "invite", user, token, hours, who["name"], self.base_url())
+                return self.send_json({"user": user, "email": {k: sent[k] for k in ("status", "error", "id")}})
+            if len(parts) == 3:
+                service.paused("Changing people")
+                user, diff = acc.update(who, parts[2], body.get("changes") or {})
+                return self.send_json({"user": user, "changes": diff})
+            raise BatchError("Not found.", 404)
+
         def do_POST(self):
             url = urlparse(self.path)
             parts = [p for p in url.path.split("/") if p]
@@ -505,34 +710,45 @@ def make_handler(service, web_dir):
                 if length > limit:
                     raise BatchError("That upload is too large.", 413)
                 raw = self.rfile.read(length)
+                from .accounts import AccountError
+                try:
+                    handled = self.account_routes(parts, raw)
+                except AccountError as e:
+                    raise BatchError(str(e), e.status)
+                if handled is not None:
+                    return handled
+                if parts == ["api", "email"]:
+                    body = json.loads(raw or b"{}")
+                    return self.send_json(service.email(self.actor(body.get("user")), body.get("kind"), body.get("to") or [], body.get("note", ""),
+                                                        body.get("run_id", ""), body.get("doc_id", ""), body.get("file", ""), self.base_url()))
                 if parts == ["api", "batches"]:
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.create(body.get("name"), body.get("user"), body.get("date"), event_id=str(body.get("event_id", ""))[:40]), 201)
+                    return self.send_json(service.create(body.get("name"), self.actor(body.get("user")), body.get("date"), event_id=str(body.get("event_id", ""))[:40]), 201)
                 if len(parts) == 4 and parts[:2] == ["api", "batches"] and parts[3] == "files":
                     q = parse_qs(url.query)
-                    user = json.loads(self.headers.get("X-Penny-User") or "{}")
+                    user = self.actor(json.loads(self.headers.get("X-Penny-User") or "{}"))
                     return self.send_json(service.add_file(parts[2], (q.get("name") or [""])[0], raw, user), 201)
                 if len(parts) == 4 and parts[:2] == ["api", "batches"] and parts[3] == "uploaded":
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.finish_upload(parts[2], body.get("user"), str(body.get("event_id", ""))[:40]))
+                    return self.send_json(service.finish_upload(parts[2], self.actor(body.get("user")), str(body.get("event_id", ""))[:40]))
                 if len(parts) == 4 and parts[:2] == ["api", "batches"] and parts[3] == "run":
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.run(parts[2], body.get("user"), bool(body.get("dry_run", True)), str(body.get("event_id", ""))[:40]))
+                    return self.send_json(service.run(parts[2], self.actor(body.get("user")), bool(body.get("dry_run", True)), str(body.get("event_id", ""))[:40]))
                 if parts == ["api", "recheck"] and self.headers.get("Content-Type", "").startswith("application/pdf"):
                     q = parse_qs(url.query)
-                    user = json.loads(self.headers.get("X-Penny-User") or "{}")
+                    user = self.actor(json.loads(self.headers.get("X-Penny-User") or "{}"))
                     return self.send_json(service.recheck(user, (q.get("run") or [""])[0], (q.get("doc") or [""])[0], "file",
                                                           pdf=raw, pdf_name=(q.get("name") or [""])[0], event_id=(q.get("event_id") or [""])[0][:40]))
                 if parts == ["api", "recheck"]:
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.recheck(body.get("user"), body.get("run_id"), body.get("doc_id"), body.get("source", "saved"),
+                    return self.send_json(service.recheck(self.actor(body.get("user")), body.get("run_id"), body.get("doc_id"), body.get("source", "saved"),
                                                           rules=body.get("rules"), entry=body.get("entry"), event_id=str(body.get("event_id", ""))[:40]))
                 if parts == ["api", "simulate"]:
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.simulate(body.get("user"), body.get("rules_now"), body.get("rules_draft")))
+                    return self.send_json(service.simulate(self.actor(body.get("user")), body.get("rules_now"), body.get("rules_draft")))
                 if parts == ["api", "manual"]:
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.save_manual(body.get("user"), body.get("run_id"), body.get("doc_id"), body.get("entry"),
+                    return self.send_json(service.save_manual(self.actor(body.get("user")), body.get("run_id"), body.get("doc_id"), body.get("entry"),
                                                               body.get("evidence"), body.get("date"), str(body.get("event_id", ""))[:40]), 201)
                 raise BatchError("Not found.", 404)
             except BatchError as e:

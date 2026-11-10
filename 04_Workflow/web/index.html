@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="assets/penny.css">
   <script>
     try { var t = localStorage.getItem("penny.theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try { var c = localStorage.getItem("penny.appearance.css"); if (c) { var st = document.createElement("style"); st.id = "appearance"; st.textContent = c; document.head.appendChild(st); } } catch (e) {}
     try { if (sessionStorage.getItem("penny.introSeen")) document.documentElement.classList.add("intro-seen"); } catch (e) {}
   </script>
 </head>
@@ -99,8 +100,11 @@
           <li><a href="#/exports" data-nav="exports"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/><path d="M4 13v3h12v-3"/></svg>Exports</a></li>
           <li><a href="#/runs" data-nav="runs"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2"/></svg>Run history</a></li>
           <li><a href="#/audit" data-nav="audit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l6 2.2v4.6c0 3.9-2.6 6.7-6 8.2-3.4-1.5-6-4.3-6-8.2V4.7z"/><path d="M7.5 10h5M7.5 12.8h3.5M7.5 7.2h5"/></svg>Audit trail</a></li>
+          <li data-needs="email" hidden><a href="#/outbox" data-nav="outbox"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14v10H3z"/><path d="M3 5l7 6 7-6"/></svg>Outbox</a></li>
           <li class="nav-label" aria-hidden="true">Settings and help</li>
+          <li><a href="#/appearance" data-nav="appearance"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 2.5a7.5 7.5 0 0 0 0 15z" fill="currentColor" stroke="none"/></svg>Appearance</a></li>
           <li><a href="#/rules" data-nav="rules"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12"/><circle cx="8" cy="5" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/></svg>Rules</a></li>
+          <li data-needs="users" hidden><a href="#/users" data-nav="users"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 16.5c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5"/><path d="M13.5 4.5a2.8 2.8 0 0 1 0 5.2M15 12.3c1.3.6 2.2 1.9 2.6 4.2"/></svg>Users</a></li>
           <li data-needs="insights" hidden><a href="#/insights" data-nav="insights"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17h14"/><path d="M5 14V9M9 14V5M13 14v-3M17 14V7"/></svg>Insights</a></li>
           <li><a href="#/help" data-nav="help"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M7.8 7.6a2.3 2.3 0 0 1 4.4.9c0 1.6-2.2 1.9-2.2 3.3M10 14.2v.1"/></svg>Help center</a></li>
         </ul>

@@ -2,6 +2,19 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-11-10",
+      "required": false,
+      "summary": "Admins manage people with invitations, roles and password resets; exports and approval requests can be emailed; everyone can choose how Penny looks.",
+      "notes": [
+        "Users page for Admins: invite someone, change roles and details, turn accounts off and on, resend invitations and send password resets.",
+        "Invitation and reset links work once and expire. Forgot your password? is on the sign-in page.",
+        "On a computer, accounts are real once the first Admin is invited with ./penny users invite, and Penny sends real email through your mail account.",
+        "Email any export, or a bill for approval, with the file attached. Only Penny users and your company's domains can be emailed. Every email is in the Outbox.",
+        "Appearance: seven preset themes or any custom color (kept readable), light or dark, text size, density and motion. Admins set the company look."
+      ]
+    },
+    {
       "version": "1.6.0",
       "date": "2026-11-10",
       "required": false,

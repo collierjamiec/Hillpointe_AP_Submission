@@ -917,11 +917,13 @@ class VersionTests(unittest.TestCase):
             shutil.copy2(ROOT / f, root / f)
         shutil.copy2(ROOT / "releases.json", root / "web" / "data" / "releases.json")
         from datetime import date
-        entry = self.v.release("1.7.0", "Fixes a rounding problem in tax splits.", ["Tax splits round to the cent."], required=True, root=root, today=date(2026, 12, 1))
-        self.assertEqual(entry, {"version": "1.7.0", "date": "2026-12-01", "required": True, "summary": "Fixes a rounding problem in tax splits.", "notes": ["Tax splits round to the cent."]})
-        self.assertEqual(set(self.v.consistency(root).values()), {"1.7.0"})
-        self.assertEqual(self.v.minimum(self.v.load_releases(root / "releases.json")), "1.7.0")
-        for args in (("1.7.0", "Same version again."), ("1.6.9", "Older than the current one."), ("1.8.0", "short"), ("1.8", "Not three numbers here.")):
+        major, minor, _ = self.v.parse(self.v.current(root))
+        nxt, later = f"{major}.{minor + 1}.0", f"{major}.{minor + 2}.0"          # always newer than today's version
+        entry = self.v.release(nxt, "Fixes a rounding problem in tax splits.", ["Tax splits round to the cent."], required=True, root=root, today=date(2026, 12, 1))
+        self.assertEqual(entry, {"version": nxt, "date": "2026-12-01", "required": True, "summary": "Fixes a rounding problem in tax splits.", "notes": ["Tax splits round to the cent."]})
+        self.assertEqual(set(self.v.consistency(root).values()), {nxt})
+        self.assertEqual(self.v.minimum(self.v.load_releases(root / "releases.json")), nxt)
+        for args in ((nxt, "Same version again."), (f"{major}.{minor}.9", "Older than the current one."), (later, "short"), (f"{major}.{minor + 2}", "Not three numbers here.")):
             with self.subTest(args=args):
                 with self.assertRaises(self.v.VersionError):
                     self.v.release(*args, root=root)
@@ -973,6 +975,234 @@ class VersionTests(unittest.TestCase):
         porcelain = "\n".join([" M 04_Workflow/state/processed_register.csv", "?? 04_Workflow/inbox/2026-11-10_x/", " M 04_Workflow/runs/run9/decisions.json",
                                " M 04_Workflow/web/data/penny-data.json", " M 04_Workflow/ap_workflow/rules.py", "R  04_Workflow/a.py -> 04_Workflow/b.py"])
         self.assertEqual(cli.changed_code_files(porcelain), ["04_Workflow/ap_workflow/rules.py", "04_Workflow/b.py"])
+
+
+class AccountTests(unittest.TestCase):
+    """(added after submission, v1.7) Real accounts for Penny on a computer: invites, passwords, sessions, guards."""
+    GOOD = "copper kettle morning"
+
+    def setUp(self):
+        from ap_workflow import accounts
+        self.a = accounts
+        self.tmp = Path(tempfile.mkdtemp())
+        self.t = [1_000_000.0]
+        self.log = []
+        self.acc = accounts.Accounts(self.tmp, log=self.log.append, clock=lambda: self.t[0])
+        self.boss, tok, _ = self.acc.invite(None, "Sam@Hillpointe.com", "Sam Rivera", "admin", bootstrap=True)
+        self.acc.use_token(tok, self.GOOD)
+        self.sam = {"id": self.boss["id"], "name": "Sam Rivera", "role": "admin"}
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_invite_link_works_once_and_is_stored_only_as_a_hash(self):
+        u, token, hours = self.acc.invite(self.sam, "avery@hillpointe.com", "Avery Chen", "clerk", "AP specialist")
+        self.assertEqual((u["status"], u["role"], hours), ("invited", "clerk", 72))
+        self.assertNotIn(token, (self.tmp / "tokens.json").read_text())
+        with self.assertRaises(self.a.AccountError):
+            self.acc.use_token(token, "short")                                 # weak password: link still usable
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.use_token(token, "avery password here")                    # contains the name
+        self.assertIn("name", str(e.exception))
+        done = self.acc.use_token(token, self.GOOD, name="Avery Chen")
+        self.assertEqual(done["status"], "active")
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.use_token(token, self.GOOD)
+        self.assertEqual(e.exception.status, 410)
+        stored = (self.tmp / "users.json").read_text()
+        self.assertNotIn(self.GOOD, stored)
+        self.assertNotIn("password", json.dumps(self.acc.list()).replace("has_password", ""))
+
+    def test_links_expire_and_only_admins_invite(self):
+        _, token, _ = self.acc.invite(self.sam, "jordan@hillpointe.com", "Jordan Patel", "approver")
+        self.t[0] += 73 * 3600
+        with self.assertRaises(self.a.AccountError):
+            self.acc.check_token(token)
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.invite({"id": "x", "role": "clerk"}, "z@hillpointe.com", "Zed Zee", "admin")
+        self.assertEqual(e.exception.status, 403)
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.invite(self.sam, "sam@hillpointe.com", "Sam Again", "viewer")
+        self.assertEqual(e.exception.status, 409)
+
+    def test_sign_in_lockout_sessions_and_idle_timeout(self):
+        for i in range(4):
+            with self.assertRaises(self.a.AccountError) as e:
+                self.acc.sign_in("sam@hillpointe.com", "wrong guess")
+        self.assertIn("1 try left", str(e.exception))
+        with self.assertRaises(self.a.AccountError):
+            self.acc.sign_in("sam@hillpointe.com", "wrong guess")
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.sign_in("sam@hillpointe.com", self.GOOD)                   # locked, even with the right password
+        self.assertEqual(e.exception.status, 429)
+        self.t[0] += 61
+        token, me = self.acc.sign_in("SAM@hillpointe.com ", self.GOOD)
+        self.assertEqual(self.acc.session_user(token)["id"], me["id"])
+        self.t[0] += 31 * 60
+        self.assertIsNone(self.acc.session_user(token))                         # 30 idle minutes end the session
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.sign_in("nobody@hillpointe.com", "anything at all")
+        self.assertEqual(str(e.exception).split(".")[0], "That email and password do not match")   # same words: no hint who exists
+
+    def test_admin_changes_and_the_guards(self):
+        u, tok, _ = self.acc.invite(self.sam, "avery@hillpointe.com", "Avery Chen", "clerk")
+        self.acc.use_token(tok, self.GOOD)
+        token, _ = self.acc.sign_in("avery@hillpointe.com", self.GOOD)
+        _, diff = self.acc.update(self.sam, u["id"], {"role": "approver", "title": "Project manager"})
+        self.assertEqual(diff["role"], ["clerk", "approver"])
+        self.assertIsNone(self.acc.session_user(token))                         # a role change signs them out at once
+        self.acc.update(self.sam, u["id"], {"status": "inactive"})
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.sign_in("avery@hillpointe.com", self.GOOD)
+        self.assertEqual(e.exception.status, 403)
+        for changes in ({"status": "inactive"}, {"role": "clerk"}):
+            with self.assertRaises(self.a.AccountError):
+                self.acc.update(self.sam, self.sam["id"], changes)              # not yourself
+        self.assertEqual([e["event"] for e in self.log if e["event"] == "user.updated"], ["user.updated", "user.updated"])
+        with self.assertRaises(self.a.AccountError):
+            self.acc.update({"id": "avery", "role": "clerk"}, self.sam["id"], {"name": "X Y"})
+
+    def test_last_admin_stays_and_forgot_never_reveals_who_exists(self):
+        u, tok, _ = self.acc.invite(self.sam, "kim@hillpointe.com", "Kim Lee", "admin")
+        self.acc.use_token(tok, self.GOOD)
+        kim = {"id": u["id"], "name": "Kim Lee", "role": "admin"}
+        self.acc.update(kim, self.sam["id"], {"role": "viewer"})              # another Admin may demote Sam
+        with self.assertRaises(self.a.AccountError) as e:
+            self.acc.update(kim, u["id"], {"status": "inactive"})              # but not leave Penny with no Admin
+        self.assertIn("own", str(e.exception))
+        self.assertEqual(self.acc.forgot("nobody@hillpointe.com"), (None, None, 0))
+        user, token, hours = self.acc.forgot("kim@hillpointe.com")
+        self.assertEqual((user["id"], hours), (u["id"], 1))
+        self.acc.use_token(token, "a brand new phrase")
+        self.acc.sign_in("kim@hillpointe.com", "a brand new phrase")
+
+
+class MailerTests(unittest.TestCase):
+    """(added after submission, v1.7) Without a mail server nothing is sent: it is saved and listed. Links are blanked
+    out of the saved copy once an email has really been sent."""
+
+    def setUp(self):
+        from ap_workflow import mailer
+        self.m = mailer
+        self.tmp = Path(tempfile.mkdtemp())
+        self.box = mailer.Outbox(self.tmp)
+        self.who = {"id": "sam", "name": "Sam Rivera", "role": "admin"}
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_saved_when_no_mail_server(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"PENNY_SMTP_HOST": ""}):
+            e = self.box.send(["Avery@Hillpointe.com"], "Hello", "Body https://x/#/activate?token=SECRET", self.who, "invite", [("a.csv", b"x,y\n")], redact=["SECRET"])
+        self.assertEqual((e["status"], e["to"], e["attachments"][0]["name"]), ("saved", ["avery@hillpointe.com"], "a.csv"))
+        self.assertIn("SECRET", (self.tmp / "outbox" / e["file"]).read_text())    # not sent: the Admin needs the link
+        self.assertEqual(self.box.list()[0]["id"], e["id"])
+        self.assertEqual(self.box.list({"id": "avery", "role": "clerk"}), [])      # people see only what they sent
+        with self.assertRaises(ValueError):
+            self.box.send(["not an address"], "x", "y", self.who, "export")
+
+    def test_sent_copies_hide_the_link_and_failures_are_recorded(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"PENNY_SMTP_HOST": "smtp.example.com"}):
+            with mock.patch.object(self.m.Outbox, "_smtp", return_value=None) as smtp:
+                e = self.box.send(["a@hillpointe.com"], "Reset", "Link: https://x/#/reset?token=SECRET", self.who, "reset", redact=["SECRET"])
+            self.assertEqual((e["status"], smtp.call_count), ("sent", 1))
+            self.assertNotIn("SECRET", (self.tmp / "outbox" / e["file"]).read_text())
+            self.assertNotIn("SECRET", e["body"])
+            with mock.patch.object(self.m.Outbox, "_smtp", side_effect=OSError("connection refused")):
+                f = self.box.send(["a@hillpointe.com"], "x", "y", self.who, "export")
+        self.assertEqual(f["status"], "failed")
+        self.assertIn("connection refused", f["error"])
+
+
+class AccountServerTests(unittest.TestCase):
+    """(added after submission, v1.7) With accounts on, the server decides who is acting, not the browser."""
+
+    def setUp(self):
+        import threading, http.server
+        from ap_workflow import webserver
+        self.tmp = Path(tempfile.mkdtemp())
+        (self.tmp / "web" / "data").mkdir(parents=True)
+        (self.tmp / "web" / "data" / "penny-data.json").write_text('{"runs": []}')
+        (self.tmp / "web" / "data" / "releases.json").write_text('{"releases": []}')
+        run = self.tmp / "runs" / "run1_x"
+        run.mkdir(parents=True)
+        (run / "decisions.json").write_text(json.dumps([{"file": "a.pdf", "decision": "ENTER_INTACCT", "vendor_name": "Pinecrest", "bill_no": "PBS-1",
+                                                         "amount": "940.00", "approvers": ["Project Manager"], "codes": []}]))
+        (run / "exception_log.csv").write_text("File,Reason\n")
+        (run / "extracted").mkdir()
+        (run / "extracted" / "a.json").write_text("{}")
+        (run / "run_info.json").write_text(json.dumps({"label": "Batch X", "batch": "x"}))
+        (self.tmp / "web" / "data" / "pdfs").mkdir()
+        (self.tmp / "web" / "data" / "pdfs" / "a.pdf").write_bytes(b"%PDF-1.4 invoice")
+        self.svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        u, tok, _ = self.svc.accounts.invite(None, "sam@hillpointe.com", "Sam Rivera", "admin", bootstrap=True)
+        self.svc.accounts.use_token(tok, AccountTests.GOOD)
+        self.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), webserver.make_handler(self.svc, self.tmp / "web"))
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+
+    def tearDown(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def call(self, path, body=None, cookie=""):
+        import urllib.request, urllib.error
+        headers = {"X-Penny": "1", "Content-Type": "application/json"}
+        if cookie:
+            headers["Cookie"] = f"penny_session={cookie}"
+        req = urllib.request.Request(self.base + path, data=None if body is None else json.dumps(body).encode(), headers=headers, method="GET" if body is None else "POST")
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read()), r.headers.get("Set-Cookie") or ""
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read()), e.headers.get("Set-Cookie") or ""
+
+    def login(self, email, pw=AccountTests.GOOD):
+        code, body, cookie = self.call("/api/auth/login", {"email": email, "password": pw})
+        self.assertEqual(code, 200, body)
+        self.assertIn("HttpOnly", cookie)
+        self.assertIn("SameSite=Strict", cookie)
+        return cookie.split(";")[0].split("=", 1)[1]
+
+    def test_invoices_need_a_session_and_the_browser_cannot_claim_a_role(self):
+        self.assertEqual(self.call("/data/penny-data.json")[0], 401)
+        self.assertEqual(self.call("/data/releases.json")[0], 200)              # the public release list needs no session
+        sam = self.login("sam@hillpointe.com")
+        self.assertEqual(self.call("/data/penny-data.json", cookie=sam)[0], 200)
+        code, body, _ = self.call("/api/users", {"email": "riley@hillpointe.com", "name": "Riley Brooks", "role": "viewer"}, cookie=sam)
+        self.assertEqual((code, body["email"]["status"]), (201, "saved"))      # no mail server here: saved to the outbox
+        link = self.svc.outbox.list()[0]["body"].split("token=")[1].split()[0]
+        code, info, _ = self.call(f"/api/auth/token?token={link}")
+        self.assertEqual((code, info["purpose"], info["email"]), (200, "invite", "riley@hillpointe.com"))
+        self.assertEqual(self.call("/api/auth/activate", {"token": link, "password": AccountTests.GOOD})[0], 200)
+        riley = self.login("riley@hillpointe.com")
+        admin_claim = {"id": "sam", "name": "Sam Rivera", "role": "admin"}
+        code, body, _ = self.call("/api/batches", {"name": "sneaky", "user": admin_claim}, cookie=riley)
+        self.assertEqual(code, 403)                                               # acted as Riley (Viewer), not the claimed Admin
+        self.assertEqual(self.call("/api/users", cookie=riley)[0], 403)
+        code, _, cleared = self.call("/api/auth/logout", {}, cookie=riley)
+        self.assertIn("Max-Age=0", cleared)
+        self.assertEqual(self.call("/data/penny-data.json", cookie=riley)[0], 401)
+
+    def test_email_an_export_or_an_approval_with_the_file_attached(self):
+        sam = self.login("sam@hillpointe.com")
+        code, e, _ = self.call("/api/email", {"kind": "export", "to": ["ap@hillpointe.com"], "note": "For Monday", "run_id": "run1_x", "file": "exception_log.csv"}, cookie=sam)
+        self.assertEqual((code, e["status"], e["attachments"][0]["name"]), (200, "saved", "exception_log.csv"))
+        self.assertIn("Invoices needing review", e["subject"])
+        code, e, _ = self.call("/api/email", {"kind": "approval", "to": ["pm@hillpointe.com"], "run_id": "run1_x", "doc_id": "a"}, cookie=sam)
+        self.assertEqual((code, e["attachments"][0]["name"]), (200, "a.pdf"))
+        self.assertIn("Approval needed: Pinecrest PBS-1 ($940.00)", e["subject"])
+        self.assertIn("/#/invoices/a", e["body"])
+        code, err, _ = self.call("/api/email", {"kind": "export", "to": ["someone@gmail.com"], "run_id": "run1_x", "file": "exception_log.csv"}, cookie=sam)
+        self.assertEqual(code, 403)
+        self.assertIn("allowed_domains", err["error"])
+        code, err, _ = self.call("/api/email", {"kind": "export", "to": ["ap@hillpointe.com"], "run_id": "run1_x", "file": "../../etc/passwd"}, cookie=sam)
+        self.assertEqual(code, 404)
+        events = [x["event"] for x in self.svc.read_log()]
+        self.assertEqual(events.count("email.saved"), 2)
 
 
 if __name__ == "__main__":

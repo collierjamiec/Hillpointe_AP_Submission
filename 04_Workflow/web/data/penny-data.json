@@ -4729,6 +4729,14 @@
    "_comment": "The company's time zone (an IANA name such as America/New_York). The web app shows every time in it, and new batch folders are dated by it. Penny's decisions do not depend on it.",
    "time_zone": "America/New_York"
   },
+  "email": {
+   "_comment": "Who Penny may email (added after submission, v1.7). Penny users can always be emailed; anyone else must be in one of these domains. Files are attached, so keep this list to your own company.",
+   "allowed_domains": [
+    "hillpointe.com",
+    "penny.demo"
+   ],
+   "max_recipients": 10
+  },
   "llm": {
    "enabled_by_default": false,
    "model": "claude-sonnet-5-5",

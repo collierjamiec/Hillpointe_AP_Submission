@@ -191,6 +191,69 @@ window.PENNY_HELP = [
 </ul>
 <div class="help-note">In this public demo you can key and check entries. Checking with Penny and saving for the next run need Penny on your computer.</div>` },
 
+  { slug: "users", section: "Using the web app", title: "Managing people (Admin)",
+    summary: "Invite people, set roles, turn accounts off, and send password resets.",
+    html: `
+<p>Admins manage everyone who uses Penny on the <a href="#/users">Users</a> page.</p>
+<h2>Invite someone</h2>
+<ol>
+  <li>Choose <strong>Invite someone</strong> and enter their name, email, job title and role. Start with the least access they need.</li>
+  <li>Penny emails them a link to set up their account. The link works once and expires in 72 hours.</li>
+  <li>They open the link, check their name, and choose a password of at least 10 characters that is not their name or email. A short phrase works well.</li>
+</ol>
+<p>Until they finish, they show as <strong>Invited</strong>, and you can <strong>Resend invite</strong>. A new link replaces the old one.</p>
+<h2>Change someone</h2>
+<ul>
+  <li><strong>Edit</strong> their name, email, job title or role. Changing a role or email signs them out at once, so the new access applies right away.</li>
+  <li><strong>Turn off</strong> an account when someone leaves or changes jobs. They are signed out and cannot sign in. Nothing they did is removed, and you can turn it back on.</li>
+  <li><strong>Send password reset</strong> emails a link to choose a new password. It works once and expires in 1 hour. People can also ask for one from the sign-in page with <strong>Forgot your password?</strong></li>
+</ul>
+<h2>Built-in safety</h2>
+<ul>
+  <li>Nobody can remove their own Admin role or turn off their own account, and Penny always keeps at least one active Admin.</li>
+  <li>Passwords are stored only as salted hashes, never as text. Five wrong passwords lock that email for a minute, and the message never says whether an email has an account.</li>
+  <li>Every invitation, change, reset and sign-in is in the <a href="#/audit">audit trail</a>.</li>
+</ul>
+<div class="help-note">In this public demo, people you invite are kept in your browser, and their emails go to the <a href="#/outbox">Outbox</a> with a working link. The four demo accounts keep their published passwords. On your own computer, accounts are real: run <code>./penny users invite --email you@company.com --name "Your Name" --role admin</code> to create the first Admin, then everyone signs in with their own password.</div>` },
+
+  { slug: "email", section: "Using the web app", title: "Emailing exports and approval requests",
+    summary: "Send a file or a bill to the right people, with the file attached.",
+    html: `
+<ul>
+  <li><strong>Exports:</strong> on the <a href="#/exports">Exports</a> page, choose <strong>Email</strong> next to any file. The file is attached, with a short note saying what it is and who uses it.</li>
+  <li><strong>Approvals:</strong> on a bill that is waiting for sign-off, choose <strong>Email for approval</strong>. The email lists the approvals needed, links to the bill in Penny, and attaches the original invoice.</li>
+</ul>
+<p>Penny suggests people by role (Approvers for approvals, AP Clerks for exports), and you can type any address. AP Clerks, Approvers and Admins can send; Viewers cannot.</p>
+<h2>Who Penny may email</h2>
+<p>Files are attached, so Penny only sends to people who use Penny and to addresses in the company's allowed domains (<code>email.allowed_domains</code> in rules.json). Anything else is refused before it is sent, with the reason.</p>
+<h2>The Outbox</h2>
+<p>The <a href="#/outbox">Outbox</a> lists every email with who sent it, to whom, when, what was attached (with each file's fingerprint), and whether it was <strong>Sent</strong>, <strong>Saved, not sent</strong>, or <strong>Failed</strong>. Admins see every email; everyone else sees their own.</p>
+<h2>Setting up real email (on your computer)</h2>
+<p>Penny sends through your company's mail account. Set these before <code>./penny web</code>, for example in your terminal profile. The password stays in your environment, never in a project file.</p>
+<pre>export PENNY_SMTP_HOST=smtp.office365.com    # or smtp.gmail.com
+export PENNY_SMTP_PORT=587
+export PENNY_SMTP_USER=ap-penny@yourcompany.com
+export PENNY_SMTP_PASSWORD='an app password'
+export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for links</pre>
+<p>Without a mail server, nothing is sent: each email is saved in the Outbox and marked "Saved, not sent", so an Admin can pass an invitation link on by hand. Once an invitation or reset is really sent, its link is blanked out of the saved copy.</p>
+<div class="help-note">In this public demo there is no email at all. Messages go to the Outbox in your browser, and their links work there.</div>` },
+
+  { slug: "appearance", section: "Using the web app", title: "Appearance: themes, colors and comfort",
+    summary: "Choose a preset or any color, light or dark, text size and density.",
+    html: `
+<p>Open <a href="#/appearance">Appearance</a> in the menu. Changes show right away and are saved to your account, so they follow you when you sign in again.</p>
+<h2>Colors</h2>
+<ul>
+  <li><strong>Use the company look:</strong> the colors your Admin chose for everyone. This is the default.</li>
+  <li><strong>Choose my own:</strong> pick a preset (Penny teal, Harbor blue, Evergreen, Plum, Copper, Graphite or High contrast) or <strong>Custom</strong> for any color. Only you see it.</li>
+  <li>Custom colors are checked for contrast. If a color would make text hard to read, Penny uses a slightly darker shade (or lighter, in dark mode) that meets the WCAG AA standard, and tells you.</li>
+  <li>You can also pick a background (cool gray, warm paper or soft blue) and rounded or square corners.</li>
+</ul>
+<h2>Comfort</h2>
+<p>Always your own: light, dark or match your device; text size from Small to Larger; Comfortable or Compact density; and Reduce motion. The sun and moon button at the top switches light and dark too.</p>
+<h2>The company look (Admin)</h2>
+<p>An Admin chooses their own colors, then <strong>Make my colors the company look</strong>, with a reason. It is saved as the rule <code>display.theme</code>, so it shows in the Rules change history and the audit trail, and can be undone there.</p>` },
+
   { slug: "updates", section: "Using the web app", title: "Versions and updates",
     summary: "Which version you are on, and what required and optional updates mean.",
     html: `

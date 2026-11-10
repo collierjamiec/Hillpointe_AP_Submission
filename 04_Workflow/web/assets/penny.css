@@ -1177,3 +1177,53 @@ a.hbar:hover { background: var(--surface-2); text-decoration: none; color: var(-
 .uc-how { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 14px; margin-bottom: 10px; }
 @media (max-width: 480px) { .uc-grid { grid-template-columns: minmax(0, 1fr); } }
 #uc-body .form-warn { margin-bottom: 10px; }
+
+/* ---------------------------------------------------------------- v1.7: people, sign-in links, outbox */
+.auth-card-solo { grid-template-columns: minmax(0, 1fr); max-width: 480px; margin: 0 auto; }
+.auth-card-solo .auth-logo { margin-bottom: 18px; color: var(--text); }
+.forgot-link { justify-self: start; margin-top: 4px; font-size: 14px; }
+.pw-rules { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 2px; font-size: 12.5px; color: var(--text-3); }
+.pw-rules li::before { content: "○ "; }
+.pw-rules li.ok { color: var(--ok); }
+.pw-rules li.ok::before { content: "✓ "; }
+.u-person { display: inline-flex; gap: 10px; align-items: center; }
+.u-person .avatar { width: 32px; height: 32px; font-size: 12px; flex: none; }
+.u-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.role-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 14px; color: var(--text-2); }
+.role-list b { color: var(--text); margin-right: 4px; }
+.mail-body { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; max-height: 50vh; overflow: auto; margin: 8px 0; }
+.data.outbox tr[data-mail] { cursor: pointer; }
+@media (max-width: 720px) { .u-actions { justify-content: flex-start; } }
+
+/* ---------------------------------------------------------------- v1.7: appearance */
+.look-card { margin-bottom: 16px; }
+.look-card h2 { font-size: 17px; margin-bottom: 10px; }
+.look-follow { margin-bottom: 14px; }
+.look-dim { opacity: .55; }
+.look-dim:hover, .look-dim:focus-within { opacity: 1; }
+.presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.preset { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.preset:hover { border-color: var(--control-border); }
+.preset.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.preset .sub { font-size: 12px; color: var(--text-3); }
+.sw { display: flex; gap: 0; border-radius: 6px; overflow: hidden; width: 100%; height: 22px; border: 1px solid var(--border); }
+.sw i { flex: 1; }
+.sw-custom i { flex: 1; }
+.custom-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 14px; }
+.custom-row input[type=color] { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
+.custom-row .code-input { width: 110px; }
+.custom-row .hint { flex-basis: 100%; }
+.ok-hint { color: var(--ok); }
+.look-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 10px 0; }
+.look-label { min-width: 96px; font-weight: 600; font-size: 14px; }
+.look-seg { margin: 0; }
+.look-seg button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+.pv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+body.density-compact main { padding-top: 18px; }
+body.density-compact .page-head { margin-bottom: 14px; }
+body.density-compact .card-body { padding: 10px 16px 12px; }
+body.density-compact .card-pad { padding: 12px 14px; }
+body.density-compact th, body.density-compact td { padding-top: 6px; padding-bottom: 6px; }
+body.density-compact .stack { gap: 10px; }
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+.look-saved { margin: -10px 0 14px; font-size: 13px; color: var(--ok); }
