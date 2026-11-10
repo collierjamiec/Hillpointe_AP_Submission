@@ -112,7 +112,7 @@ function docTable(rows, opt = {}) {
     return `<th class="${cls}" scope="col" ${active ? `aria-sort="${dir === "asc" ? "ascending" : "descending"}"` : ""}><button class="sort" data-sort="${key}">${label}${active ? (dir === "asc" ? " ↑" : " ↓") : ""}</button></th>`;
   };
   const total = rows.reduce((a, r) => a + r.amount, 0);
-  return `<div class="table-wrap"><table class="data">
+  return `<div class="table-wrap"><table class="data docs${sortable ? " sortable" : ""}">
     <thead><tr>
       ${th("vendor", "Vendor and invoice")}
       ${th("date", "Bill date", "hide-sm")}
@@ -238,6 +238,7 @@ function viewInvoices(q) {
     <section class="card">
       <form class="filters" id="inv-filters" data-stay>
         <div class="field field-grow"><label for="f-q">Search</label><input id="f-q" name="q" type="search" value="${esc(q.get("q") || "")}" placeholder="Vendor, invoice no., PO or amount"></div>
+        <button type="button" class="btn filters-toggle" id="f-toggle" aria-expanded="false" aria-controls="inv-filters">Filters</button>
         <div class="field"><label for="f-status">Result</label><select id="f-status" name="status">${opts(STATUS_GROUPS.map((g) => [g.key, g.label]), q.get("status"), "Any result")}</select></div>
         <div class="field"><label for="f-code">Reason</label><select id="f-code" name="code">${opts(codes.map((c) => [c, `${CODES[c].name} (${c})`]), q.get("code"), "Any reason")}</select></div>
         <div class="field"><label for="f-cat">Category</label><select id="f-cat" name="category">${opts(cats.map((c) => [c, CATEGORY[c] || c]), q.get("category"), "Any category")}</select></div>
@@ -264,6 +265,16 @@ function renderInvoiceResults(q) {
 function bindInvoices(q) {
   renderInvoiceResults(q);
   const form = $("#inv-filters");
+  // On a phone the filters fold away behind one button, so the list starts on the first screen.
+  const toggle = $("#f-toggle");
+  const paintToggle = () => {
+    const n = ["status", "code", "category", "vendor", "from", "to"].filter((k) => q.get(k)).length;
+    toggle.textContent = n ? `Filters (${n})` : "Filters";
+    toggle.setAttribute("aria-expanded", form.classList.contains("open"));
+  };
+  if (["status", "code", "category", "vendor", "from", "to"].some((k) => q.get(k))) form.classList.add("open");
+  paintToggle();
+  toggle.addEventListener("click", () => { form.classList.toggle("open"); paintToggle(); });
   const sync = () => {
     const p = new URLSearchParams();
     new FormData(form).forEach((v, k) => v && p.set(k, v));
@@ -273,6 +284,7 @@ function bindInvoices(q) {
     q = p;
     history.replaceState(null, "", `#/invoices${p.toString() ? "?" + p : ""}`);
     renderInvoiceResults(q);
+    paintToggle();
   };
   form.addEventListener("input", sync);
   form.addEventListener("change", sync);

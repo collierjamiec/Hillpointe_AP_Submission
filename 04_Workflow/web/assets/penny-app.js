@@ -8,9 +8,25 @@ function parseHash() {
   const [path, qs] = h.split("?");
   return { parts: path.split("/").filter(Boolean).map(decodeURIComponent), q: new URLSearchParams(qs || "") };
 }
+/** Phones show each row of a page table as a card (see penny.css). A card has no header row above it, so every cell
+    carries its column's name, and the table keeps its meaning for screen readers after the layout changes. */
+function labelTables() {
+  $$("#main table.data:not([data-labeled])").forEach((t) => {
+    t.dataset.labeled = "1";
+    const heads = $$("thead th", t).map((th) => th.textContent.replace(/[↑↓]/g, "").trim());
+    t.setAttribute("role", "table");
+    $$("thead, tbody, tfoot", t).forEach((g) => g.setAttribute("role", "rowgroup"));
+    $$("tr", t).forEach((r) => r.setAttribute("role", "row"));
+    $$("th", t).forEach((h) => h.setAttribute("role", "columnheader"));
+    $$("tbody tr", t).forEach((r) => [...r.children].forEach((c, i) => { c.setAttribute("role", "cell"); if (heads[i] && !c.dataset.label) c.dataset.label = heads[i]; }));
+    $$("tfoot td", t).forEach((c) => c.setAttribute("role", "cell"));
+  });
+}
 /** A table too wide for the screen scrolls sideways. Make that region reachable by keyboard and name it for screen readers. */
 function scrollableTables() {
+  labelTables();
   $$("#main .table-wrap").forEach((w) => {
+    w.classList.toggle("scrolls", w.scrollWidth > w.clientWidth + 1);
     if (w.scrollWidth > w.clientWidth + 1) { w.tabIndex = 0; w.setAttribute("role", "region"); w.setAttribute("aria-label", "Table. Scroll sideways to see every column."); }
     else if (w.hasAttribute("tabindex")) { ["tabindex", "role", "aria-label"].forEach((k) => w.removeAttribute(k)); }
   });
@@ -174,6 +190,12 @@ function bindChrome() {
   bindShortcuts();
   document.addEventListener("change", (e) => { if (e.target.matches && e.target.matches("select[data-per]")) goToPage({ per: e.target.value, page: null }); });
   window.addEventListener("resize", () => { clearTimeout(scrollableTables.t); scrollableTables.t = setTimeout(scrollableTables, 150); });
+  // Parts of a page are redrawn without a new page (filters, sorting, adding a line), so watch for new tables.
+  new MutationObserver(() => { cancelAnimationFrame(scrollableTables.raf); scrollableTables.raf = requestAnimationFrame(scrollableTables); }).observe($("#main"), { childList: true, subtree: true });
+  // A shorter hint in the search box on a narrow screen, so it is not cut off.
+  const narrow = window.matchMedia("(max-width: 640px)"), searchBox = $("#search"), longHint = searchBox.placeholder;
+  const hint = () => { searchBox.placeholder = narrow.matches ? "Search" : longHint; };
+  hint(); narrow.addEventListener("change", hint);
   window.addEventListener("hashchange", render);
 }
 

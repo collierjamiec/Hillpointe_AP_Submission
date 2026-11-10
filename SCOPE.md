@@ -539,6 +539,32 @@ Five items from the roadmap. Nothing here changes how Penny decides an invoice.
 
 ---
 
+## Version 1.9.1: made for phones (November 2026, after submission)
+
+After 1.9.0 I checked every main screen on a phone. Pages fit, but the layout was a desktop one made smaller:
+tables scrolled sideways on eight screens and hid the amount, the Invoices filters filled the whole first screen,
+and many buttons were smaller than a thumb. Nothing here changes how Penny decides an invoice, and nothing changes
+on a computer.
+
+* **Lists are cards.** Under 640 pixels wide, each row of a page table is a card. An invoice shows the vendor and
+  the amount side by side, then the date and status. Sorting moves to a row of buttons above the cards. Other
+  tables (audit trail, Users, Outbox) name each value. The table keeps its roles, so screen readers still read it
+  as a table.
+* **Thumb-sized controls.** Buttons, fields and menu links are at least 44 pixels tall on a phone or any touch
+  screen. Fields use 16 pixel text, so an iPhone does not zoom the page when you tap one.
+* **Filters fold away** behind one button on Invoices, which counts the filters in use.
+* **Dialogs rise from the bottom** of the screen with full-width buttons.
+* **Small fixes:** the search hint is no longer cut off, the pager is centered, and a label on Exports no longer
+  spills out of its tile.
+* **What stays wide:** line item tables keep their columns and scroll inside their own box, with a shadow showing
+  there is more. Reading a PDF beside Penny's checks is still easier on a computer, and the help center says so.
+* **Testing:** a new suite, `tests/browser/phone.spec.js`, uses the app on an emulated iPhone: 19 screens, the
+  invoice cards, filters, sorting, a dialog, the menu, landscape, and a check that the desktop layout is unchanged.
+  16 browser suites in all. **Not done:** a try on real phones and tablets, carried into 2.0.
+* A new help article, "Using Penny on a phone".
+
+---
+
 ## What comes next (planned, not built)
 
 The plan to 2.0, with the status of each item, is in [`ROADMAP.md`](ROADMAP.md). In short:
