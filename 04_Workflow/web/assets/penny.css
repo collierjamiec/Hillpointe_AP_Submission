@@ -1000,6 +1000,9 @@ a.hbar:hover { background: var(--surface-2); text-decoration: none; color: var(-
 .step-body h2 { font-size: 17px; }
 .nb-name { display: flex; flex-direction: column; gap: var(--s2); max-width: 520px; }
 .nb-name .text-input { height: 44px; font-size: 16px; }
+.tz-wrap { display: grid; gap: 4px; justify-items: end; min-width: 0; }
+.tz-select { width: min(360px, 100%); padding-right: 28px; cursor: pointer; }
+@media (max-width: 640px) { .tz-wrap { justify-items: stretch; } }
 .chip-btn { cursor: pointer; font: inherit; font-size: 12.5px; }
 .chip-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
 .chip-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }

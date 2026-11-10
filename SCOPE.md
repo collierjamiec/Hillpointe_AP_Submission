@@ -221,6 +221,12 @@ downloaded, in a shape a server could collect later.
 
 * **Every rule is editable for Admins:** thresholds, routes, code priority (reorder), payment terms, word lists,
   keyword-to-GL rules, posting codes and the AI reader switch, with validation, a preview, a reason, and undo.
+* **Company time zone:** Admins pick it on the Rules page (Eastern by default), with the same preview, reason and undo
+  as any rule. Every time in the web app shows in that zone with its short name, such as EST, so people in different
+  cities read the same clock. New batch folders and the on-disk batch log use it too (`display.time_zone` in
+  `rules.json`). Saved times never change, and no invoice decision depends on it.
+* **Audit trail order:** times from the browser and from the Penny computer are put on one clock before sorting, and
+  steps logged in the same second show in the order they happened.
 * **Exports in plain words:** "Intacct bill import file", "Invoices needing review", "Approvals needed", "Run summary"
   (viewable on the page), each with what is inside and who uses it, and readable download names.
 * **Help center:** a clear "Back to Help center" link, a working breadcrumb, and three new articles (34 in all).
@@ -229,9 +235,10 @@ downloaded, in a shape a server could collect later.
 
 ### Testing
 
-* 48 Python tests. 18 run without the assessment package, including the batch server: naming, permissions, file
-  checks, path tricks, the audit log, refusing requests from other sites, and a full preview run.
-* Browser runs as each role: the rules editor (add, remove, reorder, validate, save, undo), suggested fixes (apply,
+* 49 Python tests. 19 run without the assessment package, including the batch server: naming, permissions, file
+  checks, path tricks, the audit log, the company time zone, refusing requests from other sites, and a full preview run.
+* Browser runs as each role: the rules editor (add, remove, reorder, validate, save, undo, time zone from a laptop set
+  to another zone), suggested fixes (apply,
   undo, learning from a new resolution, the bank-change guardrail, one-click from My work), Insights, and a batch
   uploaded and previewed through a real local server, plus the public demo's behavior.
 

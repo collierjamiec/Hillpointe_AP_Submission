@@ -126,9 +126,29 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
     return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}, ${m[1]}` : "";
   }
+  // Every time is shown in the company time zone (Rules > Time zone, display.time_zone in rules.json), with its short
+  // name, so a reviewer in another city reads the same clock as the AP team. Stored times never change.
+  const DEFAULT_TZ = "America/New_York";
+  const TZ_COMMON = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "UTC"];
+  function validTz(z) {
+    if (!z || typeof z !== "string") return false;
+    try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch (e) { return false; }
+  }
+  function tz() { const z = getPath(RULES(), "display.time_zone"); return validTz(z) ? z : DEFAULT_TZ; }
+  function tzLabel(z) {
+    if (!validTz(z)) return String(z || "");
+    if (z === "UTC") return "Coordinated Universal Time (UTC)";
+    const part = new Intl.DateTimeFormat("en-US", { timeZone: z, timeZoneName: "long" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName");
+    return `${part ? part.value : z} (${z.replace(/_/g, " ")})`;
+  }
+  /** Today's date as YYYY-MM-DD in the company time zone. */
+  function todayIn(z) {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: z, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  }
   function fmtDateTime(iso) {
     const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+    return !iso || isNaN(d) ? "" : d.toLocaleString("en-US", { timeZone: tz(), month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
   }
   const BADGE_ICON = {
     check: '<path d="M4.5 10.5l3.5 3.5 7.5-8"/>',
@@ -1288,6 +1308,7 @@
     { path: "construction.posting_entity", label: "Construction posting entity", help: "", type: "code", group: "posting" },
     { path: "construction.department", label: "Construction department", help: "", type: "code", group: "posting" },
     { path: "construction.retainage_acct", label: "Retainage account", help: "", type: "code", group: "posting" },
+    { path: "display.time_zone", label: "Company time zone", help: "Every time in Penny is shown in this zone, and new batch folders are dated by it. Saved times do not change, and Penny's decisions do not depend on it.", type: "tz", group: "workspace" },
     { path: "llm.enabled_by_default", label: "AI reader on by default", help: "Lets Claude read layouts the rules parser does not know. It was built and tested offline but never run live, so leave it off unless you have an API key.", type: "bool", group: "posting" },
   ];
   const FIELD = Object.fromEntries(RULE_FIELDS.map((f) => [f.path, f]));
@@ -1322,6 +1343,7 @@
       if (new Set(list).size !== list.length) return `${f.label} has the same entry twice`;
       return "";
     }
+    if (f.type === "tz") return v === undefined || validTz(v) ? "" : `${f.label} must be a time zone from the list`;
     if (f.type === "glmap") return (v || []).some(([kw, gl]) => !String(kw).replace(/\|/g, "").trim() || !String(gl).trim()) ? `${f.label}: every row needs words and a GL` : "";
     if (f.type === "terms") {
       const names = Object.keys(v || {});
@@ -1347,6 +1369,7 @@
     const f = FIELD[path] || { type: "text" };
     if (["money", "pct", "days"].includes(f.type)) return fmtSetting(v, f.type);
     if (f.type === "bool") return v ? "On" : "Off";
+    if (f.type === "tz") return v === undefined ? `${tzLabel(DEFAULT_TZ)}, the default` : tzLabel(v);
     if (f.type === "order") return (v || []).join(" > ");
     if (f.type === "words") return (v || []).length ? (v.length > 4 ? `${v.slice(0, 4).join(", ")} and ${v.length - 4} more` : v.join(", ")) : "none";
     if (f.type === "glmap") return plural((v || []).length, "keyword rule");
@@ -1412,6 +1435,13 @@
         items.push({ title: "Exception code priority", lines: moved.length
           ? moved.map((d) => `${d.vendor} ${d.billNo} would show “${(CODES[top(c.after, d.codes)] || {}).plain}” first instead of “${(CODES[top(c.before, d.codes)] || {}).plain}”.`)
           : ["No open hold would show a different main reason."] });
+      } else if (c.path === "display.time_zone") {
+        const sample = X.docs.length && D.runs.find((r) => r.started_at);
+        items.push({ title: describeChange(c), lines: [
+          "Every time in the web app will show in the new zone right away. Saved times do not change, only how they read.",
+          `New batch folders will be dated by the new zone (today there: ${todayIn(validTz(c.after) ? c.after : DEFAULT_TZ)}).`,
+          ...(sample ? [`For example, ${sample.label} started ${new Date(sample.started_at).toLocaleString("en-US", { timeZone: validTz(c.after) ? c.after : DEFAULT_TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}.`] : []),
+          "No invoice decision changes." ] });
       } else {
         items.push({ title: describeChange(c), lines: ["Penny applies this on its next run. This preview cannot estimate it from the saved results."] });
       }
@@ -1436,6 +1466,16 @@
       data-num="${esc(f.path)}" data-kind="${esc(f.type)}" value="${esc(shown)}" aria-label="${esc(f.label)}">${unitR}</span>`;
   }
   const textEditor = (f, v) => `<input id="${esc(fid(f.path))}" class="text-input${f.type === "code" ? " code-input" : ""}${isChanged(f.path) ? " changed" : ""}" data-text="${esc(f.path)}" maxlength="${f.type === "code" ? 20 : f.max || 140}" value="${esc(v ?? "")}" aria-label="${esc(f.label)}">`;
+  function tzEditor(f, v) {
+    const cur = validTz(v) ? v : DEFAULT_TZ;
+    const all = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone").filter((z) => !TZ_COMMON.includes(z)) : [];
+    if (!TZ_COMMON.includes(cur) && !all.includes(cur)) all.unshift(cur);
+    const opt = (z) => `<option value="${esc(z)}"${z === cur ? " selected" : ""}>${esc(tzLabel(z))}</option>`;
+    return `<span class="tz-wrap"><select id="${esc(fid(f.path))}" class="text-input tz-select${isChanged(f.path) ? " changed" : ""}" data-tz="${esc(f.path)}">
+      <optgroup label="Common in the United States">${TZ_COMMON.map(opt).join("")}</optgroup>
+      ${all.length ? `<optgroup label="All time zones">${all.map(opt).join("")}</optgroup>` : ""}</select>
+      <span class="s-help">Now there: ${esc(new Date().toLocaleString("en-US", { timeZone: cur, weekday: "short", hour: "numeric", minute: "2-digit", timeZoneName: "short" }))}</span></span>`;
+  }
   const boolEditor = (f, v) => `<label class="switch"><input type="checkbox" data-bool="${esc(f.path)}" ${v ? "checked" : ""}><span class="switch-ui" aria-hidden="true"></span><span>${v ? "On" : "Off"}</span></label>`;
   function wordsEditor(f, list) {
     return `<div class="words-edit${isChanged(f.path) ? " changed-box" : ""}">
@@ -1485,6 +1525,7 @@
       if (["money", "pct", "days"].includes(f.type)) return numEditor(f, v);
       if (f.type === "text" || f.type === "code") return textEditor(f, v);
       if (f.type === "bool") return boolEditor(f, v);
+      if (f.type === "tz") return tzEditor(f, v);
       if (f.type === "words") return wordsEditor(f, v);
       if (f.type === "glmap") return glmapEditor(f, v);
       if (f.type === "terms") return termsEditor(f, v);
@@ -1517,6 +1558,7 @@
         <section class="card"><div class="card-head"><h2>Payment terms</h2></div><div class="card-body">${group("terms").map(row).join("")}</div></section>
         <section class="card"><div class="card-head"><h2>Posting and reading</h2></div><div class="card-body">${group("posting").map(row).join("")}</div></section>
       </div>
+      <section class="card" style="margin-top:16px"><div class="card-head"><h2>Time zone</h2><p>How Penny shows dates and times</p></div><div class="card-body">${group("workspace").map(row).join("")}</div></section>
       ${editing ? `<div class="edit-bar" id="edit-bar" hidden></div>` : ""}
       ${history.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>Change history</h2><p>Newest first. Undo adds a new entry; nothing is erased.</p></div><div class="card-body">
         <ul class="approvals">${history.map((e) => `<li><span class="who-line"><b>${esc(e.changes.map(describeChange).join("; "))}</b>
@@ -1586,6 +1628,7 @@
       if (!onRules()) return;
       const t = e.target;
       if (t.dataset.bool) { setPath(startDraft(), t.dataset.bool, t.checked); rerender(`[data-bool="${t.dataset.bool}"]`); }
+      else if (t.dataset.tz) { setPath(startDraft(), t.dataset.tz, t.value); rerender(`[data-tz="${t.dataset.tz}"]`); }
     });
     const addWord = (path) => {
       const inp = $(`[data-word-input="${path}"]`, main);
@@ -1762,7 +1805,7 @@
   const QUICK_NAMES = ["weekly-ap", "month-end", "vendor-resends", "corrections"];
   const NB = { name: "", files: [], mode: "preview", busy: false, result: null, error: "" };
   const slug = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-  const today = () => (SERVER && SERVER.today) || new Date().toISOString().slice(0, 10);
+  const today = () => todayIn(tz());
   const fmtBytes = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 102.4) / 10} KB` : `${Math.round(n / 104857.6) / 10} MB`;
   const knownHashes = () => Object.fromEntries(Object.values(D.documents).map((d) => [(d.extracted || {}).sha256, d.id]).filter(([h]) => h));
   const maxBytes = () => ((SERVER && SERVER.max_mb) || 25) * 1048576;
@@ -1897,7 +1940,7 @@
     let st;
     try {
       st = step("Creating the batch folder");
-      const made = await api("api/batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: NB.name, user: who, event_id: newId() }) });
+      const made = await api("api/batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: NB.name, user: who, date: today(), event_id: newId() }) });
       NB.batchName = made.batch;
       st.state = "done"; st.detail = made.folder;
       st = step(`Uploading ${plural(files.length, "invoice")}`);
@@ -2067,14 +2110,22 @@
   }
 
   // ------------------------------------------------------------------ audit trail
+  // The browser writes UTC times and Penny's disk log writes local times with an offset, so both are turned into
+  // UTC before sorting. Comparing the raw text would put a 9:00 -05:00 entry before a 10:00 UTC one.
+  const iso = (t) => { const d = new Date(t); return t && !isNaN(d) ? d.toISOString() : ""; };
   function auditRows() {
     const serverLog = (D.batch_log || []).map((e) => ({ ...e, type: e.event === "batch.uploaded" ? "batch.upload" : e.event, user: { id: e.by.id, name: e.by.name, role: e.by.role, initials: e.by.name.split(" ").map((w) => w[0]).join("").slice(0, 2) },
-      count: e.count, sort: e.at, server: true }));
+      count: e.count, sort: iso(e.at), server: true }));
     const onServer = new Set(serverLog.map((e) => e.id).filter(Boolean));
-    const people = [...EV.filter((e) => !onServer.has(e.id)).map((e) => ({ ...e, sort: e.at })), ...serverLog];
-    const runs = D.runs.map((r) => ({ id: `run-${r.id}`, type: "run", at: r.started_at || "", run: r, sort: r.started_at || `0000-${String(r.order).padStart(4, "0")}`,
+    const people = [...EV.filter((e) => !onServer.has(e.id)).map((e) => ({ ...e, sort: iso(e.at) })), ...serverLog];
+    const runs = D.runs.map((r) => ({ id: `run-${r.id}`, type: "run", at: r.started_at || "", run: r, sort: iso(r.started_at) || `0000-${String(r.order).padStart(4, "0")}`,
       user: { id: "penny", name: "Penny", role: "system", initials: "P" } }));
-    return [...people, ...runs].sort((a, b) => (a.sort < b.sort ? 1 : a.sort > b.sort ? -1 : 0));
+    // Newest first. The disk log keeps whole seconds, so entries from the same second fall back to the order the
+    // steps really happen in: folder created, files uploaded, Penny's run, then the run record.
+    const STEP = { "batch.created": 0, "batch.upload": 1, run: 2, "batch.run": 3, "batch.run_failed": 3 };
+    const sec = (x) => String(x.sort || "").slice(0, 19);
+    const rank = (x) => (x.type in STEP ? STEP[x.type] : 1.5);
+    return [...people, ...runs].sort((a, b) => (sec(a) < sec(b) ? 1 : sec(a) > sec(b) ? -1 : rank(b) - rank(a) || (a.sort < b.sort ? 1 : a.sort > b.sort ? -1 : 0)));
   }
   function auditTarget(e) {
     if (e.type === "run") return { html: `<a href="#/runs/${esc(e.run.id)}">${esc(e.run.label)}</a>`, text: e.run.label };
@@ -2307,7 +2358,11 @@
     else if (a === "rules") { html = viewRules(); title = "Rules"; nav = "rules"; after = bindRules; }
     else if (a === "exceptions") { html = viewExceptions(); title = "Exceptions"; nav = "exceptions"; }
     else if (a === "exports") { html = viewExports(); title = "Exports"; nav = "exports"; }
-    else if (a === "batch") { html = viewBatch(); title = "New batch"; nav = "batch"; after = bindBatch; }
+    else if (a === "batch") {
+      // Arriving from another page starts a fresh batch; a finished result stays only until you leave it.
+      if (lastPath !== "batch" && !NB.busy && NB.result) Object.assign(NB, { name: "", files: [], result: null, error: "", steps: [], mode: "preview" });
+      html = viewBatch(); title = "New batch"; nav = "batch"; after = bindBatch;
+    }
     else if (a === "insights") { html = viewInsights(); title = "Insights"; nav = "insights"; after = bindInsights; }
     else if (a === "work") { html = viewWork(q); title = "My work"; nav = "work"; after = () => $$(".queue-tabs button").forEach((b) => b.addEventListener("click", () => (location.hash = `#/work?tab=${b.dataset.tab}`))); }
     else if (a === "audit") { html = viewAudit(q); title = "Audit trail"; nav = "audit"; after = bindAudit; }

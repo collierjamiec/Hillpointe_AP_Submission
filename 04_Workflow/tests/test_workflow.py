@@ -478,12 +478,37 @@ class BatchServerTests(unittest.TestCase):
 
     def test_batch_names_are_dated_readable_and_unique(self):
         self.assertEqual(self.ws.slugify("Weekly AP run #3"), "weekly-ap-run-3")
-        a = self.svc.create("Weekly AP", self.CLERK, date="2026-11-10")
-        b = self.svc.create("weekly ap", self.CLERK, date="2026-11-10")
-        self.assertEqual((a["batch"], b["batch"]), ("2026-11-10_weekly-ap", "2026-11-10_weekly-ap-2"))
-        self.assertEqual(a["folder"], "inbox/2026-11-10_weekly-ap")
+        day = self.svc.today()
+        a = self.svc.create("Weekly AP", self.CLERK, date=day)
+        b = self.svc.create("weekly ap", self.CLERK, date=day)
+        self.assertEqual((a["batch"], b["batch"]), (f"{day}_weekly-ap", f"{day}_weekly-ap-2"))
+        self.assertEqual(a["folder"], f"inbox/{day}_weekly-ap")
         with self.assertRaises(self.ws.BatchError):
             self.svc.create("!!", self.CLERK)
+
+    def test_company_time_zone_dates_folders_and_the_log(self):
+        """(added after submission) display.time_zone in rules.json sets folder dates and log times."""
+        from datetime import datetime, timedelta, timezone
+        cfg = json.loads((ROOT / "config" / "rules.json").read_text())
+        cfg["display"]["time_zone"] = "Pacific/Kiritimati"            # UTC+14, so its date often differs from UTC
+        (self.tmp / "rules.json").write_text(json.dumps(cfg))
+        svc = self.ws.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")
+        self.assertEqual(svc.zone().key, "Pacific/Kiritimati")
+        self.assertTrue(svc.now().isoformat().endswith("+14:00"))
+        self.assertEqual(svc.today(), datetime.now(timezone(timedelta(hours=14))).strftime("%Y-%m-%d"))
+        made = svc.create("tz check", self.CLERK)
+        self.assertTrue(made["batch"].startswith(svc.today() + "_"))
+        self.assertTrue(svc.read_log()[-1]["at"].endswith("+14:00"))
+        # A date from the browser is used only when it is real and within a day of now.
+        utc = datetime.now(timezone.utc).date()
+        self.assertEqual(svc.pick_day((utc + timedelta(days=1)).isoformat()), (utc + timedelta(days=1)).isoformat())
+        for bad in ("2001-01-01", "2026-13-40", "../etc", None):
+            self.assertEqual(svc.pick_day(bad), svc.today())
+        # A missing or unknown zone falls back to this computer's own clock instead of failing.
+        cfg["display"]["time_zone"] = "Not/A_Zone"
+        (self.tmp / "rules.json").write_text(json.dumps(cfg))
+        self.assertIsNone(svc.zone())
+        self.assertEqual(svc.today(), datetime.now().strftime("%Y-%m-%d"))
 
     def test_permissions(self):
         for who in (self.VIEWER, {"role": "approver"}, None):

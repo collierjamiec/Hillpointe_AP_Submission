@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 48 automated checks
+./penny test                                  # run the 49 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
@@ -166,6 +166,7 @@ Most changes are one line in `config/rules.json`. Nothing needs to be edited in 
 | Entrata GL by description | `entrata_gl_keywords` |
 | Construction entity, department or retainage account | `construction` |
 | Terms days | `terms_days` |
+| The company time zone for times in the web app and batch folder dates (added after submission) | `display.time_zone` |
 | Open and closed periods, allocation percentages, vendors, projects, POs | The master data and the PDFs in the package. They are read fresh every run. |
 
 Logic that needs a code change is small and has one home: duplicate rules in `_duplicates`, pay application rules in

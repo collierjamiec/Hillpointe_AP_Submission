@@ -4724,6 +4724,10 @@
    "_comment": "Normalized names that count as a Hillpointe legal entity are built from the Entities tab. Add any approved aliases here.",
    "extra": []
   },
+  "display": {
+   "_comment": "The company's time zone (an IANA name such as America/New_York). The web app shows every time in it, and new batch folders are dated by it. Penny's decisions do not depend on it.",
+   "time_zone": "America/New_York"
+  },
   "llm": {
    "enabled_by_default": false,
    "model": "claude-sonnet-5-5",

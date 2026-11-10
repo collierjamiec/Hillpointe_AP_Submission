@@ -114,7 +114,7 @@ window.PENNY_HELP = [
     html: `
 <p>AP Clerks and Admins can add a batch from <a href="#/batch">New batch</a>.</p>
 <ol>
-  <li><strong>Name the batch.</strong> Type a short name or pick one: weekly-ap, month-end, vendor-resends, corrections. Penny puts today's date in front, so the folder is <code>inbox/2026-11-10_weekly-ap</code>. Dates first means folders sort in order. If the name is already used that day, Penny adds -2, -3 and so on.</li>
+  <li><strong>Name the batch.</strong> Type a short name or pick one: weekly-ap, month-end, vendor-resends, corrections. Penny puts today's date in the company time zone in front, so the folder is <code>inbox/2026-11-10_weekly-ap</code>. Dates first means folders sort in order. If the name is already used that day, Penny adds -2, -3 and so on.</li>
   <li><strong>Add the invoices.</strong> Drag PDFs onto the box, or choose them. Penny checks each file before anything is uploaded: it must really be a PDF, 25 MB or less, and not added twice. A file Penny has already read is flagged, because it would be skipped or stopped as a duplicate.</li>
   <li><strong>Preview or run.</strong>
     <ul>
@@ -198,7 +198,7 @@ window.PENNY_HELP = [
   { slug: "rules-edit", section: "Using the web app", title: "Changing rules (Admin)",
     summary: "Edit thresholds and routes with a preview, then undo if needed.",
     html: `
-<p>Admins can change every rule on the <a href="#/rules">Rules</a> page: dollar thresholds and tolerances, the team for each exception code, the order codes are ranked in, payment terms, the words Penny looks for (payment-change wording, duplicate stamps, approved bill-to names), the keyword-to-GL rules, one-time and subscription words, posting entities and accounts, and whether the AI reader is on.</p>
+<p>Admins can change every rule on the <a href="#/rules">Rules</a> page: dollar thresholds and tolerances, the team for each exception code, the order codes are ranked in, payment terms, the words Penny looks for (payment-change wording, duplicate stamps, approved bill-to names), the keyword-to-GL rules, one-time and subscription words, posting entities and accounts, whether the AI reader is on, and the company time zone.</p>
 <ol>
   <li>Change anything. Changed items turn copper. Lists have Add and remove buttons; the code order has up and down arrows.</li>
   <li>If something is not valid (an empty code, the same word twice, a term without days), Penny says what to fix before you can save.</li>
@@ -206,6 +206,7 @@ window.PENNY_HELP = [
   <li>Choose <strong>Save changes</strong> and write why. The change goes to the audit trail.</li>
   <li>To reverse it, choose <strong>Undo</strong> in Change history.</li>
 </ol>
+<p><strong>Time zone:</strong> every time in Penny, from the audit trail to run history, is shown in the company time zone, with its short name such as EST. New batch folders are dated by it too. Changing it changes how times read right away; the saved times themselves never change.</p>
 <div class="help-note">Saved rules apply to Penny's <strong>next run</strong>. Past decisions stay exactly as Penny made them. Use <strong>Download rules.json</strong> to take the new settings back to the terminal version.</div>` },
 
   { slug: "search", section: "Using the web app", title: "Search and filters",
@@ -366,6 +367,7 @@ window.PENNY_HELP = [
 <tr><td><code>entrata_gl_keywords</code></td><td>Which Entrata GL a description maps to.</td></tr>
 <tr><td><code>construction</code></td><td>Posting entity, department and retainage account.</td></tr>
 <tr><td><code>terms_days</code></td><td>Days for each payment term.</td></tr>
+<tr><td><code>display.time_zone</code></td><td>The company time zone. Times in the web app and new batch folder dates use it.</td></tr>
 </tbody></table>` },
 
   { slug: "roles", section: "Reference", title: "Roles and permissions",

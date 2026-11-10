@@ -28,7 +28,7 @@ import json
 import re
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -82,9 +82,37 @@ class BatchService:
         self.log_path = self.state_dir / "batch_log.jsonl"
         self.lock = threading.Lock()
 
+    # ---------------------------------------------------------------- time
+    def zone(self):
+        """The company time zone from rules.json (display.time_zone), or this computer's own zone if it is missing or unknown."""
+        try:
+            from zoneinfo import ZoneInfo
+            name = json.loads(self.cfg_path.read_text(encoding="utf-8")).get("display", {}).get("time_zone")
+            return ZoneInfo(name) if name else None
+        except Exception:
+            return None
+
+    def now(self):
+        z = self.zone()
+        return datetime.now(z) if z else datetime.now().astimezone()
+
+    def today(self):
+        return self.now().strftime("%Y-%m-%d")
+
+    def pick_day(self, date):
+        """Use the date the browser shows (it follows the time zone set in Rules) only if it is a real date within a day of now."""
+        if date and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date)):
+            try:
+                d = datetime.strptime(date, "%Y-%m-%d").date()
+                if abs((d - datetime.now(timezone.utc).date()).days) <= 1:
+                    return d.isoformat()
+            except ValueError:
+                pass
+        return self.today()
+
     # ---------------------------------------------------------------- audit log
     def log(self, event):
-        event = {"at": datetime.now().astimezone().isoformat(timespec="seconds"), **event}
+        event = {"at": self.now().isoformat(timespec="seconds"), **event}
         self.state_dir.mkdir(parents=True, exist_ok=True)
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(event, sort_keys=True) + "\n")
@@ -107,7 +135,7 @@ class BatchService:
     def create(self, name, user, date=None, event_id=""):
         who = check_user(user, "upload")
         slug = slugify(name)
-        day = date or datetime.now().strftime("%Y-%m-%d")
+        day = self.pick_day(date)
         with self.lock:
             self.inbox.mkdir(parents=True, exist_ok=True)
             batch, n = f"{day}_{slug}", 2
@@ -227,7 +255,8 @@ def make_handler(service, web_dir):
 
         def status(self):
             return {"mode": "local", "engine": bool(service.package), "max_mb": MAX_FILE // (1024 * 1024),
-                    "inbox": "inbox/", "today": datetime.now().strftime("%Y-%m-%d")}
+                    "inbox": "inbox/", "today": service.today(),
+                    "time_zone": getattr(service.zone(), "key", None)}
 
         def do_GET(self):
             url = urlparse(self.path)
@@ -257,7 +286,7 @@ def make_handler(service, web_dir):
                 raw = self.rfile.read(length)
                 if parts == ["api", "batches"]:
                     body = json.loads(raw or b"{}")
-                    return self.send_json(service.create(body.get("name"), body.get("user"), event_id=str(body.get("event_id", ""))[:40]), 201)
+                    return self.send_json(service.create(body.get("name"), body.get("user"), body.get("date"), event_id=str(body.get("event_id", ""))[:40]), 201)
                 if len(parts) == 4 and parts[:2] == ["api", "batches"] and parts[3] == "files":
                     q = parse_qs(url.query)
                     user = json.loads(self.headers.get("X-Penny-User") or "{}")
