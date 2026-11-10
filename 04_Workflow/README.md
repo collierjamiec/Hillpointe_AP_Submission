@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 49 automated checks
+./penny test                                  # run the 65 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
@@ -65,6 +65,11 @@ A browser view of everything Penny decided, for people who would rather not use 
 * **New batch (v1.4):** upload PDFs into `inbox/<YYYY-MM-DD>_<name>/` and preview (AP Clerk, Admin) or run for real
   (Admin). Needs the local server (`./penny web --package <package>`, see `ap_workflow/webserver.py`). Every step is
   appended to `state/batch_log.jsonl` and shown in the audit trail.
+* **Blockers, recheck and manual entry (v1.5):** each reason for a hold is tracked with an owner, target date, notes
+  and fingerprinted files; Recheck and "Test on saved invoices" run Penny's engine on saved readings against a copy of
+  the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
+  person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
+  A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
 * **Suggested fixes and Insights (v1.4):** one-click resolutions learned from past resolutions plus a playbook, and an
   Admin page of usage signals. Both run in the browser and never change Penny's decisions.
 
@@ -167,6 +172,7 @@ Most changes are one line in `config/rules.json`. Nothing needs to be edited in 
 | Construction entity, department or retainage account | `construction` |
 | Terms days | `terms_days` |
 | The company time zone for times in the web app and batch folder dates (added after submission) | `display.time_zone` |
+| The total above which a manual entry needs a second person (added after submission) | `thresholds.manual_entry_check_over` |
 | Open and closed periods, allocation percentages, vendors, projects, POs | The master data and the PDFs in the package. They are read fresh every run. |
 
 Logic that needs a code change is small and has one home: duplicate rules in `_duplicates`, pay application rules in

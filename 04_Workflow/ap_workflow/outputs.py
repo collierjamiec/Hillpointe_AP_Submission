@@ -236,7 +236,8 @@ def write_run_report(path, run_id, batch, decisions, errs, counts, state_info):
     L += ["| Result | Count |", "|---|---|"] + [f"| {k} | {v} |" for k, v in counts.items()] + [""]
     L += ["## Decisions", "", "| File | Vendor | Invoice | Amount | Result | Codes | Confidence |", "|---|---|---|---|---|---|---|"]
     for d in decisions:
-        L.append(f"| {d.file} | {d.vendor_name or d.doc.get('vendor_name_raw','')} | {d.bill_no} | {d.amount:,.2f} | {d.status} | {', '.join(d.codes)} | {d.confidence} |")
+        keyed = " (keyed by hand)" if (d.doc.get("extraction") or {}).get("method") == "manual" else ""
+        L.append(f"| {d.file}{keyed} | {d.vendor_name or d.doc.get('vendor_name_raw','')} | {d.bill_no} | {d.amount:,.2f} | {d.status} | {', '.join(d.codes)} | {d.confidence} |")
     L += ["", "## Import file pre-flight", "", "PASS: no validation errors." if not errs else "FAIL:\n" + "\n".join(f"- {e}" for e in errs), ""]
     L += ["## Register", "", state_info, ""]
     path.write_text("\n".join(L), encoding="utf-8")

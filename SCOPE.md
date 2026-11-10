@@ -13,6 +13,7 @@ and what I chose to build on my own.
 | 1.2 | November 2026 | **After submission:** a web view in the browser, phase 1 (view only). | Pull request #2, `04_Workflow/web/` |
 | 1.3 | November 2026 | **After submission:** honest handling of unfamiliar layouts, sign-in with roles, real actions, an audit trail, a rules editor, a redesigned interface and a help center. | Pull request #2 |
 | 1.4 | November 2026 | **After submission:** upload and run new batches from the web app, suggested fixes that learn, usage insights, every rule editable, plainer exports, a longer intro with a loading bar. | Pull request #3 |
+| 1.5 | November 2026 | **After submission:** blockers with owners, dates and evidence, recheck previews, a rule simulator, manual entry with a second-person check, a most-urgent-first queue, and automatic tests on every pull request. | Pull request #4 |
 
 ---
 
@@ -244,12 +245,72 @@ downloaded, in a shape a server could collect later.
 
 ---
 
+## Version 1.5: blockers, recheck and manual entry (November 2026, after submission)
+
+### Blockers: each reason for a hold, tracked on its own
+
+* Every reason a held invoice is waiting on is a blocker with a status (Open, Waiting for evidence, Ready for
+  recheck, Cleared), an owner (starting from the route in Rules), a target date, notes, attached files and the person
+  who verified it. The invoice shows progress, like "1 of 2 blockers cleared".
+* Attached files are checked by content (PNG, JPEG or PDF, up to 10 MB) and fingerprinted with SHA-256. The audit
+  trail names exactly which file was used. Clearing a payment-change blocker still needs Treasury's phone confirmation.
+* Blockers organize the people work. Penny's decision never changes; a cleared invoice is checked from scratch on its
+  next run.
+
+### Recheck previews and a rule simulator
+
+* **Recheck** decides one held invoice again, the way the next run would: the same reading under today's rules and
+  reference data, a corrected PDF from the vendor, or a manual entry. The preview shows before and after, and the
+  document fingerprint, rules fingerprint, reference-data fingerprint and register size it used.
+* **Test on saved invoices** (Rules page, Admin) decides every saved invoice twice, with the current rules and with
+  the draft, on the same readings and reference data, and lists each invoice that would change.
+* Both use Penny's real engine through a new module, `ap_workflow/replay.py`. It works on a copy of the register that
+  cannot be saved. A test proves that replaying the saved readings rebuilds all 47 saved decisions exactly.
+* Every recheck is logged on disk (`recheck.preview`) with the fingerprints it used. The public demo explains that
+  these need Penny on a computer instead of inventing a result.
+
+### Manual entry for files Penny cannot read
+
+* For a scanned picture or a bill in an unfamiliar layout, a person keys the invoice beside a screenshot or re-saved
+  PDF, with a reason. The form checks that the lines add to the subtotal and the subtotal plus tax equals the total as
+  you type.
+* **Second-person check over a limit (maker-checker):** above "Manual entry second check" in Rules ($2,500 by
+  default), a different AP Clerk or Admin keys the invoice number and total again without seeing the first entry. A
+  mismatch is recorded and the entry waits. Under the limit, one person and a reason are enough. If the limit is
+  missing, every entry gets a second check.
+* Penny runs every normal check on the keyed record (`ap_workflow/manual.py` builds the same shape the PDF reader
+  produces). Saving writes `inbox/<date>_manual-<file>/` with the original file, `<file>.keyed.json` and an
+  `evidence/` folder, logged as `manual.saved`. An Admin runs it from the new "Batches waiting to run" list.
+* A run uses a keyed record only for the exact file it was keyed from (same SHA-256). The invoice is marked "Keyed by
+  hand" everywhere, and the run report says "(keyed by hand)". Pay applications cannot be keyed by hand.
+
+### Everything else
+
+* **Most urgent first:** My work orders holds by overdue blockers, then bills past or near their due date (bill date
+  plus terms), then the oldest holds, and each row says why. "By team" is still one click away.
+* **Automatic tests:** a GitHub check runs the tests that do not need the assessment package, on Python 3.9 and 3.12,
+  and checks the web app's scripts, on every pull request (`.github/workflows/tests.yml`).
+* **Help center:** three new articles (37 in all): blockers, recheck and testing rule changes, and manual entry.
+
+### Testing
+
+* 65 Python tests; 31 run without the assessment package. New ones cover the keyed record (shape, every problem
+  listed at once, tie-out, maker-checker, credit memos, payment-change words), a run using a keyed record only for
+  its own file, replaying all saved decisions exactly, the simulator, and the server's recheck, simulate and
+  manual-entry endpoints (permissions, evidence checked by content, nothing half-saved).
+* A browser run with the real package, as each role: update and clear a blocker with a file, the urgent queue, a
+  recheck preview, manual entry under and over the limit (including a wrong second check), Penny checking the keyed
+  invoice, saving it, an Admin running it for real, the rule simulator, the audit trail, phone width, and a Viewer
+  seeing no new buttons. All 36 checks passed with no page errors.
+
+---
+
 ## What comes next (planned, not built)
 
 | Next step | What it adds |
 |---|---|
-| Next release: blockers, evidence and recheck | Each blocker on an invoice gets its own owner, target date, status (Open, Waiting for evidence, Ready for recheck, Cleared), notes, attachments and verifier, so an invoice can show "1 of 2 blockers cleared". A recheck preview runs Penny on the corrected document and shows before and after, with the document, data and rules versions used, without touching the register. |
-| Next release: manual entry for unreadable invoices | When Penny cannot read a file but a person can open it elsewhere: keep the original, attach evidence (a screenshot or re-saved PDF, fingerprinted), key the invoice beside it with a reason, and let Penny run every normal check on the keyed data. A second person blindly re-keys the invoice number and total above a dollar limit set in Rules (maker-checker); below it, one person with a reason. Marked as manually entered everywhere. |
+| Source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. |
+| Export history | Track each Intacct file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. |
 | A shared server | Sign-in, permissions, the audit trail and usage insights checked and stored on a server for the whole team. |
 | Single sign-on | Sign in with the company's identity provider instead of demo accounts. |
 | Watched inbox folder | Pick up new invoices from an email inbox or shared folder automatically, then preview them. |

@@ -127,6 +127,70 @@ window.PENNY_HELP = [
 <p>Every step is written to <code>state/batch_log.jsonl</code> on the Penny computer, and shown in the <a href="#/audit">Audit trail</a> marked "On disk": who created the batch, who uploaded which files (name, size and a SHA-256 fingerprint that proves the exact file), who ran it, when, the folder, the run ID, preview or real, the results and the pre-flight check. A run that fails is recorded too.</p>
 <div class="help-note"><strong>Where this works.</strong> Reading invoices needs Penny's engine, so batches run only when the web app is started on your computer with <code>./penny web --package &lt;package folder&gt;</code>. On the public demo site you can try every step, and the last one explains what would happen. Nothing is uploaded from the demo.</div>` },
 
+  { slug: "blockers", section: "Using the web app", title: "Blockers: tracking each reason for a hold",
+    summary: "Give every reason its own owner, target date, notes and proof.",
+    html: `
+<p>A held invoice can be waiting on more than one thing, for example a missing insurance certificate and a missing lien waiver. Each reason is a <strong>blocker</strong>, so each one can be worked and tracked on its own. The invoice shows how far along it is, like <em>1 of 2 blockers cleared</em>.</p>
+<h2>What each blocker has</h2>
+<ul>
+  <li><strong>Status:</strong> Open, Waiting for evidence, Ready for recheck, or Cleared.</li>
+  <li><strong>Owner:</strong> the team working it. It starts with the route in Rules.</li>
+  <li><strong>Target date:</strong> when it should be done. Past-due blockers move to the top of My work.</li>
+  <li><strong>Notes and files:</strong> screenshots or PDFs, up to 10 MB each. Each file is fingerprinted (SHA-256), and the audit trail names exactly which file was used.</li>
+  <li><strong>Verified by:</strong> the person who marked it cleared, and when.</li>
+</ul>
+<h2>Working a blocker</h2>
+<ol>
+  <li>Open the invoice and find the Blockers card.</li>
+  <li>Choose <strong>Update</strong> to change the status, owner or target date, add a note, or attach files.</li>
+  <li>When it is fixed, choose <strong>Mark cleared</strong> and write what you checked. A payment change also needs Treasury's phone confirmation.</li>
+  <li>When every blocker is cleared, <a href="#/help/recheck">recheck the invoice</a>, then resolve the hold.</li>
+</ol>
+<div class="help-note">Blockers organize the people work. They never change Penny's decision: a cleared invoice is still checked from scratch on its next run.</div>
+<p>In this demo, notes and files stay in your browser. Files are kept in the browser's own storage; if it is cleared, the file name and fingerprint stay on record.</p>` },
+
+  { slug: "recheck", section: "Using the web app", title: "Recheck and testing rule changes",
+    summary: "Preview what Penny would decide now, without saving anything.",
+    html: `
+<p><strong>Recheck</strong> asks Penny to decide one held invoice again, the way its next run would. It is a preview: nothing is saved, no import file is written, and Penny's register does not change.</p>
+<h2>What you can recheck</h2>
+<ul>
+  <li><strong>The same reading, with today's rules and data.</strong> Use this after a rule change, or after the reference data was fixed, for example when the vendor was added to the vendor master.</li>
+  <li><strong>A corrected PDF from the vendor.</strong> Penny reads the new file and checks it. The file is not added to a batch.</li>
+  <li><strong>A manual entry.</strong> See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</li>
+</ul>
+<h2>Reading the preview</h2>
+<p>You see the saved result beside the new one: the outcome, the reasons, and who must approve. Under them, Penny lists exactly what it used:</p>
+<ul>
+  <li><strong>Document:</strong> the file name, its fingerprint, and who read it (Penny, or a person for a manual entry).</li>
+  <li><strong>Rules:</strong> a short fingerprint of the rules, and whether they are the ones shown on the Rules page.</li>
+  <li><strong>Reference data:</strong> a fingerprint of the vendor master, ERP history, POs and subcontracts.</li>
+  <li><strong>Register:</strong> how many entries Penny's memory held. Penny used a copy and did not change it.</li>
+</ul>
+<h2>Testing a rule change (Admin)</h2>
+<p>On the <a href="#/rules">Rules</a> page, after you change something, choose <strong>Test on saved invoices</strong>. Penny decides every saved invoice twice, with the current rules and with your draft, using the same readings and reference data. It lists each invoice that would change and how. Nothing is saved until you choose Save changes.</p>
+<div class="help-note">Recheck and testing need Penny's engine, so they work when Penny runs on your computer (<code>./penny web --package &lt;package folder&gt;</code>). The public demo explains this instead of inventing a result. Every recheck is recorded in the audit trail with the fingerprints it used.</div>` },
+
+  { slug: "manual-entry", section: "Using the web app", title: "Entering an invoice by hand",
+    summary: "When Penny cannot read a file but a person can.",
+    html: `
+<p>Sometimes Penny cannot read a file: it is a scanned picture, or a bill in a layout Penny does not know. If a person can open it in another program, they can key it by hand in a way an auditor can follow.</p>
+<h2>The steps</h2>
+<ol>
+  <li><strong>Key it beside the evidence.</strong> Open the held invoice and choose <strong>Enter by hand</strong>. Attach a screenshot or a re-saved PDF of what you are reading from. Then type the vendor, invoice number, date, terms, PO, bill-to, lines and totals exactly as the document shows them, and say why it is keyed by hand. Penny checks that the lines add up to the subtotal and that subtotal plus tax equals the total as you type.</li>
+  <li><strong>A second person checks it, over the limit.</strong> If the total is over the limit in Rules (Manual entry second check), a different AP Clerk or Admin keys the invoice number and total again from the evidence. They cannot see the first entry. If the two do not match, the entry waits until it is fixed. Under the limit, one person and a reason are enough.</li>
+  <li><strong>Check with Penny.</strong> Penny runs every normal check on the keyed invoice: vendor, bill-to, duplicates, PO, coding, dates and approvals. You see the result as a <a href="#/help/recheck">recheck preview</a>.</li>
+  <li><strong>Save for the next run.</strong> Penny saves a batch folder like <code>inbox/2026-11-10_manual-t5-unfamiliar-layout</code> with the original file, the keyed record and the evidence. An Admin previews or runs it from <a href="#/batch">New batch</a>, under Batches waiting to run.</li>
+</ol>
+<h2>What keeps it auditable</h2>
+<ul>
+  <li>The original file stays the source document. The keyed record carries its fingerprint, so a rerun of the same file is still recognized, and a keyed record never applies to a different file.</li>
+  <li>Every evidence file is fingerprinted (SHA-256) and named in the audit trail.</li>
+  <li>Who keyed it, why, who checked it, and when are all recorded, and the invoice is marked <strong>Keyed by hand</strong> everywhere it appears.</li>
+  <li>Pay applications cannot be keyed by hand. Their tied-out lines and continuation sheet need the vendor's real PDF.</li>
+</ul>
+<div class="help-note">In this public demo you can key and check entries. Checking with Penny and saving for the next run need Penny on your computer.</div>` },
+
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
     summary: "One click to resolve a hold the way it was resolved before.",
     html: `
@@ -336,7 +400,8 @@ window.PENNY_HELP = [
   <li>The PDF has no text, like a scanned picture. It needs OCR or manual entry.</li>
   <li><strong>The document looks like a bill but is in a layout Penny does not know.</strong> Penny says what it saw (for example, an amount due and a PO number) and holds it. It does not guess at the numbers.</li>
 </ul>
-<p>These are held under OTHER and go to the AP Manager. Unreadable files are not added to the register, so a fixed copy is read fresh on the next run.</p>` },
+<p>These are held under OTHER and go to the AP Manager. Unreadable files are not added to the register, so a fixed copy is read fresh on the next run.</p>
+<p>If a person can open the file in another program, they can <a href="#/help/manual-entry">enter it by hand</a> beside a screenshot, and Penny checks what they keyed.</p>` },
 
   { slug: "ai", section: "How Penny decides", title: "The optional AI reader",
     summary: "When AI helps, and how it is kept in check.",
