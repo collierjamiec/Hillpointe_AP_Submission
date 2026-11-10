@@ -259,6 +259,7 @@ function renderInvoiceResults(q) {
     <div class="filter-summary" aria-live="polite"><span>${plural(rows.length, "invoice")}${active ? ` match${rows.length === 1 ? "es" : ""} ${plural(active, "filter")}` : ""}</span><span class="num">${esc(amountLabel(rows))} face value</span></div>
     ${docTable(pg.slice, { sort, footer: false })}
     ${pagerHtml(pg, "invoices")}`;
+  scrollableTables();          // label the new table now, not a frame later, so cards and screen readers never see it bare
   // Filters and sorting change the list without loading a new page, so keep Previous and Next on an invoice in step.
   try { sessionStorage.setItem("penny.list", JSON.stringify({ ids: listIds, label: "Invoices", href: location.hash || "#/invoices" })); } catch (e) { /* fine */ }
 }

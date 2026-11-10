@@ -85,6 +85,7 @@ function render() {
   document.title = `${title} · Penny`;
   $$("#nav a").forEach((l) => (l.dataset.nav === nav ? l.setAttribute("aria-current", "page") : l.removeAttribute("aria-current")));
   if (after) after();
+  scrollableTables();          // again: a page's own setup can draw tables (the invoice list does)
   rememberList(a, b, title);
   const path = parts.join("/");
   if (path !== "rules") ruleDraft = {};
