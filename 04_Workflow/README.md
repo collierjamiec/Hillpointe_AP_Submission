@@ -1,5 +1,8 @@
 # Hillpointe AP Automation Workflow
 
+> This README describes Penny as it works today. Sections marked **(added after submission)** were not part of the
+> October 2026 assessment. See [`../SCOPE.md`](../SCOPE.md) for the full version history.
+
 A small, rerunnable system that reads vendor documents from the AP inbox, applies the AP Coding Rules, and produces:
 
 * a Sage Intacct bill import file (CSV and Excel) in the template format
@@ -26,8 +29,10 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 37 automated checks
+./penny test                                  # run the 39 automated checks
 ./penny reset                                 # forget everything and start fresh
+./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
+./penny web                                   # (added after submission) open the web view in your browser
 ```
 
 `./penny install` needs Python 3.9 or newer and an internet connection, and it touches nothing outside this folder. It ends with a check that says "Penny is ready". On Windows type `penny` instead of `./penny`. If `./penny` says permission denied, type `bash penny run 1`.
@@ -43,6 +48,25 @@ Add `-n` (dry run) to see every decision without touching the register.
 Python 3.9 or newer. No API key is needed for the default mode.
 
 ---
+
+## The web view (`web/`) (added after submission, v1.2)
+
+A browser view of everything Penny decided, for people who would rather not use the terminal. Phase 1 is view only.
+
+* **Dashboard:** where every dollar landed, why invoices are on hold, results by run, and the rerun proof.
+* **Runs:** each batch with its results. **Invoices:** every document, filterable by result, reason, vendor and bill date.
+* **Invoice detail:** the PDF beside what Penny read, every check in order, the coding and approvers, and its history across runs.
+* **Rules:** every setting in `config/rules.json`, in plain language.
+* **Roles:** Viewer, AP Clerk, Approver and Admin. Switch at the top to see what each role will be able to do. Editing
+  (resolving holds, approving, changing rules) is marked "Phase 2".
+
+`./penny web-export` reads `runs/` and writes `web/data/penny-data.json` (and copies the PDFs into `web/data/pdfs/` when
+given `--package`). The web view only displays saved results; it never makes a decision, so it cannot disagree with the
+terminal. A held bill shows as **Replaced** once a later run enters a revised version under the same register key.
+
+The site is plain HTML, CSS and JavaScript with no build step, so any static host works. `.github/workflows/pages.yml`
+publishes `04_Workflow/web` to GitHub Pages whenever it changes on `main` (turn Pages on under Settings, Pages, Source:
+GitHub Actions).
 
 ## What you get from each run (`runs/<run-id>/`)
 
@@ -80,7 +104,7 @@ PDF  ->  1. EXTRACT  ->  2. VALIDATE  ->  3. DECIDE  ->  4. PRE-FLIGHT  ->  5. W
 
 | # | Check | If it fails |
 |---|---|---|
-| 0 | File can be read (not empty, a real PDF, not password protected or damaged, has a text layer) | OTHER, with the file name and the exact problem. The rest of the batch carries on |
+| 0 | (added after submission, v1.1) File can be read (not empty, a real PDF, not password protected or damaged, has a text layer) | OTHER, with the file name and the exact problem. The rest of the batch carries on |
 | 1 | Document is a bill, pay app or credit | OTHER (a standalone lien waiver is not a bill) |
 | 2 | Arithmetic ties | OTHER |
 | 3 | Vendor is in the master and Active (inactive merged names map to the surviving ID, with Medium confidence) | NEWVEND |
@@ -186,7 +210,7 @@ what produced every result in this package.
 * The rules parser expects the layouts in the sample package. A very different layout will fail validation and go to a
   person, which is the safe outcome. `--extractor hybrid` is the answer for that.
 * Scanned images (no text layer) would need OCR first. Today they are held with a clear reason instead of being guessed at.
-* A file Penny cannot read (empty, not really a PDF, password protected, damaged) never stops a run. It is held under
+* (Added after submission, v1.1.) A file Penny cannot read (empty, not really a PDF, password protected, damaged) never stops a run. It is held under
   OTHER and routed to the AP Manager with the reason, in the terminal summary, the exception log and the workbook. It is
   not written to the register (there is no vendor or invoice number to key on), so a fixed copy is read fresh next run.
 * Only the first PO or subcontract in the Customer Ref box is used.

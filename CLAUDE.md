@@ -9,11 +9,14 @@ where each rule lives, assumptions). Read it before changing behavior.
 
 ## Layout
 
+- `README.md` (GitHub landing page) and `SCOPE.md` (original assignment vs. everything added after submission, by version).
+  Any new feature gets a version entry in `SCOPE.md` and an "(added after submission)" mark in the docs it touches.
 - `00_START_HERE.md`, `01_`–`05_` folders: the submitted package. Treat `02_Batch01_Deliverables` and
   `03_Rerun_Evidence` as submitted outputs; don't regenerate or edit them unless asked.
 - `04_Workflow/ap_workflow/`: the code. `extract.py` (PDF → fields), `rules.py` (all decisions, ~800 lines),
   `outputs.py` (files + Intacct pre-flight), `register.py` (processed-invoice register), `cli.py` (commands),
-  `llm_extract.py` (optional Claude extraction, never run live).
+  `llm_extract.py` (optional Claude extraction, never run live), `webexport.py` (runs → `web/data/penny-data.json`).
+- `04_Workflow/web/`: the browser view (plain HTML/CSS/JS, no build step). View only; it never decides anything.
 - `04_Workflow/config/rules.json`: thresholds, routes, keywords. Prefer rule changes here over code.
 - `04_Workflow/state/`: the register (`processed_register.csv`, `run_log.csv`). Runs read and write it.
 - `04_Workflow/runs/<run-id>/`: run outputs.
@@ -25,7 +28,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 37 checks, uses temp dirs, safe
+./penny test                                   # 39 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
