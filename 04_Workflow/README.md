@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 108 automated checks
+./penny test                                  # run the 114 automated checks
 python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
@@ -77,6 +77,11 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Security review (v2.0.1):** fixed a way around sign-in that had existed since 1.7 (the check and the file server
+  read the address differently, so `/%64ata/...` was served to anyone). `PennyHandler.plain_path()` now normalizes
+  the address once for both, and `open_to_all()` is an allow-list. Also: HEAD requests, a Host check on
+  this-computer-only servers (DNS rebinding), field checks on every action (`actions.check_shape`), moved browser
+  history never counting as a sign-off, a proxy-aware lockout, and errors that keep their details in the terminal.
 * **Penny for a team (v2.0.0):** with real accounts the server is the single source of truth. `ap_workflow/store.py`
   keeps the audit log and accounts in `state/penny.db` (SQLite; triggers refuse UPDATE and DELETE on the log).
   `ap_workflow/actions.py` checks every web action on the server (role, conflicts, second-person rules) and writes

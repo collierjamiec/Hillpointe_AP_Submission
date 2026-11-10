@@ -420,7 +420,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>The audit trail</h2>
 <p>There is now one <a href="#/audit">audit trail</a> for the team, kept in a database on the server (<code>state/penny.db</code>). The database itself refuses to change or delete an entry: an undo is a new entry.</p>
 <h2>Moving earlier work in</h2>
-<p>Before 2.0, what people did was saved in each browser. The first time an Admin signs in with a browser that still holds earlier work, Penny offers to move it into the team's audit trail. Each action keeps its original time and person and is marked as moved, with who moved it. Rule changes moved this way are history only. Nothing is removed from the browser.</p>
+<p>Before 2.0, what people did was saved in each browser. The first time an Admin signs in with a browser that still holds earlier work, Penny offers to move it into the team's audit trail. Each action keeps its original time and person and is marked as moved, with who moved it. Nothing is removed from the browser.</p>
+<p>Moved work was never checked by the server, so the parts that are controls stay <strong>history only</strong>: approvals, import history, second checks of manual entries and rule changes show in the audit trail but do not count. A bill approved before the move needs its sign-off again. Resolved holds, blockers and notes carry over as they were.</p>
 <div class="help-note"><strong>Where this works.</strong> Team mode needs Penny running on a computer with real accounts. See <a href="#/help/network">Running Penny for your team</a>. The public demo site is still a single-person showcase: there, what you do stays in your own browser.</div>` },
 
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
@@ -568,7 +569,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny users list</code></td><td>List everyone with an account, their role and status.</td></tr>
 <tr><td><code>./penny email status</code></td><td>Show the mail settings Penny will use. The password is never printed.</td></tr>
 <tr><td><code>./penny email test --to &lt;email&gt;</code></td><td>Send one test email. If it fails, Penny says what to check.</td></tr>
-<tr><td><code>./penny release 2.0.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
+<tr><td><code>./penny release 2.0.1 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },
 
@@ -845,6 +846,19 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Every action a person takes is checked on the server: their role, what teammates already did, and second-person rules. See <a href="#/help/team">Working as a team</a>.</li>
   <li>Every response carries the same content security policy and headers that stop other sites from framing Penny or guessing file types. The record of failed sign-ins is capped, so it cannot grow without limit.</li>
 </ul>
+<h2>The 2.0.1 security review</h2>
+<p>After 2.0 opened Penny to a network, the code was reviewed for ways around its own checks. This is what was found and fixed. Each has a test, so it cannot come back unnoticed.</p>
+<table class="mini"><thead><tr><th>What was wrong</th><th>What it allowed</th><th>Now</th></tr></thead><tbody>
+<tr><td><strong>The sign-in check read the address differently from the file server.</strong></td><td>Someone who was not signed in could download invoices, PDFs and import files by spelling the address another way, like <code>/%64ata/</code> for <code>/data/</code>. This was in every version since 1.7.</td><td>Both read the address the same way, and only a short list (the page, its scripts and styles, the release list) is served without a session.</td></tr>
+<tr><td>Asking only for a file's size skipped the check.</td><td>Finding out which files exist, and how big.</td><td>The same check as a download.</td></tr>
+<tr><td>Penny on your own computer answered to any name.</td><td>A web page elsewhere could point its own name at your computer and use Penny through your browser.</td><td>Penny on one computer only answers to that computer's own address.</td></tr>
+<tr><td>An action with the wrong kind of value was saved.</td><td>One person could break a page for the whole team.</td><td>Every field is checked before an action is saved.</td></tr>
+<tr><td>Work moved in from a browser counted as real.</td><td>An Admin could move in a made-up approval or confirmation under someone else's name.</td><td>Moved approvals, imports, second checks and rule changes are history only. They never count as a sign-off.</td></tr>
+<tr><td>Behind a proxy, wrong passwords were counted against the proxy.</td><td>One person could lock everyone out.</td><td>The count follows the real computer.</td></tr>
+<tr><td>Unexpected errors showed their details.</td><td>Folder names on the server.</td><td>Details stay in the terminal; the browser gets a reference to quote.</td></tr>
+<tr><td>A stalled connection was never closed, and folders could be listed.</td><td>Tying up the server; seeing file names.</td><td>Closed after a minute; folders are never listed.</td></tr>
+</tbody></table>
+<div class="help-note"><strong>This was a review by the project's own author.</strong> Someone checking their own work misses things. An outside review is still on the list below, and it matters before a real team relies on Penny over a network.</div>
 <h2>What is still to come</h2>
 <ul>
   <li>Single sign-on with the company's identity provider (intended for 2.1).</li>
@@ -876,7 +890,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>What if Penny cannot read an invoice?</h2>
 <p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 108 automated checks of Penny's decisions, accounts, email and server, and 17 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 114 automated checks of Penny's decisions, accounts, email and server, and 17 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 

@@ -640,6 +640,8 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", CSP)
+        if str(getattr(self, "path", "")).startswith("/data/") and self.service.accounts.enabled():
+            self.send_header("Cache-Control", "private, no-store")      # invoices are not left in a shared computer's cache
         if getattr(self.server, "secure", False):          # over https: tell the browser to never fall back to http
             self.send_header("Strict-Transport-Security", "max-age=31536000")
         super().end_headers()
@@ -710,10 +712,68 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
                 "inbox": "inbox/", "today": self.service.today(),
                 "time_zone": getattr(self.service.zone(), "key", None)}
 
+    timeout = 60        # an idle or stalled connection is closed after a minute, so it cannot hold a thread forever
+
+    def plain_path(self):
+        """The address as the file server will read it: percent codes decoded, "." and ".." and doubled slashes
+        resolved. The sign-in check must look at this, not at the raw text, or "/%64ata/x" and "/assets/../data/x"
+        would slip past a check for "/data/" and still be served. (Found in the v2.0.1 security review.)
+        Also rewrites self.path, so the file server and the checks always agree."""
+        import posixpath
+        url = urlparse(self.path)
+        path = unquote(url.path)
+        if "\x00" in path or "\\" in path:
+            raise BatchError("Not found.", 404)
+        clean = posixpath.normpath("/" + path.lstrip("/"))
+        if path.endswith("/") and clean != "/":
+            clean += "/"
+        self.path = clean + (f"?{url.query}" if url.query else "")
+        return clean
+
+    def open_to_all(self, path):
+        """With accounts on, the only things served without a session: the page itself, its scripts, styles and
+        fonts, and the public list of releases. Everything else needs a sign-in. This is a short list of what is
+        allowed, not a list of what is private, so a new folder is private until someone decides otherwise."""
+        return path in ("/", "/index.html", "/data/releases.json", "/favicon.ico") or path.startswith("/assets/")
+
+    def host_ok(self):
+        """While Penny only listens on this computer, the address in the request must be this computer's. A web
+        page elsewhere can point its own name at 127.0.0.1 to reach Penny through your browser (DNS rebinding);
+        its requests carry that other name, so they are refused here."""
+        if not getattr(self.server, "local_only", False):
+            return True
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+        return host in ("127.0.0.1", "localhost", "::1")
+
+    def list_directory(self, path):
+        """Never show a folder's contents as a page."""
+        self.send_error(404, "Not found")
+        return None
+
+    def do_HEAD(self):
+        """The same checks as a read: asking only for a file's size must not get past sign-in."""
+        try:
+            if not self.host_ok():
+                raise BatchError("Request refused.", 403)
+            path = self.plain_path()
+            if self.service.accounts.enabled() and not self.open_to_all(path) and not self.me():
+                raise BatchError("Please sign in.", 401)
+        except BatchError as e:
+            self.send_response(e.status)
+            self.send_header("Content-Length", "0")
+            return self.end_headers()
+        return super().do_HEAD()
+
     def do_GET(self):
         """Read requests: sign-in state, the data file, people, the outbox, the audit log, then static files.
         With accounts on, everything about invoices and people needs a session."""
-        url = urlparse(self.path)
+        try:
+            if not self.host_ok():
+                raise BatchError("Request refused: this Penny only answers on this computer's own address.", 403)
+            self.plain_path()
+            url = urlparse(self.path)                      # now the cleaned address, with its query
+        except BatchError as e:
+            return self.send_json({"error": str(e)}, e.status)
         try:
             if url.path == "/api/status":
                 return self.send_json(self.status())
@@ -729,8 +789,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json({"purpose": t["purpose"], "email": u["email"], "name": u["name"], "role": u["role"]})
             # With accounts on, everything about invoices, runs and people needs a session. The page itself,
             # its scripts and styles, and the public release list do not.
-            private = url.path.startswith("/api/") or (url.path.startswith("/data/") and url.path != "/data/releases.json")
-            if self.service.accounts.enabled() and private and not self.me():
+            if self.service.accounts.enabled() and not self.open_to_all(url.path) and not self.me():
                 return self.send_json({"error": "Please sign in.", "signin": True, "server": self.status()}, 401)
             if url.path == "/api/users":
                 who = self.actor(None)
@@ -780,7 +839,29 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json({"batches": self.service.list()})
         except BatchError as e:
             return self.send_json({"error": str(e)}, e.status)
+        except Exception as e:
+            return self.send_json({"error": self.problem(e)}, 500)
         return super().do_GET()
+
+    def problem(self, e):
+        """What to tell the browser about an unexpected error. With real accounts the details stay in the
+        terminal (they can name folders on this computer) and the browser gets a reference to quote."""
+        if not self.service.accounts.enabled():
+            return f"Penny hit an unexpected problem: {type(e).__name__}: {e}"
+        import sys, traceback, uuid
+        ref = uuid.uuid4().hex[:8]
+        print(f"[{ref}] {self.command} {self.path}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return f"Penny hit an unexpected problem. Tell your Admin this reference: {ref}"
+
+    def addr(self):
+        """The computer asking. Behind a proxy on this same computer (--allow-http), every request arrives from
+        the proxy, so the address the proxy reports is used instead; otherwise one person could lock everyone out."""
+        peer = self.client_address[0]
+        if getattr(self.server, "behind_proxy", False) and peer in ("127.0.0.1", "::1"):
+            said = (self.headers.get("X-Forwarded-For") or "").split(",")[-1].strip()
+            return said[:64] or peer
+        return peer
 
     def account_routes(self, parts, raw):
         """Sign-in, links, people and preferences. Returns a response, or None when the path is not one of these."""
@@ -791,7 +872,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         if parts == ["api", "auth", "login"]:
             if not acc.enabled():
                 raise BatchError("This copy of Penny uses the demo accounts.", 409)
-            token, user = acc.sign_in(body.get("email"), body.get("password"), addr=self.client_address[0])
+            token, user = acc.sign_in(body.get("email"), body.get("password"), addr=self.addr())
             return self.send_json({"user": user}, cookie=token)
         if parts == ["api", "auth", "logout"]:
             acc.sign_out(self.session_token())
@@ -891,7 +972,11 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         url = urlparse(self.path)
         parts = [p for p in url.path.split("/") if p]
         try:
-            length = int(self.headers.get("Content-Length") or 0)
+            if not self.host_ok():
+                raise BatchError("Request refused: this Penny only answers on this computer's own address.", 403)
+            self.plain_path()
+            parts = [p for p in urlparse(self.path).path.split("/") if p]
+            length = max(0, int(self.headers.get("Content-Length") or 0)) if (self.headers.get("Content-Length") or "0").strip().isdigit() else 0
             limit = (MAX_EVIDENCE * MAX_EVIDENCE_FILES * 4 // 3 + 1024 * 1024) if parts == ["api", "manual"] else MAX_FILE + 1024
             if parts[:2] == ["api", "events"]:
                 limit = 8 * 1024 * 1024 if parts[2:] == ["import"] else 512 * 1024
@@ -916,7 +1001,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         except json.JSONDecodeError:
             return self.send_json({"error": "The request was not valid JSON."}, 400)
         except Exception as e:                            # never leave the browser hanging without a reason
-            return self.send_json({"error": f"Penny hit an unexpected problem: {type(e).__name__}: {e}"}, 500)
+            return self.send_json({"error": self.problem(e)}, 500)
 
 
 def make_handler(service, web_dir):
@@ -955,6 +1040,8 @@ def make_server(service, web_dir, port, host="127.0.0.1", cert=None, key=None):
     """The web server, listening on `host`. With a certificate and key it speaks https (TLS 1.2 or newer)."""
     httpd = QuietServer((host, port), make_handler(service, web_dir))
     httpd.secure = str(os.environ.get("PENNY_PUBLIC_URL", "")).startswith("https://")     # https provided by a proxy in front
+    httpd.local_only = host in LOOPBACK                    # see PennyHandler.host_ok
+    httpd.behind_proxy = False                             # set by serve() for --allow-http; see PennyHandler.addr
     if cert and key:
         import ssl
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -974,6 +1061,9 @@ def serve(service, web_dir, port, open_browser=True, host="127.0.0.1", cert=None
     if problem:
         raise SystemExit(problem)
     httpd = make_server(service, web_dir, port, host, cert, key)
+    httpd.behind_proxy = bool(allow_http)
+    if allow_http and host in LOOPBACK and str(os.environ.get("PENNY_PUBLIC_URL", "")).startswith("http"):
+        httpd.local_only = False                           # a proxy on this computer forwards the public name
     scheme = "https" if cert and key else "http"
     url = f"{scheme}://{'127.0.0.1' if host in ('0.0.0.0', '::') else host}:{port}/"
     print(f"Penny web app: {url}   (Ctrl+C to stop)")
