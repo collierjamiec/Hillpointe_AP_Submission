@@ -1116,6 +1116,51 @@ class MailerTests(unittest.TestCase):
         self.assertIn("connection refused", f["error"])
 
 
+class EmailTestCommandTests(unittest.TestCase):
+    """(added after submission, v1.7) ./penny email test sends one message and says what to fix when it fails."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_status_never_prints_the_password(self):
+        import io, contextlib
+        from unittest import mock
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"PENNY_SMTP_HOST": "sandbox.smtp.mailtrap.io", "PENNY_SMTP_PASSWORD": "s3cret-app-pw"}), contextlib.redirect_stdout(out):
+            cli.email_cmd(self.tmp, "status")
+        self.assertIn("sandbox.smtp.mailtrap.io", out.getvalue())
+        self.assertNotIn("s3cret-app-pw", out.getvalue())
+        self.assertIn("set", out.getvalue())
+
+    def test_test_email_sent_saved_or_explained(self):
+        import io, contextlib
+        import smtplib
+        from unittest import mock
+        from ap_workflow import mailer
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"PENNY_SMTP_HOST": ""}), contextlib.redirect_stdout(out):
+            cli.email_cmd(self.tmp, "test", "me@hillpointe.com")
+        self.assertIn("saved", out.getvalue())
+        with mock.patch.dict(os.environ, {"PENNY_SMTP_HOST": "smtp.example.com"}):
+            with mock.patch.object(mailer.Outbox, "_smtp", return_value=None), contextlib.redirect_stdout(out):
+                cli.email_cmd(self.tmp, "test", "me@hillpointe.com")
+            self.assertIn("Sent a test email", out.getvalue())
+            with mock.patch.object(mailer.Outbox, "_smtp", side_effect=smtplib.SMTPAuthenticationError(535, b"Username and Password not accepted")):
+                with self.assertRaises(SystemExit) as e:
+                    cli.email_cmd(self.tmp, "test", "me@hillpointe.com")
+        self.assertIn("app password", str(e.exception.code))
+        self.assertEqual([r["status"] for r in mailer.Outbox(self.tmp).list()], ["failed", "sent", "saved"])
+
+    def test_plain_explanations(self):
+        from ap_workflow.mailer import explain
+        self.assertIn("spelling of PENNY_SMTP_HOST", explain("gaierror: [Errno -2] Name or service not known"))
+        self.assertIn("PENNY_SMTP_PORT", explain("TimeoutError: timed out"))
+        self.assertIn("465", explain("SSLError: wrong version number"))
+
+
 class AccountServerTests(unittest.TestCase):
     """(added after submission, v1.7) With accounts on, the server decides who is acting, not the browser."""
 

@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 82 automated checks
+./penny test                                  # run the 85 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
@@ -38,6 +38,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny release 1.7.0 --summary "..."         # (added after submission, v1.6, maintainer) publish a version; add --required to make it the minimum
 ./penny users invite --email you@co.com --name "You" --role admin   # (added after submission, v1.7) turn on real accounts
 ./penny users list                            # (added after submission, v1.7) who has an account
+./penny email test --to you@co.com            # (added after submission, v1.7) send one test email; `email status` shows the settings
 ```
 
 `./penny install` needs Python 3.9 or newer and an internet connection, and it touches nothing outside this folder. It ends with a check that says "Penny is ready". On Windows type `penny` instead of `./penny`. If `./penny` says permission denied, type `bash penny run 1`.

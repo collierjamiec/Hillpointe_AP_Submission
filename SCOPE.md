@@ -394,7 +394,9 @@ downloaded, in a shape a server could collect later.
 * **Real email from a computer** (`ap_workflow/mailer.py`) through the company's mail account, set with environment
   variables so the password is never in a file. Without a mail server, each email is saved and marked "Saved, not
   sent", so an Admin can pass an invitation link on. Once an invitation or reset is really sent, its link is blanked out
-  of the saved copy.
+  of the saved copy. `./penny email status` shows the settings (never the password) and `./penny email test --to ...`
+  sends one test message and says in plain words what to check if it fails. The help center explains trying it
+  safely with a free test inbox such as Mailtrap.
 * **Outbox page:** every email with who sent it, to whom, when, its attachments (name, size, SHA-256) and whether it
   was Sent, Saved or Failed. Admins see all; others see their own. In the public demo, messages are kept in the browser.
 
@@ -412,7 +414,7 @@ downloaded, in a shape a server could collect later.
 
 ### Testing
 
-* 82 Python tests; 48 run without the assessment package. New ones cover invitations (single use, stored only as a
+* 85 Python tests; 51 run without the assessment package. New ones cover invitations (single use, stored only as a
   hash, expiry, Admin only, duplicates), passwords (weak, containing a name, never stored), sign-in (lockout, idle
   timeout, the same message for unknown emails), Admin changes and every guard, forgot password, the mailer (saved
   without a server, links blanked once sent, failures recorded), and the server (data needs a session, an HttpOnly

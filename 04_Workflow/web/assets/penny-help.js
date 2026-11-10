@@ -35,6 +35,7 @@ window.PENNY_HELP = [
     html: `
 <p>This site has four demo accounts, one for each role. Sign out from the menu under your name, then sign in as someone else to see how Penny changes.</p>
 {{accounts}}
+<p>As Sam (Admin), you can also invite new people from <a href="#/users">Users</a>. Their invitation lands in the <a href="#/outbox">Outbox</a>; open its link to set up the account, then sign in as them.</p>
 <p>See <a href="#/help/roles">Roles and permissions</a> for the full list of who can do what.</p>` },
 
   { slug: "shortcuts", section: "Getting started", title: "Keyboard shortcuts",
@@ -60,7 +61,7 @@ window.PENNY_HELP = [
 </ul>
 <p>Every total is a link to the page that explains it.</p>
 <h2>My work</h2>
-<p><a href="#/work">My work</a> groups open holds by the team that acts on them, and lists bills waiting for approval. The count in the side menu always shows how many items are waiting on you.</p>` },
+<p><a href="#/work">My work</a> lists your open holds <strong>most urgent first</strong>: a blocker past its target date, then a bill past or near its due date (bill date plus payment terms), then the oldest holds. Each row says why it is where it is, like "Blocker 2 days overdue" or "Bill 5 days past due". Choose <strong>By team</strong> to group holds by the team that acts on them instead. Approvers see the bills waiting for their sign-off. The count in the side menu always shows how many items are waiting on you.</p>` },
 
   { slug: "review", section: "Using the web app", title: "Reviewing an invoice",
     summary: "How to read an invoice page from top to bottom.",
@@ -75,6 +76,13 @@ window.PENNY_HELP = [
 </ul>
 <h2>The callout</h2>
 <p>For a held invoice, the colored box says what Penny found, what to do next, and which team it goes to. The short code (like OVERPO) is shown on the right for anyone who needs it.</p>
+<h2>Cards under the callout</h2>
+<ul>
+  <li><strong>Blockers:</strong> each reason for a hold, with its owner, target date, notes, files and who verified it, and how many are cleared. See <a href="#/help/blockers">Blockers</a>.</li>
+  <li><strong>Recheck preview:</strong> after you choose <strong>Recheck</strong>, the saved result beside what Penny would decide now. See <a href="#/help/recheck">Recheck</a>.</li>
+  <li><strong>Manual entry:</strong> for a file Penny could not read, an offer to key it by hand, or where that entry stands. An invoice keyed by hand is marked <strong>Keyed by hand</strong>. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</li>
+  <li><strong>Suggested fixes:</strong> ready-made resolutions learned from earlier ones. See <a href="#/help/suggestions">Suggested fixes</a>.</li>
+</ul>
 <h2>The tabs</h2>
 <ul>
   <li><strong>Checks:</strong> every check Penny ran, in order, with pass or fail.</li>
@@ -96,6 +104,11 @@ window.PENNY_HELP = [
   <li><strong>Reassign.</strong> Send the hold to a different team, with a note that says why.</li>
   <li><strong>Reopen.</strong> Undo a clear or reject. The earlier decision stays in the audit trail.</li>
 </ul>
+<h2>Before you resolve</h2>
+<ul>
+  <li>Work each reason as a <a href="#/help/blockers">blocker</a>: give it an owner and a target date, attach proof, and mark it cleared. When some blockers are still open, the Resolve dialog says so.</li>
+  <li>Choose <strong>Recheck</strong> to see what Penny would decide now, without saving anything. If the preview passes, a <strong>Resolve hold</strong> button appears right there.</li>
+</ul>
 <div class="help-note">Resolving a hold never changes Penny's own result. The record of what Penny decided, and what a person decided after, are both kept.</div>` },
 
   { slug: "approve", section: "Using the web app", title: "Approving a bill",
@@ -107,7 +120,9 @@ window.PENNY_HELP = [
   <li>Choose <strong>Review approval</strong>.</li>
   <li>Pick the approval step you are signing for, then <strong>Approve</strong> or <strong>Send back</strong>. Sending back needs a note.</li>
 </ol>
-<p>The bill shows <em>Approved</em> once every step is approved, or <em>Sent back</em> if any step was sent back.</p>` },
+<p>The bill shows <em>Approved</em> once every step is approved, or <em>Sent back</em> if any step was sent back.</p>
+<h2>Ask someone to approve</h2>
+<p>On a bill that is waiting, choose <strong>Email for approval</strong>. Penny suggests Approvers, lists the approvals needed, links to the bill, and attaches the original invoice. See <a href="#/help/email">Emailing exports and approval requests</a>.</p>` },
 
   { slug: "new-batch", section: "Using the web app", title: "Adding a new batch of invoices",
     summary: "Name it, add the PDFs, preview or run. Every step is recorded.",
@@ -123,6 +138,9 @@ window.PENNY_HELP = [
     </ul></li>
 </ol>
 <p>When it finishes you see the results and can open the run, or go straight to what needs review.</p>
+<h2>Batches waiting to run</h2>
+<p>On your computer, the New batch page also lists every folder in <code>inbox/</code> that has not been run for real yet, including invoices saved from <a href="#/help/manual-entry">manual entry</a>. Each shows its files, any manual entries and evidence, who created it and its last preview. Choose <strong>Preview</strong>, or <strong>Run for real</strong> as an Admin.</p>
+<p>If a <a href="#/help/updates">required update</a> is waiting, adding batches and real runs pause until Penny is updated. Previews still work.</p>
 <h2>What is recorded</h2>
 <p>Every step is written to <code>state/batch_log.jsonl</code> on the Penny computer, and shown in the <a href="#/audit">Audit trail</a> marked "On disk": who created the batch, who uploaded which files (name, size and a SHA-256 fingerprint that proves the exact file), who ran it, when, the folder, the run ID, preview or real, the results and the pre-flight check. A run that fails is recorded too.</p>
 <div class="help-note"><strong>Where this works.</strong> Reading invoices needs Penny's engine, so batches run only when the web app is started on your computer with <code>./penny web --package &lt;package folder&gt;</code>. On the public demo site you can try every step, and the last one explains what would happen. Nothing is uploaded from the demo.</div>` },
@@ -236,6 +254,15 @@ export PENNY_SMTP_USER=ap-penny@yourcompany.com
 export PENNY_SMTP_PASSWORD='an app password'
 export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for links</pre>
 <p>Without a mail server, nothing is sent: each email is saved in the Outbox and marked "Saved, not sent", so an Admin can pass an invitation link on by hand. Once an invitation or reset is really sent, its link is blanked out of the saved copy.</p>
+<h2>Try real email with a free test inbox</h2>
+<p>A testing service such as Mailtrap gives you a private inbox that catches every email Penny sends, so nothing reaches a real person by mistake. It is the safest way to see invitations and resets work end to end.</p>
+<ol>
+  <li>Create a free Mailtrap account and open its email testing inbox.</li>
+  <li>Copy the SMTP host, port, username and password it shows (for example <code>sandbox.smtp.mailtrap.io</code>, port <code>2525</code>), and set them as <code>PENNY_SMTP_HOST</code>, <code>PENNY_SMTP_PORT</code>, <code>PENNY_SMTP_USER</code> and <code>PENNY_SMTP_PASSWORD</code>.</li>
+  <li>Run <code>./penny email status</code> to check the settings (it never prints the password), then <code>./penny email test --to you@yourcompany.com</code>. The message appears in the Mailtrap inbox. If it fails, Penny says what to check.</li>
+  <li>Start <code>./penny web</code> and invite someone from <a href="#/users">Users</a>. Open the invitation in Mailtrap and follow its link to set up the account.</li>
+</ol>
+<p>To deliver to real inboxes instead, use a sending service with SMTP (for example Brevo, Mailjet or Resend, which have free plans; check their current limits) or your company mail account.</p>
 <div class="help-note">In this public demo there is no email at all. Messages go to the Outbox in your browser, and their links work there.</div>` },
 
   { slug: "appearance", section: "Using the web app", title: "Appearance: themes, colors and comfort",
@@ -325,6 +352,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><strong>Run summary</strong><br><code>run_report.md</code></td><td>One page with the counts, every decision and the pre-flight check. Choose View to read it on the page.</td><td>Anyone</td></tr>
 </tbody></table>
 <p>Downloads are named so you can tell them apart later, for example "Penny - Batch 01 - Intacct bill import file.csv".</p>
+<p>Choose <strong>Email</strong> next to any file to send it with the file attached and a note saying what it is. Penny only emails its users and the company's allowed domains. See <a href="#/help/email">Emailing exports and approval requests</a>.</p>
 <div class="help-note"><strong>Generated is not imported.</strong> A bill in an import file still has to be uploaded and approved before it is paid.</div>` },
 
   { slug: "runs", section: "Using the web app", title: "Run history",
@@ -341,8 +369,15 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
     summary: "Who did what, when and why.",
     html: `
 <p>The <a href="#/audit">Audit trail</a> lists every Penny run and every action a person took, newest first. Filter by person or action, or download it as a CSV file.</p>
+<p>It brings together three sources:</p>
+<ul>
+  <li><strong>Penny's runs</strong>, with what each one decided.</li>
+  <li><strong>What people did in Penny:</strong> resolving and reassigning holds, blockers and their files, manual entries and second checks, approvals, notes, and rule changes (including the time zone and the company look).</li>
+  <li><strong>What the Penny computer recorded</strong>, marked "On disk": new batches, uploads with file fingerprints, runs and failures, rechecks with the fingerprints they used, saved manual entries, invitations, account changes, password resets, sign-ins, and every email with its attachments and whether it was sent.</li>
+</ul>
 <ul>
   <li>Entries are never edited or deleted. An undo is a new entry that points back to the one it undoes.</li>
+  <li>Times show in the company time zone, and entries from the same second keep the order they happened in.</li>
   <li>Each entry shows the before and after, and the note the person wrote.</li>
   <li>The CSV download protects against spreadsheet formula tricks, so it is safe to open in Excel.</li>
 </ul>` },
@@ -376,7 +411,13 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 ./penny install          # one time: creates .venv and installs the libraries
 ./penny check            # confirms Python, libraries, package and register
 ./penny demo --package ~/Downloads/Hillpointe_AP_Technical_Screen</code></pre>
-<p>On Windows, type <code>penny</code> instead of <code>./penny</code>. If you see "permission denied", type <code>bash penny install</code>.</p>` },
+<p>On Windows, type <code>penny</code> instead of <code>./penny</code>. If you see "permission denied", type <code>bash penny install</code>.</p>
+<h2>Next, for a team</h2>
+<ol>
+  <li>Create the first Admin: <code>./penny users invite --email you@company.com --name "Your Name" --role admin</code>. Penny prints the set-up link if email is not set up yet.</li>
+  <li>Set up email so invitations, resets and exports go out (see <a href="#/help/email">Emailing exports and approval requests</a>).</li>
+  <li>Start the web app with <code>./penny web --package &lt;folder&gt;</code>, open the link, choose your password, and invite everyone else from <a href="#/users">Users</a>.</li>
+</ol>` },
 
   { slug: "commands", section: "Using Penny in the terminal", title: "Command reference",
     summary: "Every terminal command and what it does.",
@@ -392,6 +433,13 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny reset</code></td><td>Forget everything and start fresh.</td></tr>
 <tr><td><code>./penny web-export --package &lt;folder&gt;</code></td><td>Package the saved runs and invoice PDFs for this web view.</td></tr>
 <tr><td><code>./penny web --package &lt;folder&gt;</code></td><td>Open this web app on your computer, with New batch able to upload and run invoices. Without <code>--package</code>, batches can be uploaded but not run.</td></tr>
+<tr><td><code>./penny --version</code></td><td>Show which version of Penny this is.</td></tr>
+<tr><td><code>./penny update</code></td><td>Show what is new and update from GitHub. Add <code>--check</code> to only look, or <code>--skip</code> to wait on an optional version. Your register, runs and batches are never touched.</td></tr>
+<tr><td><code>./penny users invite --email &lt;email&gt; --name "Name" --role admin</code></td><td>Invite someone. The first invite turns on real accounts, so everyone signs in with their own password.</td></tr>
+<tr><td><code>./penny users list</code></td><td>List everyone with an account, their role and status.</td></tr>
+<tr><td><code>./penny email status</code></td><td>Show the mail settings Penny will use. The password is never printed.</td></tr>
+<tr><td><code>./penny email test --to &lt;email&gt;</code></td><td>Send one test email. If it fails, Penny says what to check.</td></tr>
+<tr><td><code>./penny release 1.8.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },
 
@@ -521,7 +569,11 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>construction</code></td><td>Posting entity, department and retainage account.</td></tr>
 <tr><td><code>terms_days</code></td><td>Days for each payment term.</td></tr>
 <tr><td><code>display.time_zone</code></td><td>The company time zone. Times in the web app and new batch folder dates use it.</td></tr>
-</tbody></table>` },
+<tr><td><code>display.theme</code></td><td>The company look (colors, background and corners). Set it on the <a href="#/appearance">Appearance</a> page.</td></tr>
+<tr><td><code>email.allowed_domains</code></td><td>The only domains Penny may email, besides its own users. Files are attached, so keep this to your company.</td></tr>
+<tr><td><code>email.max_recipients</code></td><td>The most people one email may go to.</td></tr>
+</tbody></table>
+<p>The thresholds above include <strong>Manual entry second check</strong>: invoices keyed by hand with a total over it are keyed again by a different person.</p>` },
 
   { slug: "roles", section: "Reference", title: "Roles and permissions",
     summary: "Who can see and do what.",
@@ -535,8 +587,10 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <dt>Accounts payable (AP)</dt><dd>The team and process that pays the company's bills.</dd>
 <dt>Approver</dt><dd>A person who must sign off on a bill before it is paid, based on its category and amount.</dd>
 <dt>Audit trail</dt><dd>A permanent record of who did what, when and why.</dd>
+<dt>Blocker</dt><dd>One reason a held invoice is waiting, tracked on its own with an owner, a target date, notes, files and a verifier.</dd>
 <dt>Bill-to</dt><dd>The company named on the invoice as the one being billed. It must be a Hillpointe legal entity.</dd>
 <dt>Certificate of insurance (COI)</dt><dd>Proof that a vendor has the required insurance. It must be valid on the bill date.</dd>
+<dt>Company look</dt><dd>The colors and corners everyone sees unless they choose their own. An Admin sets it.</dd>
 <dt>Change order</dt><dd>An approved change to a contract's scope or price. Only executed change orders may be billed.</dd>
 <dt>Credit memo</dt><dd>A document that reduces what is owed. Penny processes credits first.</dd>
 <dt>Dry run</dt><dd>A run that writes files for review but does not change Penny's register.</dd>
@@ -547,11 +601,16 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <dt>GL account</dt><dd>The general ledger account a cost is recorded to.</dd>
 <dt>Hold</dt><dd>An invoice Penny will not put in any file until a person resolves the problem.</dd>
 <dt>Import file</dt><dd>The CSV file a person uploads into Sage Intacct. Being in it does not mean posted or paid.</dd>
+<dt>Keyed by hand</dt><dd>An invoice a person typed in from a screenshot or re-saved copy because Penny could not read the file. Penny still checks it.</dd>
 <dt>Lien waiver</dt><dd>A subcontractor's release of lien rights for work that is paid. Pay applications need a matching one.</dd>
+<dt>Maker-checker</dt><dd>A control where a second person repeats key work without seeing the first person's answer. Penny uses it for manual entries over a dollar limit.</dd>
+<dt>Outbox</dt><dd>The list of every email Penny sent or saved, with its attachments and whether it went out.</dd>
 <dt>Pay application</dt><dd>A contractor's request for payment on work completed so far, with retainage held back.</dd>
 <dt>Pre-flight</dt><dd>Penny's check of the import file, done the way Intacct would, before anything is saved.</dd>
 <dt>Purchase order (PO)</dt><dd>An approved order for goods or services, with a dollar limit.</dd>
+<dt>Recheck</dt><dd>A preview of what Penny would decide now for a held invoice. Nothing is saved.</dd>
 <dt>Register</dt><dd>Penny's memory of every bill it has processed, used to stop duplicates.</dd>
+<dt>Required update</dt><dd>A Penny version everyone must install. Until they do, Penny is read-only for them.</dd>
 <dt>Retainage</dt><dd>A share of each payment held back until the work is finished, set in the rules.</dd>
 <dt>Route</dt><dd>The team a hold is sent to, set in the rules.</dd>
 <dt>Run</dt><dd>One pass of Penny over a folder of invoices.</dd>
@@ -580,15 +639,23 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>It only accepts connections from your own computer.</li>
   <li>Every write request needs a special header that other websites cannot send, and requests from other sites are refused.</li>
   <li>Uploads must be real PDFs, 25 MB or less, with safe names that can only land inside the batch folder.</li>
-  <li>A Clerk can preview; only an Admin can run for real. In this demo the server trusts the signed-in demo account; a production server would check the person itself.</li>
+  <li>A Clerk can preview; only an Admin can run for real. Without accounts, the server trusts the signed-in demo account. Once accounts are on, it checks the person itself (below).</li>
   <li>Every step, including failures, is appended to <code>state/batch_log.jsonl</code> and never rewritten.</li>
   <li>Uploaded invoices stay in <code>inbox/</code> on your computer and are left out of git, so they are not published by accident.</li>
 </ul>
+<h2>Real accounts on your computer</h2>
+<ul>
+  <li>Once the first Admin is invited, Penny on your computer checks every password itself. Passwords are salted PBKDF2 hashes (200,000 rounds); invitation and reset links are stored only as hashes, work once and expire.</li>
+  <li>The session is an HttpOnly, SameSite=Strict cookie that page scripts cannot read and other sites cannot send. It ends after 30 idle minutes, and at once when someone is turned off or their role changes.</li>
+  <li>Every request acts as the signed-in person. Anything the browser says about who it is is ignored, so a Viewer cannot pretend to be an Admin.</li>
+  <li>Email passwords live in environment variables, never in a project file. Links are blanked out of saved copies once an email is really sent, and files are only emailed to Penny users and the company's allowed domains.</li>
+  <li>Account files, links and the outbox are left out of git.</li>
+</ul>
 <h2>What production would add</h2>
 <ul>
-  <li>A server that checks every password and every action, with Argon2id hashing.</li>
-  <li>Secure, HttpOnly session cookies and protection against cross-site requests.</li>
-  <li>The audit trail in a database that only allows new entries.</li>
+  <li>Running for a whole team over the network, with https (so cookies can also be marked Secure).</li>
+  <li>Argon2id password hashing, and the audit trail in a database that only allows new entries.</li>
+  <li>People's actions in Penny (resolves, approvals, notes, rule changes) stored on the server too, not only in each browser.</li>
   <li>Single sign-on with the company's identity provider.</li>
 </ul>
 <div class="help-note">The demo accounts and passwords are public. Never type a real password into this site.</div>` },
@@ -608,6 +675,12 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>Yes, in one specific way: how people resolve holds becomes a suggested fix for the next invoice held for the same reason. It never changes how Penny decides; that stays in tested rules.</p>
 <h2>Why is an amount shown as "Not read"?</h2>
 <p>Penny could not read the numbers from that document, so it does not show a guess.</p>
+<h2>Does the demo send real email?</h2>
+<p>No. Invitations, resets and emailed files go to the <a href="#/outbox">Outbox</a> in your browser, and their links work there. Penny on your computer sends real email once a mail account is set up.</p>
+<h2>Can I make Penny easier on my eyes?</h2>
+<p>Yes. Open <a href="#/appearance">Appearance</a> to pick light or dark, a larger text size, a theme or your own color, compact density, or less motion. It is saved to your account.</p>
+<h2>What if Penny cannot read an invoice?</h2>
+<p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 
@@ -622,6 +695,9 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Bills in unfamiliar layouts are described honestly instead of being called "not a bill".</li>
   <li>This web view, with sign-in, roles, real actions, rules editing, an audit trail and this help center.</li>
   <li>Suggested fixes that learn from how holds were resolved, usage insights, and uploading and running new batches from the browser.</li>
+  <li>Blockers with owners and evidence, recheck previews, a rule simulator, manual entry with a second-person check, and a most-urgent-first queue (1.5).</li>
+  <li>The version on every screen, and updates that are required or optional (1.6.0).</li>
+  <li>Managing people with invitations and resets, emailing files and approval requests, and appearance settings (1.7.0).</li>
 </ul>
 <p>Each version is documented on its own, so it is always clear what was asked for and what was chosen. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/SCOPE.md" target="_blank" rel="noopener">Read the full scope and version history on GitHub.</a></p>` },
 ];

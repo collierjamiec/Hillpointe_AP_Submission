@@ -35,6 +35,36 @@ def configured():
     return bool(os.environ.get("PENNY_SMTP_HOST"))
 
 
+def settings():
+    """What is set up, for ./penny email status. Never the password itself, only whether one is set."""
+    env = os.environ
+    return {"PENNY_SMTP_HOST": env.get("PENNY_SMTP_HOST", ""), "PENNY_SMTP_PORT": env.get("PENNY_SMTP_PORT", "") or "587 (default)",
+            "PENNY_SMTP_USER": env.get("PENNY_SMTP_USER", ""), "PENNY_SMTP_PASSWORD": "set" if env.get("PENNY_SMTP_PASSWORD") else "",
+            "PENNY_SMTP_FROM": env.get("PENNY_SMTP_FROM", "") or (env.get("PENNY_SMTP_USER", "") and "same as PENNY_SMTP_USER"),
+            "PENNY_PUBLIC_URL": env.get("PENNY_PUBLIC_URL", "") or "the address in the browser (default)"}
+
+
+def explain(error):
+    """Turn a mail error into what to check, in plain words."""
+    e = str(error or "")
+    low = e.lower()
+    if "authentication" in low or "535" in e or "534" in e or "username and password" in low:
+        return ("The mail server refused the username or password. Check PENNY_SMTP_USER and PENNY_SMTP_PASSWORD. "
+                "Gmail and Microsoft 365 need an app password, not your normal password.")
+    if "getaddrinfo" in low or "name or service not known" in low or "nodename nor servname" in low or "gaierror" in low:
+        return "Penny could not find that mail server. Check the spelling of PENNY_SMTP_HOST."
+    if "timed out" in low or "timeout" in low:
+        return ("The mail server did not answer. Check PENNY_SMTP_PORT (587 is most common; Mailtrap also offers 2525), "
+                "and that your network allows outgoing mail.")
+    if "refused" in low:
+        return "The mail server turned the connection away. Check PENNY_SMTP_HOST and PENNY_SMTP_PORT."
+    if "ssl" in low or "wrong version number" in low or "starttls" in low:
+        return "The secure connection failed. Use port 465 for SSL, or 587 (or 2525) for STARTTLS."
+    if "sender" in low or "553" in e or "550" in e:
+        return "The server would not send from that address. Set PENNY_SMTP_FROM to an address your mail account may send as."
+    return "Check the mail settings with ./penny email status, then try again."
+
+
 def describe():
     """For the web app and the terminal: where email goes, without any secret."""
     if not configured():
