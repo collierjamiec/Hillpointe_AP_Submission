@@ -29,7 +29,8 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 85 automated checks
+./penny test                                  # run the 91 automated checks
+python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web --package <package>               # (added after submission) open the web app; New batch uploads and runs invoices
@@ -76,6 +77,9 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Foundation (v1.8.0):** browser suites in `tests/browser/` (see its `run.py`), Python tests split into
+  `tests/test_engine.py`, `test_web.py` and `test_platform.py`, the web app split into `web/assets/penny-*.js`
+  (load order in `web/index.html`), a content security policy, and bundled fonts.
 * **People, email and appearance (v1.7.0):** Admins invite people, set roles, turn accounts off and send resets
   (`ap_workflow/accounts.py`; real accounts once `./penny users invite` creates the first Admin). Exports and approval
   requests are emailed with the file attached (`ap_workflow/mailer.py`; set `PENNY_SMTP_HOST`, `PENNY_SMTP_PORT`,

@@ -1,0 +1,8 @@
+{
+  "name": "penny-browser-tests",
+  "private": true,
+  "description": "Browser tests for Penny's web app. Run with: python run.py",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

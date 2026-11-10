@@ -22,11 +22,13 @@ LOG_COLS = ["run_id", "source_file", "file_sha256", "decision", "codes", "vendor
 
 
 def make_key(vendor_id, bill_no, doc_type):
+    """The duplicate key: vendor ID, normalized invoice number, and Bill or Adjustment."""
     return f"{vendor_id}|{norm_invoice_no(bill_no)}|{doc_type}"
 
 
 class Register:
     def __init__(self, state_dir: Path):
+        """Load the register from state_dir (an empty one if this is the first run)."""
         self.dir = Path(state_dir)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.path = self.dir / "processed_register.csv"
@@ -38,12 +40,15 @@ class Register:
                     self.rows[r["key"]] = r
 
     def get(self, key):
+        """The register row for a key, or None."""
         return self.rows.get(key)
 
     def entered(self):
+        """Every row whose bill was written to an import file."""
         return [r for r in self.rows.values() if r["status"] == "ENTERED"]
 
     def upsert(self, key, **kw):
+        """Add or update a row. The first run that saw the key is kept."""
         r = self.rows.get(key, {c: "" for c in COLS})
         r["key"] = key
         for k, v in kw.items():
@@ -53,6 +58,7 @@ class Register:
         self.rows[key] = r
 
     def save(self):
+        """Write the register CSV, sorted by key so it diffs cleanly."""
         with open(self.path, "w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=COLS)
             w.writeheader()
@@ -60,6 +66,7 @@ class Register:
                 w.writerow({c: self.rows[k].get(c, "") for c in COLS})
 
     def append_log(self, rows):
+        """Append one line per document to the run log. It is never rewritten."""
         new = not self.log_path.exists()
         with open(self.log_path, "a", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=LOG_COLS)

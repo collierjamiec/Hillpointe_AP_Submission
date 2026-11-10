@@ -25,13 +25,16 @@ class ScratchRegister(Register):
     """A register that lives only in memory. It starts as a copy and can never be saved."""
 
     def __init__(self, rows=None):
+        """Start from a copy of the given rows, with no files behind it."""
         self.dir = self.path = self.log_path = None
         self.rows = copy.deepcopy(rows or {})
 
     def save(self):
+        """Refuse: a preview must never change the real register."""
         raise RuntimeError("A preview never saves the register.")
 
     def append_log(self, rows):
+        """Refuse: a preview must never write the run log."""
         raise RuntimeError("A preview never writes the run log.")
 
 
@@ -90,6 +93,7 @@ def brief(dec) -> dict:
 
 
 def _same(a, b):
+    """Whether two decisions agree on what a person would notice: outcome, codes and approvers."""
     return (a["decision"], a["codes"], a["approvers"]) == (b["decision"], b["codes"], b["approvers"])
 
 

@@ -29,12 +29,14 @@ DUE_AMOUNT = re.compile(r"(?:AMOUNT DUE|BALANCE DUE|TOTAL DUE|INVOICE TOTAL|PAY 
 
 
 def _strip_titles(s):
+    """Remove a document title (INVOICE, CREDIT MEMO ...) from the end of a header line."""
     for t in TITLES:
         s = re.sub(rf"\s*\b{t}\b\s*$", "", s.strip())
     return s.strip()
 
 
 def _find(pattern, text, flags=0, group=1, default=""):
+    """The first match of a pattern in text (one capture group), or a default."""
     m = re.search(pattern, text, flags)
     return m.group(group).strip() if m else default
 
@@ -54,22 +56,9 @@ def unreadable_doc(path: Path, problem: str) -> dict:
     }
 
 
-def extract_with_rules(path: Path, cfg: dict) -> dict:
-    pdf = read_pdf(path)
-    text = pdf["text"]
-    lines = [l.rstrip() for l in text.splitlines()]
-    warnings = []
-
-    doc = {
-        "file": path.name,
-        "supdoc_id": path.stem,
-        "sha256": sha256_file(path),
-        "pages": pdf["pages"],
-        "stamps": sorted(set(pdf["stamps"])),
-        "raw_text": text,
-        "extraction": {"method": "rules", "warnings": warnings},
-    }
-
+def _read_kind(doc, text):
+    """Decide what kind of document this is (invoice, credit memo, pay application, other, or a bill in a layout
+    the parser does not know) and record it. Returns the kind."""
     upper = text.upper()
     is_waiver_only = "CONDITIONAL WAIVER AND RELEASE" in upper and not re.search(r"Invoice No\.|Credit Memo No\.", text)
     if "CREDIT MEMO" in upper.split("BILL TO")[0]:
@@ -89,7 +78,12 @@ def extract_with_rules(path: Path, cfg: dict) -> dict:
     else:
         kind = "other"
     doc["kind"] = kind
+    return kind
 
+
+def _read_header(doc, text, lines):
+    """The header fields: invoice number, date, printed terms, the Customer Ref and every contract number on the
+    page, plus the bill-to and ship-to blocks."""
     # ---- header -------------------------------------------------------------------------
     doc["invoice_no"] = _find(r"(?m)(?:Invoice No\.|Credit Memo No\.)[ \t]+(.+?)[ \t]*$", text)
     d = _find(r"(?m)\bDate[ \t]+(\d{2}/\d{2}/\d{4})", text)
@@ -139,6 +133,9 @@ def extract_with_rules(path: Path, cfg: dict) -> dict:
             break
     doc["ship_to"] = ship
 
+
+def _read_vendor(doc, text, lines):
+    """Who sent it: the vendor name from the top of the page, the remit-to line, and every phone and email shown."""
     # ---- vendor block / remit ------------------------------------------------------------
     remit_line = _find(r"(?m)^REMIT TO:\s*(.+)$", text)
     remit_name, remit_addr = "", ""
@@ -177,6 +174,10 @@ def extract_with_rules(path: Path, cfg: dict) -> dict:
     doc["emails_on_doc"] = sorted(set(EMAIL_RE.findall(text)))
     doc["phones_on_doc"] = sorted(set(PHONE_RE.findall(text)))
 
+
+def _read_flags(doc, text, cfg, kind):
+    """Things a person must know about: payment-change wording, a revised invoice and what it replaces, and the
+    original invoice a credit memo refers to."""
     # ---- flags ---------------------------------------------------------------------------
     low = text.lower()
     doc["payment_change_hits"] = sorted({p for p in cfg["payment_change_phrases"] if p in low})
@@ -184,6 +185,30 @@ def extract_with_rules(path: Path, cfg: dict) -> dict:
     doc["replaces_invoice"] = _find(r"[Rr]eplaces (?:original )?invoice\s+([A-Za-z0-9\-]+)", text)
     doc["credit_original_invoice"] = _find(r"original invoice\s+([A-Za-z0-9\-]+)", text) if kind == "credit_memo" else ""
     doc["new_client_note"] = "new client" in low
+
+
+def extract_with_rules(path: Path, cfg: dict) -> dict:
+    """Read one PDF with the rules parser: what kind of document it is, the header fields, both parties, payment
+    flags, and the money. It only reads; validate_extraction and the Engine decide what the reading means."""
+    pdf = read_pdf(path)
+    text = pdf["text"]
+    lines = [l.rstrip() for l in text.splitlines()]
+    warnings = []
+
+    doc = {
+        "file": path.name,
+        "supdoc_id": path.stem,
+        "sha256": sha256_file(path),
+        "pages": pdf["pages"],
+        "stamps": sorted(set(pdf["stamps"])),
+        "raw_text": text,
+        "extraction": {"method": "rules", "warnings": warnings},
+    }
+
+    kind = _read_kind(doc, text)
+    _read_header(doc, text, lines)
+    _read_vendor(doc, text, lines)
+    _read_flags(doc, text, cfg, kind)
 
     # ---- money ---------------------------------------------------------------------------
     if kind in ("invoice", "credit_memo"):
@@ -197,6 +222,7 @@ def extract_with_rules(path: Path, cfg: dict) -> dict:
 
 
 def _parse_invoice_money(doc, lines, kind, warnings):
+    """Read an invoice or credit memo's line items, subtotal, tax and total."""
     start = next((i for i, l in enumerate(lines) if re.match(r"^Description\s+Qty", l)), None)
     items = []
     subtotal = tax_total = total = None
@@ -248,6 +274,7 @@ def _parse_invoice_money(doc, lines, kind, warnings):
 
 
 def _parse_pay_app(doc, lines, text, warnings):
+    """Read a pay application's ten summary lines, its continuation sheet and the change orders it bills."""
     pa = {}
     m = re.search(r"Application No\.\s*(\d+)\s+Period:\s*(\d{2}/\d{2}/\d{4})\s*to\s*(\d{2}/\d{2}/\d{4})", text)
     if m:
@@ -299,6 +326,8 @@ def _parse_pay_app(doc, lines, text, warnings):
 
 
 def _parse_waiver(text):
+    """Whether a conditional lien waiver is attached or only promised, and when attached its claimant, amount,
+    through date, and whether the signature line looks blank."""
     w = {"attached": False, "promised_later": False}
     if "CONDITIONAL WAIVER AND RELEASE" in text.upper():
         w["attached"] = True

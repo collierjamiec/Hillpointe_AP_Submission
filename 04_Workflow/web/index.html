@@ -7,15 +7,12 @@
   <meta name="description" content="Penny reads vendor invoices, applies accounts payable rules, and shows people exactly what to enter, what to hold, and why.">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Content security policy (added in v1.8): scripts, fonts and data come only from this site. Inline styles are
+       allowed because the app sets colors and widths on elements; inline scripts are not. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="assets/penny.css">
-  <script>
-    try { var t = localStorage.getItem("penny.theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-    try { var c = localStorage.getItem("penny.appearance.css"); if (c) { var st = document.createElement("style"); st.id = "appearance"; st.textContent = c; document.head.appendChild(st); } } catch (e) {}
-    try { if (sessionStorage.getItem("penny.introSeen")) document.documentElement.classList.add("intro-seen"); } catch (e) {}
-  </script>
+  <script src="assets/penny-boot.js"></script>
 </head>
 <body class="booting">
   <!-- The penny, drawn once and reused: sidebar, intro and sign-in. Original artwork. -->
@@ -166,6 +163,19 @@
   <dialog class="dialog" id="dialog" aria-labelledby="dialog-title"></dialog>
   <script src="assets/penny-auth.js"></script>
   <script src="assets/penny-help.js"></script>
-  <script src="assets/penny.js" defer></script>
+  <!-- The app, in load order. Each file's first lines say what it holds. -->
+  <script src="assets/penny-core.js" defer></script>
+  <script src="assets/penny-invoices.js" defer></script>
+  <script src="assets/penny-holds.js" defer></script>
+  <script src="assets/penny-manual.js" defer></script>
+  <script src="assets/penny-resolve.js" defer></script>
+  <script src="assets/penny-rules.js" defer></script>
+  <script src="assets/penny-records.js" defer></script>
+  <script src="assets/penny-batch.js" defer></script>
+  <script src="assets/penny-pages.js" defer></script>
+  <script src="assets/penny-appearance.js" defer></script>
+  <script src="assets/penny-accounts.js" defer></script>
+  <script src="assets/penny-audit-help.js" defer></script>
+  <script src="assets/penny-app.js" defer></script>
 </body>
 </html>

@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = ROOT / "VERSION"
 RELEASES_FILE = ROOT / "releases.json"
 WEB_RELEASES = ROOT / "web" / "data" / "releases.json"
-WEB_APP = ROOT / "web" / "assets" / "penny.js"
+WEB_APP = ROOT / "web" / "assets" / "penny-core.js"       # where APP_VERSION lives
 REMOTE_URL = "https://raw.githubusercontent.com/collierjamiec/Hillpointe_AP_Submission/main/04_Workflow/releases.json"
 CHECK_EVERY = 24 * 3600
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
@@ -52,10 +52,12 @@ def parse(v):
 
 
 def current(root=ROOT):
+    """The version this copy of Penny is, from the VERSION file."""
     return (Path(root) / "VERSION").read_text(encoding="utf-8").strip()
 
 
 def load_releases(path=RELEASES_FILE):
+    """Every release in releases.json, newest first. Raises when the file has none or a bad version."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     rel = data.get("releases") if isinstance(data, dict) else None
     if not isinstance(rel, list) or not rel:
@@ -92,6 +94,7 @@ def status(version, releases, skipped=None):
 
 # ------------------------------------------------------------------------------------------- the update check
 def _read_json(path, default):
+    """A JSON file's contents, or the default when it is missing or damaged."""
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -133,6 +136,7 @@ def check(state_dir, root=ROOT, force=False, fetch=None, now=None):
 
 
 def _fetch(url):
+    """Download the published release list (at most 512 KB, 3 second timeout)."""
     req = urllib.request.Request(url, headers={"User-Agent": "penny-update-check"})
     with urllib.request.urlopen(req, timeout=3) as r:
         return r.read(512 * 1024).decode("utf-8")
@@ -177,7 +181,7 @@ def release(version, summary, notes=(), required=False, root=ROOT, today=None):
     (root / "web" / "data").mkdir(parents=True, exist_ok=True)
     (root / "web" / "data" / "releases.json").write_text(text, encoding="utf-8")
     (root / "VERSION").write_text(version + "\n", encoding="utf-8")
-    app = root / "web" / "assets" / "penny.js"
+    app = root / "web" / "assets" / "penny-core.js"
     if app.exists():
         js = app.read_text(encoding="utf-8")
         if not APP_VERSION_RE.search(js):
@@ -189,7 +193,7 @@ def release(version, summary, notes=(), required=False, root=ROOT, today=None):
 def consistency(root=ROOT):
     """Every place the version lives, so a test can prove they agree."""
     root = Path(root)
-    js = (root / "web" / "assets" / "penny.js").read_text(encoding="utf-8")
+    js = (root / "web" / "assets" / "penny-core.js").read_text(encoding="utf-8")
     m = APP_VERSION_RE.search(js)
     return {"VERSION": current(root), "releases.json": load_releases(root / "releases.json")[0]["version"],
             "web releases.json": load_releases(root / "web" / "data" / "releases.json")[0]["version"],

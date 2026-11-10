@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def llm_available():
+    """True when an API key and the anthropic package are both present."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return False
     try:
@@ -29,6 +30,7 @@ def llm_available():
 
 
 def _call(cfg, file_name, text):
+    """Ask Claude to read the document text and return the fields as JSON."""
     import anthropic
     prompt = (ROOT / cfg["llm"]["prompt_file"]).read_text(encoding="utf-8")
     system = prompt.split("## System prompt", 1)[1].split("## Output schema", 1)[0].strip()
@@ -45,6 +47,7 @@ def _call(cfg, file_name, text):
 
 
 def merge(doc, j):
+    """Overlay the fields Claude read onto the rules parser's record, keeping the same shape."""
     for k in ("kind", "vendor_name_raw", "invoice_no", "date", "terms_printed", "customer_ref", "bill_to", "ship_to", "remit_to",
               "vendor_address_header", "vendor_phone", "vendor_email", "revised", "replaces_invoice", "credit_original_invoice",
               "lines", "subtotal", "tax_total", "tax_label", "tax_rate", "total", "pay_app", "lien_waiver"):

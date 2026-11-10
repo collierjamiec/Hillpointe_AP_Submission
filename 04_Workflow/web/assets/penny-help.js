@@ -1,6 +1,6 @@
 /* Penny help center: the knowledge base.
    Each article is plain HTML written for people, at about an 8th to 9th grade reading level.
-   Placeholders like {{codes}} are filled in by penny.js from the live data (exception codes, rules, roles,
+   Placeholders like {{codes}} are filled in by penny-audit-help.js from the live data (exception codes, rules, roles,
    shortcuts), so those articles can never drift from what the app actually does. */
 window.PENNY_HELP = [
   // ------------------------------------------------------------------ getting started
@@ -430,6 +430,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny status</code></td><td>Show what the register remembers.</td></tr>
 <tr><td><code>./penny demo</code></td><td>Start fresh, then run Batch 01, a rerun, Batch 02 and a rerun.</td></tr>
 <tr><td><code>./penny test</code></td><td>Run the automated checks.</td></tr>
+<tr><td><code>python tests/browser/run.py</code></td><td>Run the browser tests against a temporary copy of Penny. Needs Node and Playwright; your real data is never touched.</td></tr>
 <tr><td><code>./penny reset</code></td><td>Forget everything and start fresh.</td></tr>
 <tr><td><code>./penny web-export --package &lt;folder&gt;</code></td><td>Package the saved runs and invoice PDFs for this web view.</td></tr>
 <tr><td><code>./penny web --package &lt;folder&gt;</code></td><td>Open this web app on your computer, with New batch able to upload and run invoices. Without <code>--package</code>, batches can be uploaded but not run.</td></tr>
@@ -632,6 +633,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Sessions carry a random token, end when the tab closes, and end after 30 minutes without activity.</li>
   <li>Every action checks your role again when it is saved, not only when the button is shown.</li>
   <li>Everything you type is escaped before it is shown, so a note cannot inject code.</li>
+  <li>A content security policy tells the browser to run scripts only from Penny's own files, never inline ones, so even an injected script would be blocked.</li>
+  <li>Nothing is loaded from other sites. Fonts are bundled, so your visit is not reported to anyone and Penny works offline.</li>
   <li>Downloaded CSV files neutralize spreadsheet formulas.</li>
 </ul>
 <h2>The local server for new batches</h2>
@@ -650,6 +653,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Every request acts as the signed-in person. Anything the browser says about who it is is ignored, so a Viewer cannot pretend to be an Admin.</li>
   <li>Email passwords live in environment variables, never in a project file. Links are blanked out of saved copies once an email is really sent, and files are only emailed to Penny users and the company's allowed domains.</li>
   <li>Account files, links and the outbox are left out of git.</li>
+  <li>Every response carries the same content security policy and headers that stop other sites from framing Penny or guessing file types. The record of failed sign-ins is capped, so it cannot grow without limit.</li>
 </ul>
 <h2>What production would add</h2>
 <ul>
@@ -681,6 +685,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>Yes. Open <a href="#/appearance">Appearance</a> to pick light or dark, a larger text size, a theme or your own color, compact density, or less motion. It is saved to your account.</p>
 <h2>What if Penny cannot read an invoice?</h2>
 <p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
+<h2>How is Penny tested?</h2>
+<p>Two ways, on every change: 91 automated checks of Penny's decisions, accounts, email and server, and ten browser suites that sign in as each role and use the app the way a person would. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 
@@ -698,6 +704,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Blockers with owners and evidence, recheck previews, a rule simulator, manual entry with a second-person check, and a most-urgent-first queue (1.5).</li>
   <li>The version on every screen, and updates that are required or optional (1.6.0).</li>
   <li>Managing people with invitations and resets, emailing files and approval requests, and appearance settings (1.7.0).</li>
+  <li>A foundation release with no new features: browser tests on every change, a faster server, a content security policy, and clearer code (1.8.0).</li>
 </ul>
+<p>Next comes Penny for a real team: one shared server, so everyone sees the same work. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/ROADMAP.md" target="_blank" rel="noopener">Read the roadmap to 2.0.</a></p>
 <p>Each version is documented on its own, so it is always clear what was asked for and what was chosen. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/SCOPE.md" target="_blank" rel="noopener">Read the full scope and version history on GitHub.</a></p>` },
 ];

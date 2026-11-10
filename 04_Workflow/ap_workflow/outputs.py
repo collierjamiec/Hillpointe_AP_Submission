@@ -24,6 +24,7 @@ EXC_COLS = ["File", "Vendor", "Invoice No", "Amount", "Exception Code(s)", "Prim
 
 
 def intacct_rows(decisions):
+    """One row per bill line for every document decided ENTER_INTACCT, in file order."""
     rows = []
     for d in decisions:
         if d.status == ENTER_INTACCT:
@@ -34,6 +35,7 @@ def intacct_rows(decisions):
 
 
 def entrata_rows(decisions):
+    """One row per GL line for every document decided ENTER_ENTRATA."""
     rows = []
     for d in decisions:
         if d.status == ENTER_ENTRATA:
@@ -42,6 +44,7 @@ def entrata_rows(decisions):
 
 
 def fmt_intacct(r):
+    """A bill line as text for the CSV: dates as MM/DD/YYYY and amounts with two decimals."""
     out = dict(r)
     for k in ("BILL_DATE", "GL_POSTING_DATE", "DUE_DATE"):
         out[k] = us(r[k])
@@ -119,6 +122,7 @@ def validate_intacct(rows, master, cfg):
 
 # ------------------------------------------------------------------------------------------------ files
 def write_csv(path, cols, rows):
+    """Write rows to a CSV file with exactly these columns."""
     with open(path, "w", newline="", encoding="utf-8") as f:   # UTF-8, as the field guide requires
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -127,6 +131,7 @@ def write_csv(path, cols, rows):
 
 
 def exception_rows(decisions, priority, routes):
+    """One row per held or duplicate document: the reason, the main code and the team it goes to."""
     rows = []
     for d in decisions:
         if d.status in (HOLD, DUP):
@@ -144,6 +149,7 @@ def exception_rows(decisions, priority, routes):
 
 
 def entered_rows(decisions):
+    """One row per entered bill with the approvers it needs and any notes for a person."""
     rows = []
     for d in decisions:
         if d.status in (ENTER_INTACCT, ENTER_ENTRATA):
@@ -156,6 +162,7 @@ def entered_rows(decisions):
 
 
 def skipped_rows(decisions):
+    """One row per file skipped because the same file was already entered."""
     return [{"File": d.file, "Vendor": d.vendor_name, "Bill No": d.bill_no, "Amount": d.amount, "Result": d.status,
              "Why": " ".join(d.info)} for d in decisions if d.status == SKIP]
 
@@ -165,6 +172,7 @@ HDR_FONT = Font(bold=True, color="FFFFFF")
 
 
 def _sheet(wb, title, cols, rows, widths=None, money=()):
+    """Add one formatted sheet to the workbook."""
     ws = wb.create_sheet(title)
     ws.append(cols)
     for c in ws[1]:
@@ -186,6 +194,7 @@ def _sheet(wb, title, cols, rows, widths=None, money=()):
 
 
 def _xl(v):
+    """A value Excel can store (money as a number, dates as dates, everything else as text)."""
     if isinstance(v, Decimal):
         return float(v)
     if hasattr(v, "isoformat") and not isinstance(v, str):
@@ -194,6 +203,7 @@ def _xl(v):
 
 
 def write_workbook(path, decisions, master, priority, routes, run_id):
+    """The review workbook: every output as a tab, plus a sheet that re-adds each bill total with formulas."""
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     irows = intacct_rows(decisions)
@@ -232,6 +242,7 @@ def write_workbook(path, decisions, master, priority, routes, run_id):
 
 
 def write_run_report(path, run_id, batch, decisions, errs, counts, state_info):
+    """The one-page run summary (run_report.md): counts, every decision, pre-flight and the register."""
     L = [f"# Run report: {run_id}", "", f"Batch folder: `{batch}`", f"Documents read: {len(decisions)}", ""]
     L += ["| Result | Count |", "|---|---|"] + [f"| {k} | {v} |" for k, v in counts.items()] + [""]
     L += ["## Decisions", "", "| File | Vendor | Invoice | Amount | Result | Codes | Confidence |", "|---|---|---|---|---|---|---|"]

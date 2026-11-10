@@ -36,6 +36,7 @@ def _why_open_failed(path, err):
 
 
 def read_pdf(path):
+    """Open a PDF and return its text and stamps, or raise UnreadableFile with a plain reason."""
     try:
         pdf = pdfplumber.open(path)
     except Exception as e:
