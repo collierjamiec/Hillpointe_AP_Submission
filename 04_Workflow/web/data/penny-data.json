@@ -1,43 +1,249 @@
 {
- "generated_at": "2026-11-10T16:22:20Z",
+ "generated_at": "2026-11-10T16:59:25Z",
  "runs": [
   {
-   "id": "01_Invoice_Batch_01_111817",
+   "id": "run1_batch01",
    "order": 1,
-   "label": "01 Invoice Batch 01 111817",
+   "label": "Batch 01",
    "batch": "01_Invoice_Batch_01",
-   "started_at": "2026-11-10T11:18:18-05:00",
+   "started_at": "",
    "dry_run": false,
    "rerun": false,
    "preflight_failed": false,
-   "documents": 15
+   "documents": 15,
+   "files": [
+    {
+     "name": "intacct_bill_import.csv",
+     "path": "data/runs/run1_batch01/intacct_bill_import.csv",
+     "rows": 11,
+     "bytes": 3068
+    },
+    {
+     "name": "entrata_handoff.csv",
+     "path": "data/runs/run1_batch01/entrata_handoff.csv",
+     "rows": 1,
+     "bytes": 398
+    },
+    {
+     "name": "exception_log.csv",
+     "path": "data/runs/run1_batch01/exception_log.csv",
+     "rows": 8,
+     "bytes": 3583
+    },
+    {
+     "name": "approvals_for_entered_bills.csv",
+     "path": "data/runs/run1_batch01/approvals_for_entered_bills.csv",
+     "rows": 7,
+     "bytes": 2161
+    },
+    {
+     "name": "review_workbook.xlsx",
+     "path": "data/runs/run1_batch01/review_workbook.xlsx",
+     "rows": null,
+     "bytes": 13927
+    },
+    {
+     "name": "run_report.md",
+     "path": "data/runs/run1_batch01/run_report.md",
+     "rows": null,
+     "bytes": 1957
+    }
+   ]
   },
   {
-   "id": "07_Invoice_Batch_02_Rerun_111823",
+   "id": "run2_batch01_RERUN",
    "order": 2,
-   "label": "07 Invoice Batch 02 Rerun 111823",
-   "batch": "07_Invoice_Batch_02_Rerun",
-   "started_at": "2026-11-10T11:18:23-05:00",
+   "label": "Batch 01 rerun",
+   "batch": "01_Invoice_Batch_01",
+   "started_at": "",
    "dry_run": false,
    "rerun": true,
    "preflight_failed": false,
-   "documents": 5
+   "documents": 15,
+   "files": [
+    {
+     "name": "intacct_bill_import.csv",
+     "path": "data/runs/run2_batch01_RERUN/intacct_bill_import.csv",
+     "rows": 0,
+     "bytes": 199
+    },
+    {
+     "name": "entrata_handoff.csv",
+     "path": "data/runs/run2_batch01_RERUN/entrata_handoff.csv",
+     "rows": 0,
+     "bytes": 149
+    },
+    {
+     "name": "exception_log.csv",
+     "path": "data/runs/run2_batch01_RERUN/exception_log.csv",
+     "rows": 8,
+     "bytes": 3583
+    },
+    {
+     "name": "review_workbook.xlsx",
+     "path": "data/runs/run2_batch01_RERUN/review_workbook.xlsx",
+     "rows": null,
+     "bytes": 11146
+    },
+    {
+     "name": "run_report.md",
+     "path": "data/runs/run2_batch01_RERUN/run_report.md",
+     "rows": null,
+     "bytes": 1997
+    }
+   ]
   },
   {
-   "id": "new-tests_111835",
+   "id": "run3_batch02",
    "order": 3,
-   "label": "new-tests 111835",
+   "label": "Batch 02",
+   "batch": "07_Invoice_Batch_02_Rerun",
+   "started_at": "",
+   "dry_run": false,
+   "rerun": false,
+   "preflight_failed": false,
+   "documents": 5,
+   "files": [
+    {
+     "name": "intacct_bill_import.csv",
+     "path": "data/runs/run3_batch02/intacct_bill_import.csv",
+     "rows": 2,
+     "bytes": 708
+    },
+    {
+     "name": "entrata_handoff.csv",
+     "path": "data/runs/run3_batch02/entrata_handoff.csv",
+     "rows": 0,
+     "bytes": 149
+    },
+    {
+     "name": "exception_log.csv",
+     "path": "data/runs/run3_batch02/exception_log.csv",
+     "rows": 3,
+     "bytes": 1041
+    },
+    {
+     "name": "approvals_for_entered_bills.csv",
+     "path": "data/runs/run3_batch02/approvals_for_entered_bills.csv",
+     "rows": 2,
+     "bytes": 745
+    },
+    {
+     "name": "review_workbook.xlsx",
+     "path": "data/runs/run3_batch02/review_workbook.xlsx",
+     "rows": null,
+     "bytes": 9889
+    },
+    {
+     "name": "run_report.md",
+     "path": "data/runs/run3_batch02/run_report.md",
+     "rows": null,
+     "bytes": 903
+    }
+   ]
+  },
+  {
+   "id": "run4_batch02_RERUN",
+   "order": 4,
+   "label": "Batch 02 rerun",
+   "batch": "07_Invoice_Batch_02_Rerun",
+   "started_at": "",
+   "dry_run": false,
+   "rerun": true,
+   "preflight_failed": false,
+   "documents": 5,
+   "files": [
+    {
+     "name": "intacct_bill_import.csv",
+     "path": "data/runs/run4_batch02_RERUN/intacct_bill_import.csv",
+     "rows": 0,
+     "bytes": 199
+    },
+    {
+     "name": "entrata_handoff.csv",
+     "path": "data/runs/run4_batch02_RERUN/entrata_handoff.csv",
+     "rows": 0,
+     "bytes": 149
+    },
+    {
+     "name": "exception_log.csv",
+     "path": "data/runs/run4_batch02_RERUN/exception_log.csv",
+     "rows": 3,
+     "bytes": 1041
+    },
+    {
+     "name": "review_workbook.xlsx",
+     "path": "data/runs/run4_batch02_RERUN/review_workbook.xlsx",
+     "rows": null,
+     "bytes": 9396
+    },
+    {
+     "name": "run_report.md",
+     "path": "data/runs/run4_batch02_RERUN/run_report.md",
+     "rows": null,
+     "bytes": 930
+    }
+   ]
+  },
+  {
+   "id": "run5_edge_tests",
+   "order": 5,
+   "label": "Edge-case tests",
    "batch": "new-tests",
    "started_at": "2026-11-10T11:18:35-05:00",
    "dry_run": false,
    "rerun": false,
    "preflight_failed": false,
-   "documents": 6
+   "documents": 6,
+   "files": []
+  },
+  {
+   "id": "run6_t5_retest",
+   "order": 6,
+   "label": "T5 retest after fix",
+   "batch": "new-tests",
+   "started_at": "2026-11-10T16:42:21+00:00",
+   "dry_run": true,
+   "rerun": true,
+   "preflight_failed": false,
+   "documents": 1,
+   "files": [
+    {
+     "name": "intacct_bill_import.csv",
+     "path": "data/runs/run6_t5_retest/intacct_bill_import.csv",
+     "rows": 0,
+     "bytes": 199
+    },
+    {
+     "name": "entrata_handoff.csv",
+     "path": "data/runs/run6_t5_retest/entrata_handoff.csv",
+     "rows": 0,
+     "bytes": 149
+    },
+    {
+     "name": "exception_log.csv",
+     "path": "data/runs/run6_t5_retest/exception_log.csv",
+     "rows": 1,
+     "bytes": 609
+    },
+    {
+     "name": "review_workbook.xlsx",
+     "path": "data/runs/run6_t5_retest/review_workbook.xlsx",
+     "rows": null,
+     "bytes": 8411
+    },
+    {
+     "name": "run_report.md",
+     "path": "data/runs/run6_t5_retest/run_report.md",
+     "rows": null,
+     "bytes": 494
+    }
+   ]
   }
  ],
  "results": [
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0001",
    "key": "V1004|PBS604418|Bill",
    "file": "APINBOX_0001.pdf",
@@ -78,7 +284,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0002",
    "key": "V1008|LL20261184|Bill",
    "file": "APINBOX_0002.pdf",
@@ -203,7 +409,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0003",
    "key": "V1001|GCP303|Bill",
    "file": "APINBOX_0003.pdf",
@@ -293,7 +499,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0004",
    "key": "UNKNOWN:|BLD1007|Bill",
    "file": "APINBOX_0004.pdf",
@@ -334,7 +540,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0005",
    "key": "V1003|CSS88502|Bill",
    "file": "APINBOX_0005.pdf",
@@ -399,7 +605,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0006",
    "key": "V1011|SGP11092|Bill",
    "file": "APINBOX_0006.pdf",
@@ -439,7 +645,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0007",
    "key": "V1007|55102|Bill",
    "file": "APINBOX_0007.pdf",
@@ -476,7 +682,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0008",
    "key": "V1012|MPS4471|Bill",
    "file": "APINBOX_0008.pdf",
@@ -533,7 +739,7 @@
    ]
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0009",
    "key": "V1005|SFG241005|Bill",
    "file": "APINBOX_0009.pdf",
@@ -580,7 +786,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0010",
    "key": "V1002|RER77310|Bill",
    "file": "APINBOX_0010.pdf",
@@ -666,7 +872,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0011",
    "key": "V1004|CMPBS604102|Adjustment",
    "file": "APINBOX_0011.pdf",
@@ -727,7 +933,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0012",
    "key": "V1009|HPA31877|Bill",
    "file": "APINBOX_0012.pdf",
@@ -767,7 +973,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0013",
    "key": "V1010|TCD241002|Bill",
    "file": "APINBOX_0013.pdf",
@@ -812,7 +1018,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0014",
    "key": "V1007|55388|Bill",
    "file": "APINBOX_0014.pdf",
@@ -878,7 +1084,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "01_Invoice_Batch_01_111817",
+   "run_id": "run1_batch01",
    "doc_id": "APINBOX_0015",
    "key": "V1002|20417|Bill",
    "file": "APINBOX_0015.pdf",
@@ -915,7 +1121,573 @@
    "entrata_rows": []
   },
   {
-   "run_id": "07_Invoice_Batch_02_Rerun_111823",
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0001",
+   "key": "V1004|PBS604418|Bill",
+   "file": "APINBOX_0001.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "OVERPO"
+   ],
+   "reasons": [
+    "[OVERPO] Invoice $15,102.07 would put billed to date at $181,392.07 against PO PO2410315-008 of $180,000.00 (over by $1,392.07, more than the $500 tolerance). Billed to date $166,290.00 includes bills in history and credits entered. Needs a PO change order."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1004 Pinecrest Building Supply Co (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "PASS  Not a duplicate: key V1004|PBS604418|Bill is not in ERP history (25 bills) or the register (7 entered)",
+    "PASS  Category: construction (Customer Ref PO2410315-008)",
+    "PASS  PO2410315-008 found; vendor matches; project 2410315 Pointe Grand Columbia is Active Construction",
+    "PASS  Insurance certificate valid through 02/28/2027 (bill date 10/06/2026)",
+    "FAIL  [OVERPO] Invoice $15,102.07 would put billed to date at $181,392.07 against PO PO2410315-008 of $180,000.00 (over by $1,392.07, more than the $500 tolerance). Billed to date $166,290.00 includes bills in history and credits entered. Needs a PO change order."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1004",
+   "vendor_name": "Pinecrest Building Supply Co",
+   "bill_no": "PBS-604418",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-06",
+   "amount": "15102.07",
+   "category": "construction",
+   "system": "Sage Intacct",
+   "project_id": "2410315",
+   "reference_no": "PO2410315-008",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0002",
+   "key": "V1008|LL20261184|Bill",
+   "file": "APINBOX_0002.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1008 LedgerLoop Software Inc (Active)",
+    "PASS  Bill-to 'Hillpointe Corporate Management, LLC' is a Hillpointe legal entity (HCM)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1008",
+   "vendor_name": "LedgerLoop Software Inc",
+   "bill_no": "LL-2026-1184",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-01",
+   "amount": "4682.25",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0003",
+   "key": "V1001|GCP303|Bill",
+   "file": "APINBOX_0003.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total, pay application lines 1 to 8 agree)",
+    "PASS  Vendor matched to V1001 Gulfline Concrete Partners LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1001",
+   "vendor_name": "Gulfline Concrete Partners LLC",
+   "bill_no": "GCP-0303",
+   "doc_type": "Bill",
+   "bill_date": "2026-09-30",
+   "amount": "133650.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0004",
+   "key": "UNKNOWN:|BLD1007|Bill",
+   "file": "APINBOX_0004.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "NEWVEND",
+    "OTHER",
+    "NOPO"
+   ],
+   "reasons": [
+    "[NEWVEND] Vendor 'Brightline Landscape Design LLC' is not in the vendor master. Do not create or guess a vendor ID.",
+    "[OTHER] Addressed to 'Hillpointe Development', which is not a Hillpointe legal entity. Return to the vendor for a corrected bill-to.",
+    "[NOPO] No PO or subcontract is referenced on the document, so the project and coding cannot be confirmed. The ship-to names Pointe Grand Kingsland East (Active Construction)."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "FAIL  [NEWVEND] Vendor 'Brightline Landscape Design LLC' is not in the vendor master. Do not create or guess a vendor ID.",
+    "FAIL  [OTHER] Addressed to 'Hillpointe Development', which is not a Hillpointe legal entity. Return to the vendor for a corrected bill-to.",
+    "PASS  Category: construction (no Customer Ref; classified from ship-to and vendor type)",
+    "FAIL  [NOPO] No PO or subcontract is referenced on the document, so the project and coding cannot be confirmed. The ship-to names Pointe Grand Kingsland East (Active Construction)."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "",
+   "vendor_name": "",
+   "bill_no": "BLD-1007",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-04",
+   "amount": "6500.00",
+   "category": "construction",
+   "system": "Sage Intacct",
+   "project_id": "241088",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0005",
+   "key": "V1003|CSS88502|Bill",
+   "file": "APINBOX_0005.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1003",
+   "vendor_name": "Coastal Site Services LLC",
+   "bill_no": "CSS-88502",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-01",
+   "amount": "1240.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0006",
+   "key": "V1011|SGP11092|Bill",
+   "file": "APINBOX_0006.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "BANKCHG"
+   ],
+   "reasons": [
+    "[BANKCHG] Possible payment-instruction change: the document asks us to change payment instructions (account ending, ach to, banking information has changed, changed effective); remit address '9 Commerce Ct, Suite 210, Greenville, SC 29607' differs from the vendor master '1450 Fairview Rd, Simpsonville, SC 29680'; phone (864) 555-0199 differs from the phone of record (864) 555-0171. Treasury should verify by calling (864) 555-0171 (phone on file). Never use contact details printed on the invoice."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1011 Sterling Grounds and Pest LLC (Active)",
+    "PASS  Bill-to 'Pointe Grand Simpsonville' is a Hillpointe legal entity (PGSIM)",
+    "FAIL  [BANKCHG] Possible payment-instruction change: the document asks us to change payment instructions (account ending, ach to, banking information has changed, changed effective); remit address '9 Commerce Ct, Suite 210, Greenville, SC 29607' differs from the vendor master '1450 Fairview Rd, Simpsonville, SC 29680'; phone (864) 555-0199 differs from the phone of record (864) 555-0171. Treasury should verify by calling (864) 555-0171 (phone on file). Never use contact details printed on the invoice.",
+    "PASS  Not a duplicate: key V1011|SGP11092|Bill is not in ERP history (25 bills) or the register (7 entered)",
+    "PASS  Category: stabilized (Customer Ref SA-PGSIM-2026)",
+    "PASS  SA-PGSIM-2026 found; vendor and property match; invoice $3,850.00 equals the monthly fee",
+    "PASS  Insurance certificate valid through 03/31/2027 (bill date 10/03/2026)"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1011",
+   "vendor_name": "Sterling Grounds and Pest LLC",
+   "bill_no": "SGP-11092",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-03",
+   "amount": "3850.00",
+   "category": "stabilized",
+   "system": "Entrata",
+   "project_id": "3206040",
+   "reference_no": "SA-PGSIM-2026",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0007",
+   "key": "V1007|55102|Bill",
+   "file": "APINBOX_0007.pdf",
+   "decision": "DUP",
+   "codes": [
+    "DUP"
+   ],
+   "reasons": [
+    "[DUP] Already entered in Sage Intacct as AP-260922 (invoice '55102', 2026-09-18, $9,697.59). Same vendor, same invoice number after normalizing format."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1007 Copperline Plumbing Supply Inc (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "FAIL  [DUP] Already entered in Sage Intacct as AP-260922 (invoice '55102', 2026-09-18, $9,697.59). Same vendor, same invoice number after normalizing format."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1007",
+   "vendor_name": "Copperline Plumbing Supply Inc",
+   "bill_no": "55102",
+   "doc_type": "Bill",
+   "bill_date": "2026-09-18",
+   "amount": "9697.59",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0008",
+   "key": "V1012|MPS4471|Bill",
+   "file": "APINBOX_0008.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1012 Magnolia Pool Services LLC (Active)",
+    "PASS  Bill-to 'Pointe Grand Athens' is a Hillpointe legal entity (PGATH)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1012",
+   "vendor_name": "Magnolia Pool Services LLC",
+   "bill_no": "MPS-4471",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-01",
+   "amount": "1475.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0009",
+   "key": "V1005|SFG241005|Bill",
+   "file": "APINBOX_0009.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "UNAPPCO",
+    "LIEN"
+   ],
+   "reasons": [
+    "[UNAPPCO] Bills change order(s) that are not executed: CO2 (Pending, not executed). Hold the entire application and return it to the subcontractor for a revised application.",
+    "[LIEN] Vendor requires a conditional lien waiver for the current payment and none is attached."
+   ],
+   "info": [
+    "Line 2 net change by change orders is $40,900.00 but executed change orders total only $22,500.00."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total, pay application lines 1 to 8 agree)",
+    "PASS  Vendor matched to V1005 Summit Framing Group LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "PASS  Not a duplicate: key V1005|SFG241005|Bill is not in ERP history (25 bills) or the register (7 entered)",
+    "PASS  Category: construction (Customer Ref Subcontract SC2410315-06)",
+    "PASS  SC2410315-06 found; vendor matches; project 2410315 Pointe Grand Columbia is Active Construction",
+    "PASS  Insurance certificate valid through 04/30/2027 (bill date 09/30/2026)",
+    "FAIL  [UNAPPCO] Bills change order(s) that are not executed: CO2 (Pending, not executed). Hold the entire application and return it to the subcontractor for a revised application.",
+    "PASS  Previous certificates $460,800.00 agree to bill history; completed to date $626,600.00 = prior gross $512,000.00 + this period $114,600.00",
+    "FAIL  [LIEN] Vendor requires a conditional lien waiver for the current payment and none is attached."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1005",
+   "vendor_name": "Summit Framing Group LLC",
+   "bill_no": "SFG-2410-05",
+   "doc_type": "Bill",
+   "bill_date": "2026-09-30",
+   "amount": "103140.00",
+   "category": "construction",
+   "system": "Sage Intacct",
+   "project_id": "2410315",
+   "reference_no": "SC2410315-06",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0010",
+   "key": "V1002|RER77310|Bill",
+   "file": "APINBOX_0010.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1002 Ridgeway Equipment Rental Inc (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1002",
+   "vendor_name": "Ridgeway Equipment Rental Inc",
+   "bill_no": "RER-77310",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-05",
+   "amount": "7068.60",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0011",
+   "key": "V1004|CMPBS604102|Adjustment",
+   "file": "APINBOX_0011.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1004 Pinecrest Building Supply Co (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1004",
+   "vendor_name": "Pinecrest Building Supply Co",
+   "bill_no": "CM-PBS-604102",
+   "doc_type": "Adjustment",
+   "bill_date": "2026-10-02",
+   "amount": "-2160.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0012",
+   "key": "V1009|HPA31877|Bill",
+   "file": "APINBOX_0012.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "NOPO"
+   ],
+   "reasons": [
+    "[NOPO] No PO or subcontract is referenced on the document, so the project and coding cannot be confirmed. Likely match for the project manager to confirm: PO241088-022 (unit rate matches the PO price). Not coded to it."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1009 Harbor Point Aggregates LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "PASS  Not a duplicate: key V1009|HPA31877|Bill is not in ERP history (25 bills) or the register (7 entered)",
+    "PASS  Category: construction (no Customer Ref; classified from ship-to and vendor type)",
+    "FAIL  [NOPO] No PO or subcontract is referenced on the document, so the project and coding cannot be confirmed. Likely match for the project manager to confirm: PO241088-022 (unit rate matches the PO price). Not coded to it.",
+    "PASS  Insurance certificate valid through 02/28/2027 (bill date 10/02/2026)"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1009",
+   "vendor_name": "Harbor Point Aggregates LLC",
+   "bill_no": "HPA-31877",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-02",
+   "amount": "16948.80",
+   "category": "construction",
+   "system": "Sage Intacct",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0013",
+   "key": "V1010|TCD241002|Bill",
+   "file": "APINBOX_0013.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "COI",
+    "LIEN"
+   ],
+   "reasons": [
+    "[COI] Vendor insurance certificate expires 09/15/2026, before the bill date 09/29/2026. Policy requires it to be on or after that date.",
+    "[LIEN] Vendor requires a conditional lien waiver for the current payment and the application says it will follow under separate cover."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total, pay application lines 1 to 8 agree)",
+    "PASS  Vendor matched to V1010 Tri County Drywall Inc (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "PASS  Not a duplicate: key V1010|TCD241002|Bill is not in ERP history (25 bills) or the register (7 entered)",
+    "PASS  Category: construction (Customer Ref Subcontract SC2410315-09)",
+    "PASS  SC2410315-09 found; vendor matches; project 2410315 Pointe Grand Columbia is Active Construction",
+    "FAIL  [COI] Vendor insurance certificate expires 09/15/2026, before the bill date 09/29/2026. Policy requires it to be on or after that date.",
+    "PASS  Change orders: only executed change orders billed; line 2 ($0.00) equals executed COs",
+    "PASS  Previous certificates $36,900.00 agree to bill history; completed to date $105,000.00 = prior gross $41,000.00 + this period $64,000.00",
+    "FAIL  [LIEN] Vendor requires a conditional lien waiver for the current payment and the application says it will follow under separate cover."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1010",
+   "vendor_name": "Tri County Drywall Inc",
+   "bill_no": "TCD-2410-02",
+   "doc_type": "Bill",
+   "bill_date": "2026-09-29",
+   "amount": "57600.00",
+   "category": "construction",
+   "system": "Sage Intacct",
+   "project_id": "2410315",
+   "reference_no": "SC2410315-09",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0014",
+   "key": "V1007|55388|Bill",
+   "file": "APINBOX_0014.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run1_batch01. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1007 Copperline Plumbing Supply Inc (Active)",
+    "PASS  Bill-to 'Hillpointe, LLC' is a Hillpointe legal entity (HLLC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1007",
+   "vendor_name": "Copperline Plumbing Supply Inc",
+   "bill_no": "55388",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-07",
+   "amount": "8081.71",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run2_batch01_RERUN",
+   "doc_id": "APINBOX_0015",
+   "key": "V1002|20417|Bill",
+   "file": "APINBOX_0015.pdf",
+   "decision": "DUP",
+   "codes": [
+    "DUP"
+   ],
+   "reasons": [
+    "[DUP] Already entered in Sage Intacct as AP-260917 (invoice '20417', 2026-09-12, $3,240.00). Same vendor, same invoice number after normalizing format."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1002 Ridgeway Equipment Rental Inc (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "FAIL  [DUP] Already entered in Sage Intacct as AP-260917 (invoice '20417', 2026-09-12, $3,240.00). Same vendor, same invoice number after normalizing format."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1002",
+   "vendor_name": "Ridgeway Equipment Rental Inc",
+   "bill_no": "INV-20417",
+   "doc_type": "Bill",
+   "bill_date": "2026-09-12",
+   "amount": "3240.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run3_batch02",
    "doc_id": "APINBOX_0016",
    "key": "V1003|CSS88611|Bill",
    "file": "APINBOX_0016.pdf",
@@ -980,7 +1752,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "07_Invoice_Batch_02_Rerun_111823",
+   "run_id": "run3_batch02",
    "doc_id": "APINBOX_0017",
    "key": "V1002|RER77310|Bill",
    "file": "APINBOX_0017.pdf",
@@ -989,7 +1761,7 @@
     "DUP"
    ],
    "reasons": [
-    "[DUP] Already entered in run 01_Invoice_Batch_01_111817 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+    "[DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
    ],
    "info": [],
    "trail": [
@@ -997,7 +1769,7 @@
     "PASS  Vendor matched to V1002 Ridgeway Equipment Rental Inc (Active)",
     "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
     "PASS  No payment-change language; remit address and phone agree with the vendor master",
-    "FAIL  [DUP] Already entered in run 01_Invoice_Batch_01_111817 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+    "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
    ],
    "confidence": "High",
    "confidence_basis": [],
@@ -1017,7 +1789,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "07_Invoice_Batch_02_Rerun_111823",
+   "run_id": "run3_batch02",
    "doc_id": "APINBOX_0018",
    "key": "V1009|HPA31877|Bill",
    "file": "APINBOX_0018.pdf",
@@ -1025,7 +1797,7 @@
    "codes": [],
    "reasons": [],
    "info": [
-    "Revised invoice replaces HPA-31877, which was held in run 01_Invoice_Batch_01_111817 (APINBOX_0012.pdf) and never entered. This version is evaluated on its own merits; the held original is closed out."
+    "Revised invoice replaces HPA-31877, which was held in run run1_batch01 (APINBOX_0012.pdf) and never entered. This version is evaluated on its own merits; the held original is closed out."
    ],
    "trail": [
     "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
@@ -1082,7 +1854,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "07_Invoice_Batch_02_Rerun_111823",
+   "run_id": "run3_batch02",
    "doc_id": "APINBOX_0019",
    "key": "V1001|GCP303|Bill",
    "file": "APINBOX_0019.pdf",
@@ -1091,7 +1863,7 @@
     "DUP"
    ],
    "reasons": [
-    "[DUP] Already entered in run 01_Invoice_Batch_01_111817 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+    "[DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
    ],
    "info": [],
    "trail": [
@@ -1099,7 +1871,7 @@
     "PASS  Vendor matched to V1001 Gulfline Concrete Partners LLC (Active)",
     "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
     "PASS  No payment-change language; remit address and phone agree with the vendor master",
-    "FAIL  [DUP] Already entered in run 01_Invoice_Batch_01_111817 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+    "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
    ],
    "confidence": "High",
    "confidence_basis": [],
@@ -1119,7 +1891,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "07_Invoice_Batch_02_Rerun_111823",
+   "run_id": "run3_batch02",
    "doc_id": "APINBOX_0020",
    "key": "V1003|CSS88502|Bill",
    "file": "APINBOX_0020.pdf",
@@ -1128,7 +1900,7 @@
     "DUP"
    ],
    "reasons": [
-    "[DUP] Already entered in run 01_Invoice_Batch_01_111817 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+    "[DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
    ],
    "info": [],
    "trail": [
@@ -1136,7 +1908,7 @@
     "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
     "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
     "PASS  No payment-change language; remit address and phone agree with the vendor master",
-    "FAIL  [DUP] Already entered in run 01_Invoice_Batch_01_111817 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+    "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
    ],
    "confidence": "High",
    "confidence_basis": [],
@@ -1156,7 +1928,186 @@
    "entrata_rows": []
   },
   {
-   "run_id": "new-tests_111835",
+   "run_id": "run4_batch02_RERUN",
+   "doc_id": "APINBOX_0016",
+   "key": "V1003|CSS88611|Bill",
+   "file": "APINBOX_0016.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run3_batch02. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1003",
+   "vendor_name": "Coastal Site Services LLC",
+   "bill_no": "CSS-88611",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-08",
+   "amount": "2180.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run4_batch02_RERUN",
+   "doc_id": "APINBOX_0017",
+   "key": "V1002|RER77310|Bill",
+   "file": "APINBOX_0017.pdf",
+   "decision": "DUP",
+   "codes": [
+    "DUP"
+   ],
+   "reasons": [
+    "[DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1002 Ridgeway Equipment Rental Inc (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0010.pdf (same vendor, same invoice number, $7,068.60). The document carries a 'REPRINT' stamp. This is a different inbox file for the same invoice."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1002",
+   "vendor_name": "Ridgeway Equipment Rental Inc",
+   "bill_no": "RER-77310",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-05",
+   "amount": "7068.60",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run4_batch02_RERUN",
+   "doc_id": "APINBOX_0018",
+   "key": "V1009|HPA31877|Bill",
+   "file": "APINBOX_0018.pdf",
+   "decision": "SKIP_ALREADY_ENTERED",
+   "codes": [],
+   "reasons": [],
+   "info": [
+    "Same inbox file already entered in run run3_batch02. No action."
+   ],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1009 Harbor Point Aggregates LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master"
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1009",
+   "vendor_name": "Harbor Point Aggregates LLC",
+   "bill_no": "HPA-31877",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-02",
+   "amount": "16948.80",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run4_batch02_RERUN",
+   "doc_id": "APINBOX_0019",
+   "key": "V1001|GCP303|Bill",
+   "file": "APINBOX_0019.pdf",
+   "decision": "DUP",
+   "codes": [
+    "DUP"
+   ],
+   "reasons": [
+    "[DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total, pay application lines 1 to 8 agree)",
+    "PASS  Vendor matched to V1001 Gulfline Concrete Partners LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0003.pdf (same vendor, same invoice number, $133,650.00). The PDF content is identical to the earlier file. This is a different inbox file for the same invoice."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1001",
+   "vendor_name": "Gulfline Concrete Partners LLC",
+   "bill_no": "GCP-0303",
+   "doc_type": "Bill",
+   "bill_date": "2026-09-30",
+   "amount": "133650.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run4_batch02_RERUN",
+   "doc_id": "APINBOX_0020",
+   "key": "V1003|CSS88502|Bill",
+   "file": "APINBOX_0020.pdf",
+   "decision": "DUP",
+   "codes": [
+    "DUP"
+   ],
+   "reasons": [
+    "[DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+   ],
+   "info": [],
+   "trail": [
+    "PASS  Arithmetic on the document ties out (lines add to subtotal, subtotal plus tax equals total)",
+    "PASS  Vendor matched to V1003 Coastal Site Services LLC (Active)",
+    "PASS  Bill-to 'Hillpointe Construction, LLC' is a Hillpointe legal entity (HPC)",
+    "PASS  No payment-change language; remit address and phone agree with the vendor master",
+    "FAIL  [DUP] Already entered in run run1_batch01 from APINBOX_0005.pdf (same vendor, same invoice number, $1,240.00). The document carries a 'PAST DUE' stamp. This is a different inbox file for the same invoice."
+   ],
+   "confidence": "High",
+   "confidence_basis": [],
+   "vendor_id": "V1003",
+   "vendor_name": "Coastal Site Services LLC",
+   "bill_no": "CSS-88502",
+   "doc_type": "Bill",
+   "bill_date": "2026-10-01",
+   "amount": "1240.00",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run5_edge_tests",
    "doc_id": "T1_clean_known_layout",
    "key": "V1004|PBS910001|Bill",
    "file": "T1_clean_known_layout.pdf",
@@ -1219,7 +2170,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "new-tests_111835",
+   "run_id": "run5_edge_tests",
    "doc_id": "T2_over_po_inside_tolerance",
    "key": "V1003|CSS91001|Bill",
    "file": "T2_over_po_inside_tolerance.pdf",
@@ -1260,7 +2211,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "new-tests_111835",
+   "run_id": "run5_edge_tests",
    "doc_id": "T3_duplicate_new_number_format",
    "key": "V1002|20417|Bill",
    "file": "T3_duplicate_new_number_format.pdf",
@@ -1297,7 +2248,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "new-tests_111835",
+   "run_id": "run5_edge_tests",
    "doc_id": "T4_bank_change",
    "key": "V1004|PBS910004|Bill",
    "file": "T4_bank_change.pdf",
@@ -1337,7 +2288,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "new-tests_111835",
+   "run_id": "run5_edge_tests",
    "doc_id": "T5_unfamiliar_layout",
    "key": "UNKNOWN:||Bill",
    "file": "T5_unfamiliar_layout.pdf",
@@ -1370,7 +2321,7 @@
    "entrata_rows": []
   },
   {
-   "run_id": "new-tests_111835",
+   "run_id": "run5_edge_tests",
    "doc_id": "T6_scanned_picture_only",
    "key": "UNKNOWN:||Bill",
    "file": "T6_scanned_picture_only.pdf",
@@ -1388,6 +2339,41 @@
    "confidence": "Low",
    "confidence_basis": [
     "file could not be read"
+   ],
+   "vendor_id": "",
+   "vendor_name": "",
+   "bill_no": "",
+   "doc_type": "Bill",
+   "bill_date": "",
+   "amount": "0",
+   "category": "",
+   "system": "",
+   "project_id": "",
+   "reference_no": "",
+   "approvers": [],
+   "supersedes": "",
+   "lines": [],
+   "entrata_rows": []
+  },
+  {
+   "run_id": "run6_t5_retest",
+   "doc_id": "T5_unfamiliar_layout",
+   "key": "UNKNOWN:||Bill",
+   "file": "T5_unfamiliar_layout.pdf",
+   "decision": "HOLD",
+   "codes": [
+    "OTHER"
+   ],
+   "reasons": [
+    "[OTHER] This looks like a bill for $940.00 that references PO2410315-008, but it is not in an invoice layout Penny knows how to read, so its numbers could not be checked and nothing was entered. Enter it by hand after review, or ask the vendor for their standard invoice. The optional AI reader (--extractor hybrid) is meant for layouts like this."
+   ],
+   "info": [],
+   "trail": [
+    "FAIL  [OTHER] This looks like a bill for $940.00 that references PO2410315-008, but it is not in an invoice layout Penny knows how to read, so its numbers could not be checked and nothing was entered. Enter it by hand after review, or ask the vendor for their standard invoice. The optional AI reader (--extractor hybrid) is meant for layouts like this."
+   ],
+   "confidence": "Low",
+   "confidence_basis": [
+    "unfamiliar layout; amounts not read"
    ],
    "vendor_id": "",
    "vendor_name": "",
@@ -3195,7 +4181,7 @@
   "T1_clean_known_layout": {
    "id": "T1_clean_known_layout",
    "file": "T1_clean_known_layout.pdf",
-   "pdf": null,
+   "pdf": "data/pdfs/T1_clean_known_layout.pdf",
    "extracted": {
     "file": "T1_clean_known_layout.pdf",
     "supdoc_id": "T1_clean_known_layout",
@@ -3272,7 +4258,7 @@
   "T2_over_po_inside_tolerance": {
    "id": "T2_over_po_inside_tolerance",
    "file": "T2_over_po_inside_tolerance.pdf",
-   "pdf": null,
+   "pdf": "data/pdfs/T2_over_po_inside_tolerance.pdf",
    "extracted": {
     "file": "T2_over_po_inside_tolerance.pdf",
     "supdoc_id": "T2_over_po_inside_tolerance",
@@ -3349,7 +4335,7 @@
   "T3_duplicate_new_number_format": {
    "id": "T3_duplicate_new_number_format",
    "file": "T3_duplicate_new_number_format.pdf",
-   "pdf": null,
+   "pdf": "data/pdfs/T3_duplicate_new_number_format.pdf",
    "extracted": {
     "file": "T3_duplicate_new_number_format.pdf",
     "supdoc_id": "T3_duplicate_new_number_format",
@@ -3426,7 +4412,7 @@
   "T4_bank_change": {
    "id": "T4_bank_change",
    "file": "T4_bank_change.pdf",
-   "pdf": null,
+   "pdf": "data/pdfs/T4_bank_change.pdf",
    "extracted": {
     "file": "T4_bank_change.pdf",
     "supdoc_id": "T4_bank_change",
@@ -3508,7 +4494,7 @@
   "T5_unfamiliar_layout": {
    "id": "T5_unfamiliar_layout",
    "file": "T5_unfamiliar_layout.pdf",
-   "pdf": null,
+   "pdf": "data/pdfs/T5_unfamiliar_layout.pdf",
    "extracted": {
     "file": "T5_unfamiliar_layout.pdf",
     "supdoc_id": "T5_unfamiliar_layout",
@@ -3519,7 +4505,8 @@
      "method": "rules",
      "warnings": []
     },
-    "kind": "other",
+    "amount_seen": "$940.00",
+    "kind": "unrecognized",
     "invoice_no": "",
     "date": "",
     "terms_printed": "",
@@ -3569,7 +4556,7 @@
   "T6_scanned_picture_only": {
    "id": "T6_scanned_picture_only",
    "file": "T6_scanned_picture_only.pdf",
-   "pdf": null,
+   "pdf": "data/pdfs/T6_scanned_picture_only.pdf",
    "extracted": {
     "file": "T6_scanned_picture_only.pdf",
     "supdoc_id": "T6_scanned_picture_only",

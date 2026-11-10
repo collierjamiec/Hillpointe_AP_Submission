@@ -23,6 +23,9 @@ OF_RE = re.compile(r"\bOF-\d{4}-\d{4}\b")
 PHONE_RE = re.compile(r"\(\d{3}\)\s*\d{3}-\d{4}")
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 TITLES = ("APPLICATION FOR PAYMENT", "REVISED INVOICE", "CREDIT MEMO", "INVOICE")
+# Words that say "this is asking to be paid". Used only to describe a document whose layout Penny does not know.
+BILL_WORDS = re.compile(r"\b(AMOUNT DUE|BALANCE DUE|TOTAL DUE|PLEASE PAY|PAY THIS AMOUNT|STATEMENT OF CHARGES|INVOICE TOTAL)\b")
+DUE_AMOUNT = re.compile(r"(?:AMOUNT DUE|BALANCE DUE|TOTAL DUE|INVOICE TOTAL|PAY THIS AMOUNT)\s*:?\s*(\$[\d,]+\.\d{2})")
 
 
 def _strip_titles(s):
@@ -77,6 +80,12 @@ def extract_with_rules(path: Path, cfg: dict) -> dict:
         kind = "other"
     elif re.search(r"Invoice No\.", text):
         kind = "invoice"
+    elif BILL_WORDS.search(upper) and re.search(MONEY, text):
+        # Asks to be paid, but not in a layout the rules parser can read. Penny will not guess at its numbers:
+        # it records what it saw so the hold reason can say so, and hybrid mode hands it to the AI reader.
+        kind = "unrecognized"
+        m = DUE_AMOUNT.search(upper)
+        doc["amount_seen"] = m.group(1) if m else ""
     else:
         kind = "other"
     doc["kind"] = kind

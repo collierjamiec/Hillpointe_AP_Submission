@@ -26,6 +26,8 @@ cd 04_Workflow
 ./penny web                                             # opens the web view in your browser
 ```
 
+In the web view, pick any of the four demo roles on the sign-in screen. Everything you do stays in your browser.
+
 ## Original scope versus what I added
 
 * **Asked for:** an Intacct import file, an Entrata handoff, an exception log, required approvers, rerun proof, a
@@ -33,8 +35,9 @@ cd 04_Workflow
 * **Added in the submission:** an answer key written before the code, 33 tests with synthetic edge cases, a decision
   trail for every document, an Intacct pre-flight check, all rules in one settings file, and the simple `./penny`
   commands.
-* **Added after submission:** bad files are held with a clear reason instead of crashing a run (v1.1), and a polished,
-  role-aware web view (v1.2).
+* **Added after submission:** bad files are held with a clear reason instead of crashing a run (v1.1), a web view
+  (v1.2), and then sign-in with four roles, real actions, an audit trail, a rules editor with an impact preview, a
+  redesigned interface, a help center, and an honest reason for bills in unfamiliar layouts (v1.3).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

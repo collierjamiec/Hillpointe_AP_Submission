@@ -1,0 +1,3 @@
+File,Vendor,Vendor ID,Bill No,Doc Type,System,Bill Total,Lines,Project,Reference,Required Approvers,Confidence,Informational Notes (not holds)
+APINBOX_0016.pdf,Coastal Site Services LLC,V1003,CSS-88611,Bill,Sage Intacct,2180.00,1,241088,PO241088-009,"Project Manager, Pointe Grand Kingsland East",High,Invoice prints terms 'Due upon receipt'; used vendor master 'Net 15' as policy requires.
+APINBOX_0018.pdf,Harbor Point Aggregates LLC,V1009,HPA-31877,Bill,Sage Intacct,16948.80,1,241088,PO241088-022,"Project Manager, Pointe Grand Kingsland East",High,"Revised invoice replaces HPA-31877, which was held in run run1_batch01 (APINBOX_0012.pdf) and never entered. This version is evaluated on its own merits; the held original is closed out."

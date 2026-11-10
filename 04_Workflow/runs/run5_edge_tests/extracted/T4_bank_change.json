@@ -1,0 +1,77 @@
+{
+  "file": "T4_bank_change.pdf",
+  "supdoc_id": "T4_bank_change",
+  "sha256": "ad867042b9ce875a252bcb05b2f191f62ccffed6f446e7e9eaaf36a3e732114b",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "invoice",
+  "invoice_no": "PBS-910004",
+  "date": "2026-10-28",
+  "terms_printed": "Net 30",
+  "customer_ref": "PO2410315-008",
+  "refs": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "Hillpointe Construction, LLC",
+    "c_o": ""
+  },
+  "ship_to": "Pointe Grand Columbia",
+  "vendor_name_raw": "Pinecrest Building Supply Co",
+  "vendor_phone": "(803) 555-0190",
+  "vendor_email": "",
+  "vendor_address_header": "PO Box 1234 Columbia, SC 29290",
+  "remit_to": {
+    "name": "Pinecrest Building Supply Co",
+    "address": "PO Box 1234, Columbia, SC 29290"
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0190"
+  ],
+  "payment_change_hits": [
+    "banking information has changed",
+    "new account",
+    "remit all future payments",
+    "update your records"
+  ],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lines": [
+    {
+      "desc": "Framing lumber",
+      "qty": "1",
+      "unit": "LS",
+      "rate": "1000.00",
+      "amount": "1000.00"
+    }
+  ],
+  "subtotal": "1000.00",
+  "tax_total": "0.00",
+  "tax_label": "",
+  "tax_rate": null,
+  "total": "1000.00",
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}

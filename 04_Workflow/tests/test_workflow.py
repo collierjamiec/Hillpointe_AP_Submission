@@ -363,6 +363,23 @@ class UnreadableFiles(unittest.TestCase):
         self.assertEqual((info["run_id"], info["batch"]), ("bad", "batch"))
         self.assertTrue(info["started_at"])
 
+    def test_bill_in_an_unknown_layout_is_held_with_an_honest_reason(self):
+        """A real bill Penny cannot read must not be called 'not a bill'. A lien waiver on its own still is."""
+        from unittest import mock
+        batch = self.tmp / "batch"; batch.mkdir()
+        syn.make_statement(batch / "statement.pdf")
+        syn.make_waiver_only(batch / "waiver.pdf")
+        with mock.patch.object(cli, "load_package", return_value=(None, None, None)):
+            decs, errs = cli.run(self.tmp, batch, "layout", self.tmp / "state", self.tmp / "out", quiet=True)
+        by = {d.file: d for d in decs}
+        st, wv = by["statement.pdf"], by["waiver.pdf"]
+        self.assertEqual((st.status, st.codes, st.doc["kind"]), ("HOLD", ["OTHER"], "unrecognized"))
+        self.assertIn("looks like a bill for $940.00 that references PO2410315-008", st.reasons[0])
+        self.assertNotIn("lien waiver", st.reasons[0])
+        self.assertEqual(st.confidence, "Low")
+        self.assertEqual(wv.doc["kind"], "other")
+        self.assertIn("Not a bill", wv.reasons[0])
+
     @needs_package
     def test_good_invoices_still_entered_when_batch_has_bad_files(self):
         batch = self.tmp / "batch"
@@ -386,18 +403,29 @@ class WebExportTests(unittest.TestCase):
         try:
             r = webexport.build(ROOT / "runs", ROOT / "config" / "rules.json", tmp)
             data = json.loads(r["path"].read_text())
-            self.assertEqual([x["id"] for x in data["runs"]], ["run1_batch01", "run2_batch01_RERUN", "run3_batch02", "run4_batch02_RERUN"])
-            self.assertEqual([x["label"] for x in data["runs"]], ["Batch 01", "Batch 01 rerun", "Batch 02", "Batch 02 rerun"])
-            self.assertEqual(len(data["documents"]), 20)
-            self.assertEqual(len(data["results"]), 40)
+            self.assertEqual([x["id"] for x in data["runs"]], ["run1_batch01", "run2_batch01_RERUN", "run3_batch02", "run4_batch02_RERUN", "run5_edge_tests", "run6_t5_retest"])
+            self.assertEqual([x["label"] for x in data["runs"]], ["Batch 01", "Batch 01 rerun", "Batch 02", "Batch 02 rerun", "Edge-case tests", "T5 retest after fix"])
+            self.assertEqual(len(data["documents"]), 26)
+            self.assertEqual(len(data["results"]), 47)
+            self.assertEqual(data["documents"]["T5_unfamiliar_layout"]["extracted"]["kind"], "unrecognized")   # newest reading wins
             self.assertIsNone(data["documents"]["APINBOX_0001"]["pdf"])          # no package given, no PDFs copied
             self.assertEqual(data["documents"]["APINBOX_0001"]["extracted"]["invoice_no"], "PBS-604418")
             held = next(x for x in data["results"] if x["doc_id"] == "APINBOX_0012" and x["run_id"] == "run1_batch01")
             revised = next(x for x in data["results"] if x["doc_id"] == "APINBOX_0018" and x["run_id"] == "run3_batch02")
             self.assertEqual(revised["supersedes"], held["key"])                 # lets the web view close out the old hold
             self.assertEqual(data["rules"]["thresholds"]["overpo_tolerance"], 500.0)
+            first = {f["name"]: f for f in data["runs"][0]["files"]}
+            self.assertEqual(first["intacct_bill_import.csv"]["rows"], 11)            # matches the submitted Batch 01 import file
+            self.assertTrue((tmp / "runs" / "run1_batch01" / "intacct_bill_import.csv").exists())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_run_names_are_readable(self):
+        from ap_workflow.webexport import _label
+        self.assertEqual(_label("run2_batch01_RERUN", "01_Invoice_Batch_01", True), "Batch 01 rerun")
+        self.assertEqual(_label("01_Invoice_Batch_01_111817", "01_Invoice_Batch_01", False), "Invoice Batch 01")
+        self.assertEqual(_label("01_Invoice_Batch_01_120502", "01_Invoice_Batch_01", True), "Invoice Batch 01 rerun")
+        self.assertEqual(_label("new-tests_111835", "new-tests", False), "New tests")
 
     def test_export_copies_pdfs_from_the_package(self):
         from ap_workflow import webexport

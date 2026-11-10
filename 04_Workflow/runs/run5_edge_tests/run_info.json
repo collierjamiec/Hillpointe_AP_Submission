@@ -1,0 +1,9 @@
+{
+  "run_id": "run5_edge_tests",
+  "label": "Edge-case tests",
+  "batch": "new-tests",
+  "extractor": "rules",
+  "dry_run": false,
+  "started_at": "2026-11-10T11:18:35-05:00",
+  "note": "Run by Jamie on their own computer as new-tests_111835. Decisions and extracted fields copied unchanged from that run's web export."
+}

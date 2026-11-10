@@ -29,7 +29,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 39 automated checks
+./penny test                                  # run the 41 automated checks
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
 ./penny web                                   # (added after submission) open the web view in your browser
@@ -57,8 +57,11 @@ A browser view of everything Penny decided, for people who would rather not use 
 * **Runs:** each batch with its results. **Invoices:** every document, filterable by result, reason, vendor and bill date.
 * **Invoice detail:** the PDF beside what Penny read, every check in order, the coding and approvers, and its history across runs.
 * **Rules:** every setting in `config/rules.json`, in plain language.
-* **Roles:** Viewer, AP Clerk, Approver and Admin. Switch at the top to see what each role will be able to do. Editing
-  (resolving holds, approving, changing rules) is marked "Phase 2".
+* **Sign-in and roles (v1.3):** Viewer, AP Clerk, Approver and Admin, each a demo account on the sign-in screen. Clerks
+  resolve, reject and reassign holds; Approvers approve or send back bills; Admins also change rules with an impact
+  preview and undo. Every action needs a reason and goes to the audit trail. In this static site the actions are saved
+  in the visitor's browser only; the help center explains the security habits and what a server would add.
+* **Help center (v1.3):** a searchable knowledge base for the web app, the terminal, the rules and every exception code.
 
 `./penny web-export` reads `runs/` and writes `web/data/penny-data.json` (and copies the PDFs into `web/data/pdfs/` when
 given `--package`). The web view only displays saved results; it never makes a decision, so it cannot disagree with the
@@ -105,7 +108,7 @@ PDF  ->  1. EXTRACT  ->  2. VALIDATE  ->  3. DECIDE  ->  4. PRE-FLIGHT  ->  5. W
 | # | Check | If it fails |
 |---|---|---|
 | 0 | (added after submission, v1.1) File can be read (not empty, a real PDF, not password protected or damaged, has a text layer) | OTHER, with the file name and the exact problem. The rest of the batch carries on |
-| 1 | Document is a bill, pay app or credit | OTHER (a standalone lien waiver is not a bill) |
+| 1 | Document is a bill, pay app or credit | OTHER (a standalone lien waiver is not a bill). (Added after submission, v1.3.) A bill in a layout Penny cannot read is held with what Penny saw, Low confidence |
 | 2 | Arithmetic ties | OTHER |
 | 3 | Vendor is in the master and Active (inactive merged names map to the surviving ID, with Medium confidence) | NEWVEND |
 | 4 | Bill-to is a Hillpointe legal entity | OTHER. A wrong Hillpointe entity is only a note when the PO identifies the project |
@@ -208,7 +211,8 @@ what produced every result in this package.
 ## Known limits
 
 * The rules parser expects the layouts in the sample package. A very different layout will fail validation and go to a
-  person, which is the safe outcome. `--extractor hybrid` is the answer for that.
+  person, which is the safe outcome. `--extractor hybrid` is the answer for that. (Added after submission, v1.3.) Penny
+  now says so plainly: "This looks like a bill for $X that references PO..., but it is not in a layout Penny can read."
 * Scanned images (no text layer) would need OCR first. Today they are held with a clear reason instead of being guessed at.
 * (Added after submission, v1.1.) A file Penny cannot read (empty, not really a PDF, password protected, damaged) never stops a run. It is held under
   OTHER and routed to the AP Manager with the reason, in the terminal summary, the exception log and the workbook. It is

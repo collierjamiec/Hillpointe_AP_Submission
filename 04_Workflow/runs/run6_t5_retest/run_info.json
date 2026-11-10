@@ -1,0 +1,9 @@
+{
+  "run_id": "run6_t5_retest",
+  "batch": "new-tests",
+  "extractor": "rules",
+  "dry_run": true,
+  "started_at": "2026-11-10T16:42:21+00:00",
+  "label": "T5 retest after fix",
+  "note": "Dry run in the build session after the v1.3 fix. Only T5 is re-read: the fix changes how Penny describes a bill in an unknown layout, and this decision is made before any reference data is used."
+}

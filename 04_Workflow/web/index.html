@@ -13,23 +13,86 @@
   <link rel="stylesheet" href="assets/penny.css">
   <script>
     try { var t = localStorage.getItem("penny.theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try { if (sessionStorage.getItem("penny.introSeen")) document.documentElement.classList.add("intro-seen"); } catch (e) {}
   </script>
 </head>
-<body>
+<body class="booting">
+  <!-- The penny, drawn once and reused: sidebar, intro and sign-in. Original artwork. -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="pc-face" cx="34%" cy="28%" r="78%">
+        <stop offset="0" stop-color="#f9cfa4"/><stop offset=".38" stop-color="#dc8b4a"/><stop offset=".78" stop-color="#a95522"/><stop offset="1" stop-color="#7d3a12"/>
+      </radialGradient>
+      <linearGradient id="pc-rim" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffd7b0"/><stop offset=".5" stop-color="#b8642a"/><stop offset="1" stop-color="#6b300d"/>
+      </linearGradient>
+      <linearGradient id="pc-shine" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <path id="pc-ring" d="M100,100 m-70,0 a70,70 0 1,1 140,0 a70,70 0 1,1 -140,0"/>
+    </defs>
+    <symbol id="coin-front" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="99" fill="url(#pc-rim)"/>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-face)"/>
+      <circle cx="100" cy="100" r="82" fill="none" stroke="#6e3210" stroke-opacity=".45" stroke-width="2" stroke-dasharray="1.5 4.2"/>
+      <text font-family="Inter, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="2.2" fill="#5a2709" fill-opacity=".85"><textPath href="#pc-ring">AI READS • CODE DECIDES • PEOPLE APPROVE •</textPath></text>
+      <circle cx="100" cy="100" r="56" fill="none" stroke="#6e3210" stroke-opacity=".35" stroke-width="1.5"/>
+      <text x="100" y="128" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700" fill="#5a2709" fill-opacity=".9">P</text>
+      <text x="99" y="126" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700" fill="#ffe3c7" fill-opacity=".35">P</text>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-shine)"/>
+    </symbol>
+    <symbol id="coin-back" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="99" fill="url(#pc-rim)"/>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-face)"/>
+      <circle cx="100" cy="100" r="82" fill="none" stroke="#6e3210" stroke-opacity=".45" stroke-width="2" stroke-dasharray="1.5 4.2"/>
+      <text font-family="Inter, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="2.4" fill="#5a2709" fill-opacity=".85"><textPath href="#pc-ring">PENNY • ENTERED ONCE • NEVER TWICE •</textPath></text>
+      <path d="M70 102 l20 20 l42 -46" fill="none" stroke="#5a2709" stroke-opacity=".9" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M69 100 l20 20 l42 -46" fill="none" stroke="#ffe3c7" stroke-opacity=".35" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="100" cy="100" r="89" fill="url(#pc-shine)"/>
+    </symbol>
+  </svg>
+
+  <!-- Intro: a penny is tossed, flips, and lands; then a welcome fades in and out. Skippable; plays once per visit. -->
+  <div class="splash" id="splash" aria-hidden="true">
+    <div class="splash-stage">
+      <div class="coin-shadow"></div>
+      <div class="coin-toss"><div class="coin">
+        <span class="coin-edge" aria-hidden="true"></span>
+        <svg class="coin-face coin-front"><use href="#coin-front"/></svg>
+        <svg class="coin-face coin-back"><use href="#coin-back"/></svg>
+      </div></div>
+    </div>
+    <div class="splash-welcome">
+      <p class="splash-hello">Welcome to Penny</p>
+      <p class="splash-motto">AI reads. Code decides. People approve.</p>
+    </div>
+    <button class="splash-skip" id="splash-skip" type="button">Skip intro</button>
+  </div>
+
   <a class="skip-link" href="#main">Skip to content</a>
-  <div class="shell">
+
+  <div class="auth" id="auth" hidden></div>
+
+  <div class="shell" id="shell" hidden>
     <aside class="sidebar" id="sidebar" aria-label="Main navigation">
       <a class="brand" href="#/">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" /><path d="M12 23V9h5.2a4.4 4.4 0 0 1 0 8.8H12" /></svg>
+        <svg class="brand-mark" aria-hidden="true"><use href="#coin-front"/></svg>
         <span class="brand-text"><span class="brand-name">Penny</span><span class="brand-sub">AP automation</span></span>
       </a>
       <nav>
         <ul class="nav" id="nav">
-          <li><a href="#/" data-nav="dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h6v8H3zM11 3h6v5h-6zM11 10h6v7h-6zM3 13h6v4H3z"/></svg>Dashboard</a></li>
-          <li><a href="#/runs" data-nav="runs"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12M4 10h12M4 16h12"/><circle cx="4" cy="4" r=".5"/></svg>Runs</a></li>
+          <li class="nav-label" aria-hidden="true">Workspace</li>
+          <li><a href="#/" data-nav="dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h6v8H3zM11 3h6v5h-6zM11 10h6v7h-6zM3 13h6v4H3z"/></svg>Overview</a></li>
+          <li data-needs="work"><a href="#/work" data-nav="work"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14v10H3z"/><path d="M7 6V4h6v2M3 10h14"/></svg>My work<span class="nav-count" id="work-count" hidden></span></a></li>
           <li><a href="#/invoices" data-nav="invoices"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z"/><path d="M8 9h4M8 12h4"/></svg>Invoices</a></li>
+          <li><a href="#/exceptions" data-nav="exceptions"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l7.5 13h-15z"/><path d="M10 8v3.5M10 13.8v.1"/></svg>Exceptions</a></li>
+          <li class="nav-label" aria-hidden="true">Records</li>
+          <li><a href="#/exports" data-nav="exports"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/><path d="M4 13v3h12v-3"/></svg>Exports</a></li>
+          <li><a href="#/runs" data-nav="runs"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2"/></svg>Run history</a></li>
+          <li><a href="#/audit" data-nav="audit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l6 2.2v4.6c0 3.9-2.6 6.7-6 8.2-3.4-1.5-6-4.3-6-8.2V4.7z"/><path d="M7.5 10h5M7.5 12.8h3.5M7.5 7.2h5"/></svg>Audit trail</a></li>
+          <li class="nav-label" aria-hidden="true">Settings and help</li>
           <li><a href="#/rules" data-nav="rules"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12"/><circle cx="8" cy="5" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/></svg>Rules</a></li>
-          <li><a href="#/about" data-nav="about"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/></svg>How Penny works</a></li>
+          <li><a href="#/help" data-nav="help"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M7.8 7.6a2.3 2.3 0 0 1 4.4.9c0 1.6-2.2 1.9-2.2 3.3M10 14.2v.1"/></svg>Help center</a></li>
         </ul>
       </nav>
       <p class="motto">AI reads. Code decides.<br>People approve.</p>
@@ -48,31 +111,44 @@
           <ul class="search-results" id="search-results" role="listbox" hidden></ul>
         </div>
         <div class="topbar-right">
-          <label class="role-picker">
-            <span class="role-label">Viewing as</span>
-            <select id="role" aria-label="Viewing as role">
-              <option value="viewer">Viewer</option>
-              <option value="clerk">AP Clerk</option>
-              <option value="approver">Approver</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
+          <span class="demo-pill" title="Changes are saved in this browser only">Demo</span>
           <button class="icon-btn" id="theme-btn" aria-label="Switch color theme">
             <svg class="i-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M4.3 15.7l1.4-1.4M14.3 5.7l1.4-1.4"/></svg>
             <svg class="i-moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 12.5A6.5 6.5 0 0 1 7.5 4a6.5 6.5 0 1 0 8.5 8.5z"/></svg>
           </button>
+          <div class="user-menu">
+            <button class="user-btn" id="user-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="user-pop">
+              <span class="avatar" id="user-avatar" aria-hidden="true"></span>
+              <span class="user-text"><span class="user-name" id="user-name"></span><span class="user-role" id="user-role"></span></span>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+            </button>
+            <div class="user-pop" id="user-pop" role="menu" hidden>
+              <p class="user-pop-head" id="user-pop-head"></p>
+              <button role="menuitem" id="reset-demo" type="button">Reset demo data</button>
+              <button role="menuitem" id="sign-out" type="button">Sign out</button>
+            </div>
+          </div>
         </div>
       </header>
-      <main id="main" tabindex="-1">
-        <div class="loading" role="status">Loading Penny…</div>
-      </main>
-      <footer class="footer">
-        <span id="generated"></span>
-        <span>Penny is a portfolio project by Jamie Collier. Example data from the Hillpointe AP technical screen.</span>
+      <main id="main" tabindex="-1"></main>
+      <footer class="footer site-footer">
+        <div class="credit">
+          <svg class="credit-coin" aria-hidden="true"><use href="#coin-front"/></svg>
+          <span>Designed and built by <strong>Jamie Collier</strong></span>
+        </div>
+        <nav class="footer-links" aria-label="Footer">
+          <a href="#/help">Help center</a>
+          <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission" target="_blank" rel="noopener">Source on GitHub</a>
+          <button type="button" class="link-btn" data-shortcuts>Keyboard shortcuts</button>
+        </nav>
+        <p class="footer-note"><span id="generated"></span> Portfolio project with example data from the Hillpointe AP technical screen. Demo accounts only; changes stay in your browser.</p>
       </footer>
     </div>
   </div>
   <div class="scrim" id="scrim" hidden></div>
+  <dialog class="dialog" id="dialog" aria-labelledby="dialog-title"></dialog>
+  <script src="assets/penny-auth.js"></script>
+  <script src="assets/penny-help.js"></script>
   <script src="assets/penny.js" defer></script>
 </body>
 </html>

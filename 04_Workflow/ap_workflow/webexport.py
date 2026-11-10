@@ -20,10 +20,32 @@ from .util import norm_name
 
 RUN_ORDER = re.compile(r"^run(\d+)_")
 
+# Files a run writes that a person downloads. What each one is (and is not) is spelled out in the web view.
+RUN_FILES = ["intacct_bill_import.csv", "entrata_handoff.csv", "exception_log.csv", "approvals_for_entered_bills.csv",
+             "review_workbook.xlsx", "run_report.md"]
 
-def _run_sort_key(run_dir):
+
+def _copy_run_files(run_dir, out_dir):
+    dest = out_dir / "runs" / run_dir.name
+    files = []
+    for name in RUN_FILES:
+        src = run_dir / name
+        if not src.exists():
+            continue
+        dest.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest / name)
+        rows = None
+        if name.endswith(".csv"):
+            with open(src, encoding="utf-8") as f:
+                rows = max(sum(1 for line in f if line.strip()) - 1, 0)
+        files.append({"name": name, "path": f"data/runs/{run_dir.name}/{name}", "rows": rows, "bytes": src.stat().st_size})
+    return files
+
+
+def _run_sort_key(run_dir, info):
+    """Numbered runs (run1_, run2_ ...) first, in number order; any other run by when it started."""
     m = RUN_ORDER.match(run_dir.name)
-    return (int(m.group(1)) if m else 10**6, run_dir.name)
+    return (0, int(m.group(1)), "", run_dir.name) if m else (1, 0, info.get("started_at", ""), run_dir.name)
 
 
 def _run_info(run_dir):
@@ -40,12 +62,18 @@ def _run_info(run_dir):
     return info
 
 
-def _label(run_id, batch):
-    """'run3_batch02' -> 'Batch 02', 'run2_batch01_RERUN' -> 'Batch 01 rerun'. Custom names are kept as they are."""
+def _label(run_id, batch, seen_before):
+    """A short, readable name for a run.
+    'run3_batch02' -> 'Batch 02', 'run2_batch01_RERUN' -> 'Batch 01 rerun'.
+    Runs named by ./penny run (batch folder plus the time, like '01_Invoice_Batch_01_111817') are named after the
+    batch folder: 'Invoice Batch 01', with 'rerun' added when an earlier run read the same folder."""
     m = re.match(r"^run\d+_batch(\d+)(_RERUN)?$", run_id, re.I)
     if m:
         return f"Batch {m.group(1)}" + (" rerun" if m.group(2) else "")
-    return run_id.replace("_", " ")
+    name = batch or re.sub(r"_\d{6}$", "", run_id)
+    name = re.sub(r"^\d+[_ -]+", "", name).replace("_", " ").replace("-", " ").strip()
+    name = (name[:1].upper() + name[1:]) if name else run_id
+    return name + (" rerun" if seen_before else "")
 
 
 def build(runs_dir, cfg_path, out_dir, package=None):
@@ -53,36 +81,42 @@ def build(runs_dir, cfg_path, out_dir, package=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf_dir = out_dir / "pdfs"
     runs, results, documents = [], [], {}
-    copied = missing = 0
+    copied, missing = 0, []
 
-    run_dirs = sorted((p.parent for p in runs_dir.glob("*/decisions.json")), key=_run_sort_key)
-    for order, run_dir in enumerate(run_dirs, start=1):
-        info = _run_info(run_dir)
+    found = [(p.parent, _run_info(p.parent)) for p in runs_dir.glob("*/decisions.json")]
+    found.sort(key=lambda x: _run_sort_key(*x))
+    batches_seen = set()
+    for order, (run_dir, info) in enumerate(found, start=1):
         run_id = run_dir.name
+        batch = info.get("batch", "")
+        seen_before = bool(batch) and batch in batches_seen
+        batches_seen.add(batch)
         decisions = json.loads((run_dir / "decisions.json").read_text(encoding="utf-8"))
-        runs.append({"id": run_id, "order": order, "label": info.get("label") or _label(run_id, info.get("batch", "")),
-                     "batch": info.get("batch", ""), "started_at": info.get("started_at", ""),
-                     "dry_run": bool(info.get("dry_run", False)), "rerun": "RERUN" in run_id.upper(),
-                     "preflight_failed": (run_dir / "PREFLIGHT_FAILED.txt").exists(), "documents": len(decisions)})
+        runs.append({"id": run_id, "order": order, "label": info.get("label") or _label(run_id, batch, seen_before),
+                     "batch": batch, "started_at": info.get("started_at", ""),
+                     "dry_run": bool(info.get("dry_run", False)), "rerun": "RERUN" in run_id.upper() or seen_before,
+                     "preflight_failed": (run_dir / "PREFLIGHT_FAILED.txt").exists(), "documents": len(decisions),
+                     "files": _copy_run_files(run_dir, out_dir)})
         for d in decisions:
             doc_id = Path(d["file"]).stem
             vid = d.get("vendor_id") or "UNKNOWN:" + norm_name(d.get("vendor_name", ""))
             results.append({"run_id": run_id, "doc_id": doc_id, "key": make_key(vid, d.get("bill_no", ""), d.get("doc_type", "Bill")), **d})
-            if doc_id in documents:
-                continue
             ext_path = run_dir / "extracted" / f"{doc_id}.json"
             extracted = json.loads(ext_path.read_text(encoding="utf-8")) if ext_path.exists() else {}
+            if doc_id in documents:          # read again in a later run: show the newest reading
+                if extracted:
+                    documents[doc_id]["extracted"] = extracted
+                continue
             pdf = None
-            if package and info.get("batch"):
-                src = Path(package) / info["batch"] / d["file"]
-                if src.exists():
-                    pdf_dir.mkdir(exist_ok=True)
-                    shutil.copy2(src, pdf_dir / d["file"])
-                    pdf, copied = f"data/pdfs/{d['file']}", copied + 1
-                else:
-                    missing += 1
-            elif (pdf_dir / d["file"]).exists():          # copied by an earlier export
+            src = Path(package) / batch / d["file"] if package and batch else None
+            if src and src.exists():
+                pdf_dir.mkdir(exist_ok=True)
+                shutil.copy2(src, pdf_dir / d["file"])
+                pdf, copied = f"data/pdfs/{d['file']}", copied + 1
+            elif (pdf_dir / d["file"]).exists():          # copied earlier, or placed there by hand
                 pdf = f"data/pdfs/{d['file']}"
+            else:
+                missing.append(d["file"])
             documents[doc_id] = {"id": doc_id, "file": d["file"], "pdf": pdf, "extracted": extracted}
 
     cfg = json.loads(Path(cfg_path).read_text(encoding="utf-8"))

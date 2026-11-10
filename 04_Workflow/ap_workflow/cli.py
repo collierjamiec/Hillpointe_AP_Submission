@@ -262,9 +262,14 @@ def web_export(package, out_dir, web_dir):
     print(f"Packaged {r['runs']} runs, {r['documents']} invoices and {r['results']} results for the web view.")
     print(f"  Data: {r['path']}")
     if package:
-        print(f"  Invoice PDFs copied: {r['pdfs_copied']}" + (f"  (not found: {r['pdfs_missing']})" if r["pdfs_missing"] else ""))
+        print(f"  Invoice PDFs copied from the package: {r['pdfs_copied']}")
+    missing = r["pdfs_missing"]
+    if missing:
+        print(f"  {len(missing)} PDF{'s' if len(missing) > 1 else ''} not found, so {'those pages show' if len(missing) > 1 else 'that page shows'} "
+              f"everything except the original: {', '.join(missing)}")
+        print(f"  To add them, copy the files into {Path(web_dir) / 'data' / 'pdfs'} and run ./penny web-export again.")
     else:
-        print("  No --package given, so invoice PDFs were not copied. The web view shows everything else.")
+        print("  Every invoice has its PDF.")
     print("Next:  ./penny web")
 
 
@@ -310,7 +315,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 39 automated checks")
+    t = sub.add_parser("test", help="run the 41 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))

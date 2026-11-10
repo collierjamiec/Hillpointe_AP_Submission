@@ -16,7 +16,10 @@ where each rule lives, assumptions). Read it before changing behavior.
 - `04_Workflow/ap_workflow/`: the code. `extract.py` (PDF → fields), `rules.py` (all decisions, ~800 lines),
   `outputs.py` (files + Intacct pre-flight), `register.py` (processed-invoice register), `cli.py` (commands),
   `llm_extract.py` (optional Claude extraction, never run live), `webexport.py` (runs → `web/data/penny-data.json`).
-- `04_Workflow/web/`: the browser view (plain HTML/CSS/JS, no build step). View only; it never decides anything.
+- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny.js` (views, sandbox, roles),
+  `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
+  (design tokens at the top). It never re-decides an invoice: human actions are events in a browser-only audit log.
+  Labels must stay honest: ENTER_INTACCT is "Ready for Intacct import", never "entered" or "paid".
 - `04_Workflow/config/rules.json`: thresholds, routes, keywords. Prefer rule changes here over code.
 - `04_Workflow/state/`: the register (`processed_register.csv`, `run_log.csv`). Runs read and write it.
 - `04_Workflow/runs/<run-id>/`: run outputs.
@@ -28,7 +31,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 39 checks, uses temp dirs, safe
+./penny test                                   # 41 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 

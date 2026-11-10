@@ -1,0 +1,56 @@
+{
+  "file": "T5_unfamiliar_layout.pdf",
+  "supdoc_id": "T5_unfamiliar_layout",
+  "sha256": "03ba175c898b1deef21b6bbcd6e309e797be16d3fc7cfdd0ac43989d05a71d58",
+  "pages": 1,
+  "stamps": [],
+  "extraction": {
+    "method": "rules",
+    "warnings": []
+  },
+  "kind": "other",
+  "invoice_no": "",
+  "date": "",
+  "terms_printed": "",
+  "customer_ref": "",
+  "refs": {
+    "po": [
+      "PO2410315-008"
+    ],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "refs_customer_ref": {
+    "po": [],
+    "subcontract": [],
+    "service_agreement": [],
+    "order_form": []
+  },
+  "bill_to": {
+    "name": "",
+    "c_o": ""
+  },
+  "ship_to": "",
+  "vendor_name_raw": "Pinecrest Building Supply Co",
+  "vendor_phone": "(803) 555-0190",
+  "vendor_email": "",
+  "vendor_address_header": "PO Box 9183, Columbia, SC 29290, Statement of Charges, Document #: PBS-910005 Prepared for: Hillpointe Construction, LLC, Issued: October 28, 2026 Job: Pointe Grand Columbia, Net 30 days Your PO: PO2410315-008, Item Price each Count Line total",
+  "remit_to": {
+    "name": "",
+    "address": ""
+  },
+  "emails_on_doc": [],
+  "phones_on_doc": [
+    "(803) 555-0190"
+  ],
+  "payment_change_hits": [],
+  "revised": false,
+  "replaces_invoice": "",
+  "credit_original_invoice": "",
+  "new_client_note": false,
+  "lien_waiver": {
+    "attached": false,
+    "promised_later": false
+  }
+}
