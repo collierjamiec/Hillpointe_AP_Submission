@@ -26,9 +26,9 @@ where each rule lives, assumptions). Read it before changing behavior.
   With accounts on, the server ignores any user the browser sends and acts as the session's user.
 - `04_Workflow/VERSION` and `04_Workflow/releases.json`: the current version (three parts) and every release. A new
   release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
-  `web/data/releases.json` and `APP_VERSION` in `penny.js`; a test checks all four agree.
+  `web/data/releases.json` and `APP_VERSION` in `web/assets/penny-core.js`; a test checks all four agree.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
-- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny.js` (views, sandbox, roles),
+- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (13 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
   (design tokens at the top). It never re-decides an invoice: human actions are events in a browser-only audit log.
   Labels must stay honest: ENTER_INTACCT is "Ready for Intacct import", never "entered" or "paid".
@@ -43,7 +43,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 85 checks, uses temp dirs, safe
+./penny test                                   # 91 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
@@ -53,7 +53,12 @@ export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
 ## Conventions
 
 - Money is `Decimal`, never float.
-- Every decision change should come with a test in `tests/test_workflow.py`; `tests/expected_decisions.json` holds the
+- Every decision change should come with a test in `tests/test_engine.py` (web and server tests go in `test_web.py`,
+  accounts, email, versions and security in `test_platform.py`; shared setup is `tests/common.py`). Browser suites live in
+  `tests/browser/` and run with `python tests/browser/run.py`; add to them when the web app changes.
+- Every function gets a one-line description. `ROADMAP.md` is the plan to 2.0: update its status column in the same
+  change as the work.
+- For decisions: `tests/expected_decisions.json` holds the
   expected outcome per sample document.
 - `.github/workflows/tests.yml` runs the package-free tests on every pull request; keep them passing without the package.
 - Git repo on `main`, pushed to public GitHub repo `collierjamiec/Hillpointe_AP_Submission` (remote `origin`). Commit only when Jamie asks.

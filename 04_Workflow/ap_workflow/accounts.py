@@ -36,6 +36,7 @@ ITERATIONS = 200_000
 INVITE_HOURS, RESET_HOURS = 72, 1
 IDLE_SECONDS = 30 * 60
 MAX_TRIES = 5
+MAX_TRACKED = 2000          # emails remembered for lockouts; beyond this the oldest are forgotten, so memory stays bounded
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
 COMMON = {"password", "password1", "password123", "1234567890", "qwertyuiop", "letmein123", "welcome123", "penny12345",
           "iloveyou12", "administrator", "changeme123", "123456789a", "qwerty12345"}
@@ -45,20 +46,24 @@ class AccountError(Exception):
     """A request Penny refuses, with a reason a person can act on, and the HTTP status to send."""
 
     def __init__(self, message, status=400):
+        """Keep the message and the HTTP status to answer with."""
         super().__init__(message)
         self.status = status
 
 
 def now_iso():
+    """The current time in UTC, as text."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def hash_password(password, salt=None):
+    """Hash a password with PBKDF2-SHA256 and a random salt. Only the salt and hash are ever stored."""
     salt = salt or secrets.token_hex(16)
     return {"salt": salt, "hash": hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), ITERATIONS).hex(), "iterations": ITERATIONS}
 
 
 def password_problem(password, email="", name=""):
+    """Why a password is not acceptable, in plain words, or '' when it is fine."""
     p = str(password or "")
     if len(p) < 10:
         return "Use at least 10 characters. A short phrase is easiest to remember."
@@ -74,6 +79,7 @@ def password_problem(password, email="", name=""):
 
 
 def clean_email(v):
+    """A trimmed, lowercase email address, or an AccountError when it is not one."""
     e = str(v or "").strip().lower()
     if not EMAIL_RE.match(e):
         raise AccountError("Enter a valid email address, like name@company.com.")
@@ -82,6 +88,7 @@ def clean_email(v):
 
 class Accounts:
     def __init__(self, state_dir, log=None, clock=time.time):
+        """Accounts stored under state_dir. `log` receives audit events; `clock` can be replaced in tests."""
         self.dir = Path(state_dir)
         self.users_path = self.dir / "users.json"
         self.tokens_path = self.dir / "tokens.json"
@@ -90,30 +97,42 @@ class Accounts:
         self.lock = threading.RLock()
         self.sessions = {}          # sha256(token) -> {"user": id, "seen": time}
         self.tries = {}             # email -> {"fails", "until", "lockouts"}
+        self._cache = (None, [])    # (file stamp, users) so users.json is parsed once per change
 
     # ------------------------------------------------------------------ storage
     def enabled(self):
+        """True once at least one person exists. Until then the web app uses the public demo accounts."""
         return bool(self._users())
 
     def _users(self):
+        """Everyone, read from users.json. The parsed file is reused until the file changes on disk, because every
+        request looks up the signed-in person. Callers get their own copy and may change it before saving."""
         try:
-            return json.loads(self.users_path.read_text(encoding="utf-8")).get("users", [])
+            st = self.users_path.stat()
+            key = (st.st_mtime_ns, st.st_size)
+            if self._cache[0] != key:
+                self._cache = (key, json.loads(self.users_path.read_text(encoding="utf-8")).get("users", []))
+            return json.loads(json.dumps(self._cache[1]))
         except (OSError, ValueError):
             return []
 
     def _save_users(self, users):
+        """Write users.json through a temp file, so a crash can never leave it half written."""
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.users_path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"users": users}, indent=2), encoding="utf-8")
         tmp.replace(self.users_path)
+        self._cache = (None, [])    # never trust the stamp alone right after our own write
 
     def _tokens(self):
+        """Every invitation and reset link on file, keyed by the SHA-256 of its token."""
         try:
             return json.loads(self.tokens_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
 
     def _save_tokens(self, tokens):
+        """Write tokens.json, dropping links that expired more than a week ago."""
         self.dir.mkdir(parents=True, exist_ok=True)
         now = self.clock()
         keep = {k: v for k, v in tokens.items() if v["expires"] > now - 7 * 86400}   # forget old links after a week
@@ -128,13 +147,16 @@ class Accounts:
             "initials": "".join(w[0] for w in u["name"].split()[:2]).upper(), "has_password": bool(u.get("password"))}
 
     def get(self, user_id):
+        """One person's full record by id (including the password hash), or None."""
         return next((u for u in self._users() if u["id"] == user_id), None)
 
     def list(self):
+        """Everyone, as the web app may see them: active and invited people first, by name."""
         return [self.public(u) for u in sorted(self._users(), key=lambda u: (u["status"] == "inactive", u["name"].lower()))]
 
     # ------------------------------------------------------------------ links
     def _issue(self, user_id, purpose):
+        """Create a one-time link for an invitation or reset. Any older unused link of the same kind stops working."""
         token = secrets.token_urlsafe(32)
         hours = INVITE_HOURS if purpose == "invite" else RESET_HOURS
         with self.lock:
@@ -147,6 +169,7 @@ class Accounts:
         return token, hours
 
     def check_token(self, token):
+        """The link record and its person, or an AccountError when the link is used, expired or the account is off."""
         t = self._tokens().get(hashlib.sha256(str(token or "").encode()).hexdigest())
         if not t or t.get("used") or t["expires"] < self.clock():
             raise AccountError("This link has expired or was already used. Ask an Admin to send a new one.", 410)
@@ -156,6 +179,7 @@ class Accounts:
         return t, u
 
     def use_token(self, token, password, name=None):
+        """Set a password through an invitation or reset link, mark the link used, and sign the person out everywhere."""
         with self.lock:
             t, u = self.check_token(token)
             problem = password_problem(password, u["email"], name or u["name"])
@@ -179,13 +203,17 @@ class Accounts:
 
     # ------------------------------------------------------------------ admin actions
     def _who(self, u):
+        """Who did something, in the shape the audit log uses."""
         return {"id": u["id"], "name": u["name"], "role": u["role"]}
 
     def _admin(self, actor):
+        """Refuse unless the person acting is an Admin."""
         if not actor or actor.get("role") != "admin":
             raise AccountError("Only an Admin can manage people.", 403)
 
     def invite(self, actor, email, name, role, title="", bootstrap=False):
+        """Add a person as Invited and return (person, link token, hours valid). `bootstrap` lets the terminal create
+        the first Admin when nobody can sign in yet."""
         if not bootstrap:
             self._admin(actor)
         email = clean_email(email)
@@ -212,6 +240,7 @@ class Accounts:
         return self.public(user), token, hours
 
     def resend(self, actor, user_id):
+        """A fresh invitation link for someone who has not set up their account yet."""
         self._admin(actor)
         u = self.get(user_id)
         if not u:
@@ -223,6 +252,7 @@ class Accounts:
         return self.public(u), token, hours
 
     def send_reset(self, actor, user_id):
+        """A password reset link for an active person, sent by an Admin."""
         self._admin(actor)
         u = self.get(user_id)
         if not u:
@@ -248,6 +278,8 @@ class Accounts:
         return self.public(u), token, hours
 
     def update(self, actor, user_id, changes):
+        """Change a person's name, title, email, role or status. Guards: not your own role or status, and always
+        one active Admin. A role, status or email change ends that person's sessions at once."""
         self._admin(actor)
         with self.lock:
             users = self._users()
@@ -297,6 +329,7 @@ class Accounts:
         return self.public(u), diff
 
     def set_prefs(self, actor, prefs):
+        """Save the signed-in person's own appearance settings."""
         if not isinstance(prefs, dict) or len(json.dumps(prefs)) > 4000:
             raise AccountError("Those settings could not be saved.")
         with self.lock:
@@ -308,6 +341,8 @@ class Accounts:
 
     # ------------------------------------------------------------------ sign in and sessions
     def sign_in(self, email, password):
+        """Check an email and password and start a session. Five wrong tries lock that email for a minute, doubling
+        each time; the message is the same whether or not the email exists. Returns (session token, person)."""
         e = str(email or "").strip().lower()
         now = self.clock()
         st = self.tries.get(e, {"fails": 0, "until": 0, "lockouts": 0})
@@ -323,6 +358,9 @@ class Accounts:
                 st["until"] = now + 60 * 2 ** (st["lockouts"] - 1)
                 st["fails"] = 0
             self.tries[e] = st
+            if len(self.tries) > MAX_TRACKED:           # typed emails are untrusted input: never let them grow without limit
+                for old in sorted(self.tries, key=lambda k: self.tries[k]["until"])[:len(self.tries) - MAX_TRACKED]:
+                    self.tries.pop(old, None)
             left = MAX_TRIES - st["fails"]
             raise AccountError("That email and password do not match." + (f" {left} {'try' if left == 1 else 'tries'} left before a short lock." if st["until"] <= now else " Too many wrong tries: wait a minute."), 401)
         self.tries.pop(e, None)
@@ -339,6 +377,7 @@ class Accounts:
         return token, self.public(me)
 
     def session_user(self, token):
+        """The person a session token belongs to, or None when it is unknown, idle too long, or they were turned off."""
         if not token:
             return None
         key = hashlib.sha256(token.encode()).hexdigest()
@@ -355,9 +394,11 @@ class Accounts:
         return self.public(u)
 
     def sign_out(self, token):
+        """End one session."""
         if token:
             self.sessions.pop(hashlib.sha256(token.encode()).hexdigest(), None)
 
     def end_sessions(self, user_id):
+        """End every session a person has (after a password, role, status or email change)."""
         for k in [k for k, v in self.sessions.items() if v["user"] == user_id]:
             self.sessions.pop(k, None)

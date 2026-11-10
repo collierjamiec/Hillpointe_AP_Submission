@@ -14,8 +14,9 @@ about a real product.
 |---|---|---|
 | **Live demo** | The web app with the example invoices, in your browser. Pick a demo role to sign in. | [collierjamiec.github.io/Hillpointe_AP_Submission](https://collierjamiec.github.io/Hillpointe_AP_Submission/) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1 to 1.7.0)** | A full web app: roles, new batches, blockers, manual entry, user accounts, email, appearance settings and updates | [`SCOPE.md`](SCOPE.md) |
-| **Current version: 1.7.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Built after submission (v1.1 to 1.8.0)** | A full web app: roles, new batches, blockers, manual entry, user accounts, email, appearance settings and updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 1.8.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Where it is going** | The plan to 2.0: a shared server for a real team | [`ROADMAP.md`](ROADMAP.md) |
 | **How it works** | Every check, rule and assumption | [`04_Workflow/README.md`](04_Workflow/README.md) |
 
 ## Try it
@@ -51,7 +52,8 @@ For a team on one computer, turn on real accounts and email (all optional):
   and running new batches from the browser, suggested fixes that learn, and usage insights (v1.4), then blockers
   with owners and evidence, recheck previews, a rule simulator, manual entry with a second-person check, and a
   most-urgent-first queue (v1.5), the version on every screen with required or optional updates (v1.6.0), and user
-  management, emailed exports and approvals, and appearance settings (v1.7.0).
+  management, emailed exports and approvals, and appearance settings (v1.7.0), and a foundation release with browser
+  tests on every pull request, a content security policy and a description on every function (v1.8.0).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

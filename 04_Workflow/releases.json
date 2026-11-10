@@ -2,6 +2,18 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "1.8.0",
+      "date": "2026-11-10",
+      "required": false,
+      "summary": "A stronger foundation: browser tests on every change, a faster server, a content security policy, and clearer code. No new features.",
+      "notes": [
+        "The browser tests are now part of the project and run on every pull request.",
+        "Faster: files are fingerprinted once, and only new audit log lines and changed files are read.",
+        "Safer: a content security policy, fonts bundled so nothing loads from other sites, and safer response headers.",
+        "Clearer: the web app is 13 files by area, and every function has a short description."
+      ]
+    },
+    {
       "version": "1.7.0",
       "date": "2026-11-10",
       "required": false,

@@ -13,6 +13,7 @@ LABELS = {
 
 
 def build(out_dir: Path, state_dir: Path):
+    """Write RERUN_EVIDENCE.md: proof from the saved runs that a rerun enters nothing twice."""
     out_dir, state_dir = Path(out_dir), Path(state_dir)
     runs = [r for r in LABELS if (out_dir / r / "decisions.json").exists()]
     L = ["# Rerun evidence", "",

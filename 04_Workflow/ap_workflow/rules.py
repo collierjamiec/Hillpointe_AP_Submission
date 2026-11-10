@@ -24,6 +24,7 @@ CONSTRUCTION_VENDOR_TYPES = ("Subcontractor", "Supplier: Material", "Supplier: E
 
 class Decision:
     def __init__(self, doc):
+        """Start an undecided result for one document, with the fields every output file needs."""
         self.doc = doc
         self.file = doc["file"]
         self.supdoc_id = doc["supdoc_id"]
@@ -49,27 +50,32 @@ class Decision:
 
     # --- helpers
     def hold(self, code, reason):
+        """Record a reason this document cannot be entered. Any hold means nothing from it is written to an import file."""
         if code not in self.codes:
             self.codes.append(code)
         self.reasons.append(f"[{code}] {reason}")
         self.trail.append(f"FAIL  [{code}] {reason}")
 
     def ok(self, text):
+        """Record a check that passed, for the decision trail."""
         self.trail.append("PASS  " + text)
 
     def downgrade(self, level, why):
+        """Lower the confidence (it never goes back up) and note why."""
         order = {"High": 3, "Medium": 2, "Low": 1}
         if order[level] < order[self.confidence]:
             self.confidence = level
         self.confidence_basis.append(why)
 
     def primary_code(self, priority):
+        """The most important hold code, by the priority order in rules.json."""
         for c in priority:
             if c in self.codes:
                 return c
         return self.codes[0] if self.codes else ""
 
     def as_dict(self):
+        """The decision as plain data for decisions.json (money and dates become text)."""
         return {
             "file": self.file, "decision": self.status, "codes": self.codes, "reasons": self.reasons,
             "info": self.info, "trail": self.trail, "confidence": self.confidence, "confidence_basis": self.confidence_basis,
@@ -100,6 +106,7 @@ def allocate_tax(amounts, tax):
 
 class Engine:
     def __init__(self, master, history, contracts, register, cfg, run_id):
+        """Keep the reference data, the register and the rules, and read the tolerances once."""
         self.m, self.h, self.c, self.reg, self.cfg, self.run_id = master, history, contracts, register, cfg, run_id
         t = cfg["thresholds"]
         self.tol_overpo = D(t["overpo_tolerance"])
@@ -120,6 +127,9 @@ class Engine:
 
     # ================================================================================== decision
     def decide(self, doc):
+        """Run every check on one document, in order, and return its Decision. This is the whole policy in one place:
+        readable? numbers tie out? vendor, bill-to, payment-change and duplicate checks, then the checks for its category
+        (construction, stabilized or corporate), then dates and approvers when nothing is held."""
         dec = Decision(doc)
         if doc["kind"] == "unreadable":
             dec.hold("OTHER", f"Could not read this file: {doc['unreadable_reason']} Nothing was entered. "
@@ -186,12 +196,15 @@ class Engine:
         return self._finish(dec)
 
     def _finish(self, dec):
+        """Make sure the decision has a final status before it is returned."""
         if dec.status is None:
             dec.status = HOLD if dec.codes else ENTER_INTACCT
         return dec
 
     # ================================================================================== vendor
     def _vendor(self, doc, dec):
+        """Match the vendor by name to an Active vendor master record. A name that only matches an inactive record
+        merged into an active one uses the surviving record, with a note. Returns None when there is no match."""
         names = [doc.get("vendor_name_raw", ""), doc.get("remit_to", {}).get("name", "")]
         vendors = self.m.vendors.values()
         for nm in names:
@@ -214,6 +227,7 @@ class Engine:
 
     # ================================================================================== bill-to
     def _bill_to(self, doc, dec):
+        """Check the bill-to (or its c/o line) is a Hillpointe legal entity. Returns the entity code, or holds."""
         name, c_o = doc["bill_to"]["name"], doc["bill_to"]["c_o"]
         ent = self.m.legal_entity_for(name) or (self.m.legal_entity_for(c_o) if c_o else None)
         if ent is None:
@@ -224,6 +238,8 @@ class Engine:
 
     # ================================================================================== bank / remit
     def _payment_instructions(self, doc, vendor, dec):
+        """Hold for Treasury (BANKCHG) when the document asks to change payment details, or its remit address or
+        phone differs from the vendor master."""
         problems = []
         if doc["payment_change_hits"]:
             problems.append("the document asks us to change payment instructions (" + ", ".join(doc["payment_change_hits"][:4]) + ")")
@@ -288,6 +304,7 @@ class Engine:
         return False
 
     def _soft_duplicate_note(self, doc, vendor, dec):
+        """Note (not hold) a bill with the same vendor, date and amount as an existing one under another number."""
         for r in self.h.rows:
             if (r["VENDOR_ID"] == vendor["VENDOR_ID"] and r["Bill Total"] == dec.amount and r["Bill Date"] == dec.bill_date):
                 dec.info.append(f"Possible duplicate to review: same vendor, date and amount as {r['Record']} ({r['Bill / Invoice No']}).")
@@ -295,6 +312,8 @@ class Engine:
 
     # ================================================================================== classify
     def _classify(self, doc, vendor, dec):
+        """Decide the category: construction, stabilized or corporate. The Customer Ref decides first (PO or
+        subcontract, service agreement, order form), then the ship-to project, then the vendor type."""
         r = doc["refs_customer_ref"]
         ship_projects = self.m.project_by_text(doc.get("ship_to", "") + " " + doc["bill_to"]["name"])
         if r["po"] or r["subcontract"]:
@@ -317,6 +336,8 @@ class Engine:
 
     # ================================================================================== construction
     def _find_contract(self, doc, vendor, dec):
+        """Find the PO or subcontract the document references and check it belongs to this vendor and an open
+        project. Holds NOPO (with a likely match for a person to confirm) when none is usable."""
         r = doc["refs_customer_ref"]
         want_sc = doc["kind"] == "pay_app"
         refs = (r["subcontract"] + r["po"]) if want_sc else (r["po"] + r["subcontract"])
@@ -352,6 +373,8 @@ class Engine:
         return contract
 
     def _likely_po(self, doc, vendor, ship_projects):
+        """Suggest which of the vendor's POs this bill probably belongs to (matching unit rates, then project).
+        It is only a hint for the project manager; Penny never codes to it."""
         if not vendor:
             return ""
         cands = [p for p in self.c.pos.values() if p["vendor_id"] == vendor["VENDOR_ID"]]
@@ -378,6 +401,7 @@ class Engine:
         return "candidates for this vendor: " + ", ".join(p["number"] for _, p in scored)
 
     def billed_to_date(self, ref, exclude_key=None):
+        """Total already billed against a PO or subcontract: ERP history plus bills entered in earlier runs."""
         tot = sum((r["Bill Total"] for r in self.h.for_reference(ref)), D(0))
         for r in self.reg.entered():
             if r["reference_no"] == ref and r["key"] != exclude_key:
@@ -385,6 +409,7 @@ class Engine:
         return tot
 
     def _construction(self, doc, vendor, dec, bill_to_entity):
+        """Construction bills: find the contract, check insurance, then run the PO or pay application checks."""
         dec.system = "Sage Intacct"
         contract = self._find_contract(doc, vendor, dec)
         proj = self.m.projects.get(dec.project_id) if dec.project_id else None
@@ -400,6 +425,7 @@ class Engine:
             self._po_invoice(doc, vendor, dec, contract)
 
     def _coi(self, doc, vendor, dec):
+        """Hold (COI) when the vendor's insurance certificate expires before the bill date plus any grace days."""
         if doc["kind"] == "credit_memo":
             return
         coi = vendor.get("COI_date")
@@ -413,6 +439,8 @@ class Engine:
 
     # ------------------------------------------------------------------ PO invoices and credit memos
     def _po_invoice(self, doc, vendor, dec, contract):
+        """A PO invoice or credit memo: map each line to a PO line, check the PO balance against the tolerance
+        (credits already entered count), allocate tax, and build the Intacct bill lines."""
         cfg = self.cfg["construction"]
         if "lines" not in contract:   # a subcontract was referenced on a plain invoice
             dec.hold("OTHER", f"{contract['number']} is a subcontract but the document is not a pay application.")
@@ -487,6 +515,8 @@ class Engine:
         dec.gross = total
 
     def _map_po_line(self, desc, po):
+        """Pick the PO line a description belongs to by shared words. Returns None when it is a tie or no match,
+        so a person decides instead of Penny guessing."""
         if len(po["lines"]) == 1:
             return po["lines"][0]
         stop = {"with", "from", "that", "this", "incl", "week", "rate", "unit", "and", "the", "for"}
@@ -500,6 +530,8 @@ class Engine:
 
     # ------------------------------------------------------------------ subcontractor pay applications
     def _pay_app(self, doc, vendor, dec, sc):
+        """A subcontractor pay application: only executed change orders may be billed, retainage must match the
+        subcontract, a matching lien waiver is required, and prior billing must agree with what is on file."""
         cfg = self.cfg["construction"]
         if "cos" not in sc:
             dec.hold("OTHER", f"{sc['number']} is a PO but the document is a pay application.")
@@ -569,6 +601,8 @@ class Engine:
 
     # ================================================================================== stabilized (Entrata)
     def _stabilized(self, doc, vendor, dec, bill_to_entity):
+        """Apartment community bills (Entrata): identify the community, check the service agreement fee, and map
+        each line to an Entrata GL by description."""
         dec.system = "Entrata"
         r = doc["refs_customer_ref"]
         sa = self.c.agreements.get(r["service_agreement"][0]) if r["service_agreement"] else None
@@ -628,6 +662,8 @@ class Engine:
 
     # ================================================================================== corporate
     def _corporate(self, doc, vendor, dec, bill_to_entity):
+        """Corporate bills: department from the vendor master, GL by description, one-time lines to one entity and
+        subscriptions split by the allocation table, with tax shared across lines."""
         dec.system = "Sage Intacct"
         cc = self.cfg["corporate"]
         if vendor is None:
@@ -647,6 +683,7 @@ class Engine:
         default_gl = str(vendor.get("Default GL") or "").strip()
 
         def add(acct, loc, amt, memo):
+            """Add one Intacct line for this corporate bill."""
             nonlocal n
             n += 1
             dec.lines.append({"LINE_NO": n, "ACCT_NO": acct, "LOCATION_ID": loc, "DEPARTMENT_ID": dept, "PROJECT_ID": "", "TASK_ID": "",
@@ -690,6 +727,8 @@ class Engine:
 
     # ================================================================================== header
     def _dates_and_header(self, doc, vendor, dec):
+        """Due date from the vendor master terms (never the terms printed on the bill), and the posting date moved
+        to the first open period when the bill date falls in a closed one."""
         terms = str(vendor["Terms"]).strip()
         days = self.cfg["terms_days"].get(terms)
         if days is None:
@@ -743,6 +782,7 @@ class Engine:
             dec.hold("OTHER", f"Bill lines add to ${total:,.2f} but the amount owed on the document is ${expect:,.2f}.")
 
     def _approvers(self, doc, dec):
+        """List who must sign off, from the approval matrix and the dollar thresholds in rules.json."""
         if dec.status in (HOLD,) or dec.codes:
             return
         th = self.cfg["thresholds"]
@@ -768,15 +808,19 @@ class Engine:
     # ================================================================================== misc
     @staticmethod
     def _trim(s, n=80):
+        """Collapse whitespace and cut to the memo length Intacct accepts."""
         s = " ".join(str(s).split())
         return s[:n].rstrip()
 
     def _memo(self, descs, has_tax):
+        """A short line memo from the descriptions, noting when tax is included."""
         base = "; ".join(re.sub(r"\s*\(.*?\)", "", d).strip() for d in descs)
         return self._trim(base + (" (incl. tax)" if has_tax else "") if len(base) < 64 else base)
 
     # ================================================================================== commit to register
     def commit(self, dec):
+        """Record the decision in the register: ENTERED (later copies are duplicates), HELD (a corrected copy is
+        judged fresh), and SUPERSEDED for a held original replaced by a revision. Unreadable files are not recorded."""
         d = dec.doc
         if d.get("kind") == "unreadable":
             return   # no vendor or invoice number to key on; it is held in the exception log and run log, and re-read next run

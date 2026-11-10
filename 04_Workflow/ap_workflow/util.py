@@ -31,10 +31,12 @@ def parse_money(s: str) -> Decimal:
 
 
 def parse_us_date(s: str) -> date:
+    """A date from MM/DD/YYYY text."""
     return datetime.strptime(s.strip(), "%m/%d/%Y").date()
 
 
 def iso(d) -> str:
+    """A date as YYYY-MM-DD, or '' for None."""
     return d.isoformat() if d else ""
 
 
@@ -44,6 +46,7 @@ def us(d) -> str:
 
 
 def as_date(x):
+    """A date from a date, a datetime or text in the formats the package uses. Raises for anything else."""
     if x is None or x == "":
         return None
     if isinstance(x, datetime):
@@ -60,10 +63,12 @@ def as_date(x):
 
 
 def add_days(d: date, n: int) -> date:
+    """The date n days later."""
     return d + timedelta(days=n)
 
 
 def sha256_file(path) -> str:
+    """The SHA-256 fingerprint of a file, read in chunks."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 16), b""):
@@ -107,6 +112,7 @@ def norm_invoice_no(s: str) -> str:
 
 
 def norm_addr(s: str) -> str:
+    """An address in lowercase with punctuation removed and Suite written as ste, so two spellings compare equal."""
     s = (s or "").lower()
     s = re.sub(r"[^a-z0-9 ]", " ", s)
     s = re.sub(r"\b(suite|ste)\b", "ste", s)
@@ -114,4 +120,5 @@ def norm_addr(s: str) -> str:
 
 
 def digits(s: str) -> str:
+    """Only the digits in a piece of text."""
     return re.sub(r"\D", "", s or "")

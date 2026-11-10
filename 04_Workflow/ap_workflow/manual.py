@@ -33,6 +33,7 @@ class KeyedError(ValueError):
 
 
 def _money(label, v, problems, allow_blank=False):
+    """An amount typed by a person as a Decimal rounded to cents, or None after recording the problem."""
     s = str(v if v is not None else "").replace(",", "").replace("$", "").strip()
     if not s and allow_blank:
         return None
@@ -43,10 +44,12 @@ def _money(label, v, problems, allow_blank=False):
 
 
 def _text(entry, key, limit=120):
+    """A typed field with whitespace collapsed and cut to a safe length."""
     return re.sub(r"\s+", " ", str(entry.get(key) or "")).strip()[:limit]
 
 
 def _refs(text):
+    """The PO, subcontract, service agreement and order form numbers found in a piece of text."""
     return {"po": PO_RE.findall(text), "subcontract": SC_RE.findall(text), "service_agreement": SA_RE.findall(text),
             "order_form": OF_RE.findall(text)}
 

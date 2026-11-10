@@ -1,0 +1,30 @@
+// The rules editor: add, remove, reorder, validate, save and undo.
+const { chromium } = require('playwright');
+const { session, BASE } = require('./session.js');
+const ok = (c, m) => { if (!c) throw new Error('ASSERT ' + m); };
+(async () => {
+  const out = require('./lab.js').SHOTS; const b = await chromium.launch();
+  const p = await session(b, 'sam@penny.demo');
+  await p.goto(BASE + '#/rules'); await p.waitForTimeout(400);
+  await p.fill('#in-overpo_tolerance', '1500');
+  await p.fill('[data-word-input="payment_change_phrases"]', 'remit to new account'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+  ok(await p.$('text=remit to new account'), 'word added');
+  await p.click('[data-word-del="duplicate_stamps"][data-i="0"]'); await p.waitForTimeout(150);
+  await p.fill('[data-text="construction.department"]', ''); await p.waitForTimeout(100);
+  ok((await p.textContent('#edit-bar')).includes('cannot be empty'), 'validation shows');
+  await p.fill('[data-text="construction.department"]', 'OPS2');
+  await p.click('[data-move="8"][data-dir="-1"]'); await p.waitForTimeout(150);
+  await p.click('[data-gl-add="entrata_gl_keywords"]'); await p.waitForTimeout(150);
+  await p.fill('[data-gl-kw="entrata_gl_keywords"][data-i="6"]', 'snow, ice'); await p.fill('[data-gl-code="entrata_gl_keywords"][data-i="6"]', '6300-0200');
+  await p.click('[data-term-add]'); await p.waitForTimeout(150);
+  await p.click('.switch'); await p.waitForTimeout(150);
+  const bar = await p.textContent('#edit-bar'); console.log('bar:', bar.replace(/\s+/g, ' ').slice(0, 400));
+  await p.screenshot({ path: `${out}/93-rules-edit.png`, fullPage: true });
+  await p.click('#rules-save'); await p.fill('#dlg-note', 'Quarterly rules review with the controller.'); await p.click('#dialog button[type=submit]'); await p.waitForTimeout(300);
+  ok(await p.$('text=remit to new account'), 'saved word stays');
+  const hist = await p.textContent('.approvals'); console.log('history:', hist.replace(/\s+/g, ' ').slice(0, 300));
+  await p.click('[data-undo]'); await p.fill('#dlg-note', 'Rolled back for now.'); await p.click('#dialog button[type=submit]'); await p.waitForTimeout(300);
+  ok(!(await p.$('.word-chip:has-text("remit to new account")')), 'undo removed word'); ok((await p.textContent('.approvals')).includes('Undone'), 'history marks undone');
+  ok((await p.inputValue('#in-overpo_tolerance')) === '500', 'undo restored threshold');
+  console.log(p.errs.length ? p.errs.join('\n') : 'no errors'); await b.close();
+})().catch(e => { console.error(e.message); process.exit(1); });

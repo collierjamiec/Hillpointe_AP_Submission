@@ -15,6 +15,7 @@ MONEY = r"\$[\d,]+\.\d{2}"
 
 # ----------------------------------------------------------------------------------------------- master
 def _rows(ws):
+    """A worksheet as a list of dicts keyed by its header row."""
     rows = [r for r in ws.iter_rows(values_only=True)]
     hdr = [str(h).strip() if h is not None else "" for h in rows[0]]
     out = []
@@ -27,6 +28,8 @@ def _rows(ws):
 
 class Master:
     def __init__(self, path: Path):
+        """Read the master data workbook: entities, projects, departments, GL accounts, cost codes and types, vendors,
+        the allocation table and accounting periods."""
         wb = openpyxl.load_workbook(path, data_only=False)
         self.entities = {r["ENTITY_ID"]: r for r in _rows(wb["Entities"])}
         self.projects = {str(r["PROJECT_ID"]): r for r in _rows(wb["Projects"])}
@@ -56,9 +59,11 @@ class Master:
 
     # --- lookups
     def legal_entity_for(self, name: str):
+        """The entity code for a legal name (or approved alias), or None."""
         return self._legal.get(norm_name(name))
 
     def period_status(self, d):
+        """Whether the accounting period containing this date is Open or Closed."""
         return self.periods.get(d.strftime("%B %Y"), "Unknown")
 
     def first_open_period_start(self):
@@ -68,6 +73,7 @@ class Master:
         return opens[0] if opens else None
 
     def project_by_text(self, text: str):
+        """Project IDs whose name appears in a piece of text, such as a ship-to line."""
         t = norm_name(text)
         hits = [pid for pid, p in self.projects.items() if norm_name(p["Project Name"]) in t]
         return hits
@@ -76,6 +82,7 @@ class Master:
 # ----------------------------------------------------------------------------------------------- history
 class History:
     def __init__(self, path: Path):
+        """Read the bills already entered in the ERP before Penny ran."""
         wb = openpyxl.load_workbook(path, data_only=True)
         self.rows = []
         for r in _rows(wb["Bill_History"]):
@@ -89,19 +96,23 @@ class History:
             self.rows.append(r)
 
     def find_invoice(self, vendor_id, invoice_key, normalizer):
+        """Earlier bills from this vendor with the same invoice number after normalizing its format."""
         return [r for r in self.rows if r["VENDOR_ID"] == vendor_id and normalizer(str(r["Bill / Invoice No"])) == invoice_key]
 
     def for_reference(self, ref):
+        """Earlier bills entered against a PO or subcontract number."""
         return [r for r in self.rows if str(r.get("Reference") or "").strip() == ref]
 
 
 # ----------------------------------------------------------------------------------------------- PO / SC / SA
 def _vendor_id(text):
+    """The vendor ID (like V1001) found in a block of text, or ''."""
     m = re.search(r"\((V\d{4})\)", text)
     return m.group(1) if m else ""
 
 
 def parse_po(text: str) -> dict:
+    """Read a purchase order's text: number, vendor, project, status, total, and each line with its cost code and price."""
     po = {"number": _g(r"PO Number\s+(\S+)", text), "vendor_id": _vendor_id(text),
           "project_id": _g(r"Project\s+(\d{6,7})", text), "status": _g(r"Status\s+(\w+)", text),
           "date": _g(r"PO Date\s+(\S+)", text), "lines": [], "total": None}
@@ -124,6 +135,7 @@ def parse_po(text: str) -> dict:
 
 
 def parse_subcontract(text: str) -> dict:
+    """Read a subcontract's text: number, vendor, project, contract sums, cost code, and the change order log."""
     sc = {"number": _g(r"Subcontract No\.\s+(\S+)", text), "vendor_id": _vendor_id(text),
           "project_id": _g(r"Project\s+(\d{6,7})", text),
           "original_contract": parse_money(_g(rf"Original Contract\s+({MONEY})", text) or "0"),
@@ -140,6 +152,7 @@ def parse_subcontract(text: str) -> dict:
 
 
 def parse_service_agreement(text: str) -> dict:
+    """Read a service agreement's text: number, vendor, property, the monthly fee and what it is made of."""
     sa = {"number": _g(r"Agreement No\.\s+(\S+)", text), "vendor_id": _vendor_id(text),
           "project_id": _g(r"Property\s+(\d{6,7})", text),
           "monthly_fee": parse_money(_g(rf"Monthly Fee\s+({MONEY})", text) or "0"),
@@ -150,12 +163,14 @@ def parse_service_agreement(text: str) -> dict:
 
 
 def _g(pat, text):
+    """The first capture group of a pattern in text, or ''."""
     m = re.search(pat, text)
     return m.group(1).strip() if m else ""
 
 
 class Contracts:
     def __init__(self, folder: Path):
+        """Read every PO, subcontract and service agreement PDF in the folder."""
         self.pos, self.subcontracts, self.agreements, self.unparsed = {}, {}, {}, []
         for p in sorted(folder.glob("*.pdf")):
             text = read_pdf(p)["text"]
@@ -170,6 +185,7 @@ class Contracts:
 
 
 def load_package(package_dir: Path):
+    """Load the three kinds of reference data from the package folder: master data, ERP history and contracts."""
     m = Master(package_dir / "02_Reference_Data" / "Hillpointe_Master_Data.xlsx")
     h = History(package_dir / "06_ERP_History" / "Previously_Entered_Bills.xlsx")
     c = Contracts(package_dir / "03_Purchase_Orders_and_Subcontracts")

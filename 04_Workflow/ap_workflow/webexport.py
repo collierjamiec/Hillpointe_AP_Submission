@@ -25,7 +25,21 @@ RUN_FILES = ["intacct_bill_import.csv", "entrata_handoff.csv", "exception_log.cs
              "review_workbook.xlsx", "run_report.md"]
 
 
+def _copy_if_changed(src, dest):
+    """Copy a file unless the destination already has the same size and modified time (copy2 keeps the time).
+    After a run, only that run's files are new, so the rest of the web data is left alone."""
+    try:
+        a, b = src.stat(), dest.stat()
+        if a.st_size == b.st_size and int(a.st_mtime) == int(b.st_mtime):
+            return False
+    except OSError:
+        pass
+    shutil.copy2(src, dest)
+    return True
+
+
 def _copy_run_files(run_dir, out_dir):
+    """Copy a run's downloadable files into the web data folder and describe each one."""
     dest = out_dir / "runs" / run_dir.name
     files = []
     for name in RUN_FILES:
@@ -33,7 +47,7 @@ def _copy_run_files(run_dir, out_dir):
         if not src.exists():
             continue
         dest.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest / name)
+        _copy_if_changed(src, dest / name)
         rows = None
         if name.endswith(".csv"):
             with open(src, encoding="utf-8") as f:
@@ -77,6 +91,7 @@ def _label(run_id, batch, seen_before):
 
 
 def build(runs_dir, cfg_path, out_dir, package=None, root=None, batch_log=None):
+    """Write web/data/penny-data.json from every saved run, and copy the files and invoice PDFs the web app links to."""
     runs_dir, out_dir = Path(runs_dir), Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf_dir = out_dir / "pdfs"
@@ -114,7 +129,7 @@ def build(runs_dir, cfg_path, out_dir, package=None, root=None, batch_log=None):
                 src = Path(root) / info["batch_dir"] / d["file"]          # a batch uploaded through the web app
             if src and src.exists():
                 pdf_dir.mkdir(exist_ok=True)
-                shutil.copy2(src, pdf_dir / d["file"])
+                _copy_if_changed(src, pdf_dir / d["file"])
                 pdf, copied = f"data/pdfs/{d['file']}", copied + 1
             elif (pdf_dir / d["file"]).exists():          # copied earlier, or placed there by hand
                 pdf = f"data/pdfs/{d['file']}"

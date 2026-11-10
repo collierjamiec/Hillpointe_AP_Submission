@@ -32,6 +32,7 @@ ADDRESS_RE = re.compile(r"^[^@\s]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
 
 
 def configured():
+    """True when a mail server is set up (PENNY_SMTP_HOST)."""
     return bool(os.environ.get("PENNY_SMTP_HOST"))
 
 
@@ -74,6 +75,7 @@ def describe():
 
 class Outbox:
     def __init__(self, state_dir):
+        """Emails are kept under state_dir/outbox, with one index file."""
         self.dir = Path(state_dir) / "outbox"
         self.index = self.dir / "outbox.jsonl"
 
@@ -119,6 +121,7 @@ class Outbox:
         return entry
 
     def list(self, user=None):
+        """Every email, newest first. Admins see all of them; everyone else sees the ones they sent."""
         if not self.index.exists():
             return []
         rows = [json.loads(line) for line in self.index.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -128,6 +131,7 @@ class Outbox:
 
     @staticmethod
     def _smtp(msg):
+        """Send one message: SSL on port 465, otherwise STARTTLS."""
         host, port = os.environ["PENNY_SMTP_HOST"], int(os.environ.get("PENNY_SMTP_PORT") or 587)
         user, password = os.environ.get("PENNY_SMTP_USER"), os.environ.get("PENNY_SMTP_PASSWORD")
         ctx = ssl.create_default_context()
@@ -145,6 +149,7 @@ class Outbox:
 
 
 def _redact(text, secrets_):
+    """The text with each secret (a one-time link) blanked out."""
     for s in secrets_:
         text = text.replace(s, "[link removed after sending]")
     return text

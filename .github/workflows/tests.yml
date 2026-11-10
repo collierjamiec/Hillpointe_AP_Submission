@@ -30,6 +30,26 @@ jobs:
       - name: Run the tests (package-free set)
         run: python -m unittest discover -s tests -v
 
+  browser:
+    # The web app in a real browser: every role, both sign-in modes, updates, appearance and the help center.
+    # (Added in v1.8. The engine suite needs the assessment package, so it runs on your own computer only.)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -r 04_Workflow/requirements.txt
+      - name: Install Playwright and its browser
+        working-directory: 04_Workflow/tests/browser
+        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Run the browser suites
+        working-directory: 04_Workflow
+        run: python tests/browser/run.py
+
   web:
     runs-on: ubuntu-latest
     steps:

@@ -16,6 +16,9 @@ and what I chose to build on my own.
 | 1.5 | November 2026 | **After submission:** blockers with owners, dates and evidence, recheck previews, a rule simulator, manual entry with a second-person check, a most-urgent-first queue, and automatic tests on every pull request. | Pull request #4 |
 | 1.6.0 | November 2026 | **After submission:** the version on every screen, a What's new page, and updates that are either required (read-only until updated) or optional (can be skipped). From here on, versions have three parts. | Pull request #5, release [v1.6.0](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases/tag/v1.6.0) |
 | 1.7.0 | November 2026 | **After submission:** real user accounts with invitations, password resets, roles and on/off status; emailing exports and approval requests with the file attached; an Outbox; and appearance settings with preset themes, custom colors and a company default. | Pull request #6, release [v1.7.0](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases/tag/v1.7.0) |
+| 1.8.0 | November 2026 | **After submission:** a stronger foundation with no new features: browser tests in the repository and on every pull request, faster server, a content security policy and bundled fonts, the web app split into files by area, and a description on every function. | Pull request #8 |
+
+The plan from here to 2.0 is in [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -428,15 +431,65 @@ downloaded, in a shape a server could collect later.
 
 ---
 
+## Version 1.8.0: a stronger foundation (November 2026, after submission)
+
+No new features. I reviewed the whole codebase for gaps and fixed what would make the next releases risky.
+
+### Browser tests are part of the project
+
+* Before this, the browser tests I ran for every release lived only in a build session, so GitHub never ran them.
+  They are now in `04_Workflow/tests/browser/`: ten suites covering every role, the public demo, real accounts,
+  email and the Outbox, appearance, updates, the help center, security, and (with the assessment package) the engine.
+* `python tests/browser/run.py` starts a lab in a temp folder (it never touches the real register, runs or accounts),
+  runs every suite and stops the lab. Nine suites run on every pull request; the engine suite needs the package.
+* The updates suite follows the `VERSION` file, and the lab gives fixed answers, so no test depends on the network.
+
+### Faster
+
+* A PDF is fingerprinted once and remembered until its size or modified time changes (it was re-read on every page load).
+* The audit log is read once; after that only new lines are read.
+* After a run, only files that changed are copied into the web data.
+* The account list is parsed once per change instead of on every request.
+
+### Safer
+
+* **Content security policy** on the page and on every server response: scripts, fonts and data only from Penny
+  itself, no inline scripts, no plugins. A test injects a script and checks the browser blocks it.
+* **No third-party requests:** the Inter font is bundled (SIL Open Font License) instead of loaded from Google, so
+  visits are not reported to anyone and the app works offline.
+* Response headers stop MIME sniffing, framing by other sites, and referrer leaks.
+* The failed sign-in tracker is bounded, so typed emails can never grow memory without limit.
+* The server reads a request fully before refusing it, so the browser always receives the reason.
+
+### Easier to read and change
+
+* `penny.js` (4,451 lines) is now 13 files by area, loaded in order with no build step. Each file starts with what
+  it holds. The code and its order are unchanged.
+* Every function in the Python code has a short description (246 of 246; 170 were added).
+* The request handler is a class with small route methods instead of one 209-line function; the PDF reader's
+  139-line function is four named steps; the single 1,400-line test file is three files by area with shared setup.
+* Removed a duplicated function in `cli.py`.
+
+### Testing
+
+* 91 Python tests; 57 run without the assessment package. New ones cover the fingerprint cache (never stale), the
+  incremental audit log (half-written lines, a replaced file), copying only changed files, the bounded sign-in
+  tracker, security headers on every response, and no third-party resources in the page.
+* All ten browser suites pass on the split web app with the policy in force, with no page errors.
+
+---
+
 ## What comes next (planned, not built)
+
+The plan to 2.0, with the status of each item, is in [`ROADMAP.md`](ROADMAP.md). In short:
 
 | Next step | What it adds |
 |---|---|
-| Source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. |
-| Export history | Track each Intacct file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. |
-| A shared server | Run Penny for a whole team over the network (with https), and keep the sandbox actions (resolves, approvals, notes, rules) on the server as well. Accounts and email already work on one computer (v1.7.0). |
-| Single sign-on | Sign in with the company's identity provider instead of demo accounts. |
-| Watched inbox folder | Pick up new invoices from an email inbox or shared folder automatically, then preview them. |
+| 1.9.0: source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. |
+| 1.9.0: export history | Track each Intacct file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. |
+| 1.9.0: watched inbox folder | Pick up new invoices from a shared folder automatically, then preview them. |
+| 2.0.0: Penny for a real team | The server becomes the single source of truth (SQLite): every action and rule change is saved and checked there, teammates see each other's work live, and Penny runs over the network with https. |
+| After 2.0: single sign-on | Sign in with the company's identity provider. Intended for 2.1; it needs a real identity provider to build and test against. |
 
 These grow out of two ideas I recorded during the assessment: a full audit trail, and a safe way to handle new invoice
 types and vendors.

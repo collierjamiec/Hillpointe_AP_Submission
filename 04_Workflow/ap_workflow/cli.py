@@ -30,6 +30,7 @@ CFG_PATH = ROOT / "config" / "rules.json"
 
 
 def find_package(arg):
+    """The assessment package folder: the --package argument, HILLPOINTE_PACKAGE, or a folder next to this one."""
     cands = [arg] if arg else []
     cands += [ROOT / "Hillpointe_AP_Technical_Screen", ROOT.parent / "Hillpointe_AP_Technical_Screen", Path.cwd() / "Hillpointe_AP_Technical_Screen"]
     for c in cands:
@@ -48,7 +49,18 @@ def resolve_batch(package, arg):
     return Path(arg)
 
 
+BATCH_SHORTCUTS = {"1": "01_Invoice_Batch_01", "2": "07_Invoice_Batch_02_Rerun"}
+
+
+def resolve_batch(package, arg):
+    """Accept a folder path, or the shortcuts 1 and 2 for the two assessment batches."""
+    if arg in BATCH_SHORTCUTS:
+        return Path(package) / BATCH_SHORTCUTS[arg]
+    return Path(arg)
+
+
 def latest_run(out_dir):
+    """The name of the most recently written run folder."""
     runs = [p for p in Path(out_dir).glob("*/decisions.json")]
     if not runs:
         sys.exit("No runs yet. Run one first, for example: python3 ap.py run 1")
@@ -66,6 +78,7 @@ def resolve_batch(package, arg):
 
 
 def latest_run(out_dir):
+    """The name of the most recently written run folder."""
     runs = list(Path(out_dir).glob("*/decisions.json"))
     if not runs:
         sys.exit("No runs yet. Try:  ./penny run 1")
@@ -106,6 +119,8 @@ def reset(state_dir, out_dir):
 
 
 def run(package, batch, run_id, state_dir, out_dir, extractor="rules", dry_run=False, quiet=False):
+    """Run Penny on one folder of PDFs: read, decide, write every output file, pre-flight the import file, and
+    save the register unless this is a dry run or the pre-flight failed. Returns (decisions, pre-flight errors)."""
     cfg = json.loads(CFG_PATH.read_text(encoding="utf-8"))
     master, history, contracts = load_package(package)
     reg = Register(state_dir)
@@ -203,6 +218,7 @@ def short_why(d):
 
 
 def summarize(run_id, decisions, counts, errs, irows, routes=None, priority=None):
+    """Print the run to the terminal: one block per document, then the totals."""
     routes, priority = routes or {}, priority or []
     width = min(shutil.get_terminal_size((100, 20)).columns, 100) - 2
     rule = "-" * width
@@ -244,6 +260,7 @@ def summarize(run_id, decisions, counts, errs, irows, routes=None, priority=None
 
 
 def demo(package, state_dir, out_dir):
+    """Start fresh, then run Batch 01, a rerun, Batch 02 and a rerun, and build the rerun evidence."""
     state_dir, out_dir = Path(state_dir), Path(out_dir)
     for p in (state_dir / "processed_register.csv", state_dir / "run_log.csv"):
         if p.exists():
@@ -262,6 +279,7 @@ def demo(package, state_dir, out_dir):
 
 
 def explain(out_dir, run_id, doc_id):
+    """Print every check for one document in a run."""
     run_id = run_id or latest_run(out_dir)
     if doc_id.isdigit():
         doc_id = doc_id.zfill(4)
@@ -280,6 +298,7 @@ def explain(out_dir, run_id, doc_id):
 
 
 def web_export(package, out_dir, web_dir):
+    """Package the saved runs and invoice PDFs for the web app."""
     from . import webexport
     r = webexport.build(out_dir, CFG_PATH, Path(web_dir) / "data", package, root=ROOT, batch_log=ROOT / "state" / "batch_log.jsonl")
     print(f"Packaged {r['runs']} runs, {r['documents']} invoices and {r['results']} results for the web view.")
@@ -338,6 +357,7 @@ def update_notice(state_dir, quiet=False):
 
 
 def update(state_dir, check_only=False, skip_it=False):
+    """Show what is new and, unless only checking or skipping, update this copy from GitHub main."""
     import subprocess
     from .version import check, skip, current
     info = check(state_dir, force=True)
@@ -434,6 +454,7 @@ def email_cmd(state_dir, action, to=None):
 
 
 def publish_release(version, summary, notes, required):
+    """Write a new release everywhere it lives and say what happens next."""
     from .version import release, VersionError
     try:
         entry = release(version, summary, notes, required)
@@ -446,6 +467,7 @@ def publish_release(version, summary, notes, required):
 
 
 def status(state_dir):
+    """Print what the register remembers."""
     reg = Register(state_dir)
     print(f"{len(reg.rows)} keys in {reg.path}")
     for k, r in sorted(reg.rows.items()):
@@ -453,6 +475,7 @@ def status(state_dir):
 
 
 def main(argv=None):
+    """Read the command line and run the matching command."""
     from .version import current as penny_version
     ap = argparse.ArgumentParser(prog="penny", description="Penny: reads vendor invoices, applies the AP rules, and tells you what to enter and what to hold.",
                                  epilog="First time:  ./penny install   |   Examples:  ./penny run 1   |   ./penny run ~/Desktop/new_invoices -n   |   ./penny explain 6   |   ./penny status   |   ./penny test   |   ./penny reset   |   ./penny demo")
@@ -470,7 +493,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 85 automated checks")
+    t = sub.add_parser("test", help="run the 91 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
