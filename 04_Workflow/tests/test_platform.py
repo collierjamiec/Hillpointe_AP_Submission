@@ -1,6 +1,10 @@
 """What runs around the engine: versions and updates, accounts, email, and the speed and security groundwork.
 Run everything with:  ./penny test   (or: python -m unittest discover -s tests -v)"""
-from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPECTED, outcome, cli, syn)
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))      # so one file can also be run on its own
+from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPECTED, outcome, cli, syn)  # noqa: E402
 
 
 class VersionTests(unittest.TestCase):
@@ -351,6 +355,129 @@ class FoundationTests(unittest.TestCase):
         self.assertIn("Content-Security-Policy", html)
         for font in ("inter-latin-wght-normal.woff2", "inter-latin-ext-wght-normal.woff2", "LICENSE-Inter.txt"):
             self.assertTrue((ROOT / "web" / "assets" / "fonts" / font).exists(), font)
+
+
+class WatchedFolderTests(unittest.TestCase):
+    """(added after submission, v1.9) PDFs dropped into the watched folder are filed and previewed, never run for real."""
+
+    def setUp(self):
+        from ap_workflow import webserver, watcher
+        self.ws, self.wm = webserver, watcher
+        self.tmp = Path(tempfile.mkdtemp())
+        (self.tmp / "web" / "data").mkdir(parents=True)
+        self.svc = webserver.BatchService(self.tmp, None, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        self.w = watcher.Watcher(self.svc)
+        self.drop = self.tmp / "inbox" / "_incoming"
+        self.drop.mkdir(parents=True)
+        syn.make_statement(self.tmp / "st.pdf")
+        self.pdf = (self.tmp / "st.pdf").read_bytes()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def put(self, name, data, age=60):
+        f = self.drop / name
+        f.write_bytes(data)
+        old = __import__("time").time() - age
+        os.utime(f, (old, old))
+        return f
+
+    def test_a_file_is_taken_only_once_it_has_stopped_changing(self):
+        f = self.put("scan1.pdf", self.pdf)
+        self.assertIsNone(self.w.scan())                                    # first look: size not seen before
+        f.write_bytes(self.pdf + b"more")                                    # still being written
+        self.assertIsNone(self.w.scan())
+        self.assertIsNone(self.w.scan())                                    # same size now, but written a moment ago
+        old = __import__("time").time() - 60
+        os.utime(f, (old, old))
+        ev = self.w.scan()
+        self.assertEqual((ev["event"], ev["count"], ev["by"]["name"]), ("watch.picked_up", 1, "Watched folder"))
+        self.assertFalse(f.exists())                                        # moved, not copied
+        batch = self.tmp / ev["folder"]
+        self.assertTrue(batch.name.endswith("_watched-folder"))
+        self.assertEqual((batch / "scan1.pdf").read_bytes(), self.pdf + b"more")
+        self.assertEqual(ev["files"][0]["sha256"], hashlib.sha256(self.pdf + b"more").hexdigest())
+        self.assertEqual([e["event"] for e in self.svc.read_log()], ["batch.created", "batch.uploaded", "watch.picked_up"])
+        self.assertFalse((self.tmp / "runs").exists())                      # no engine here, so no run at all
+
+    def test_only_real_pdfs_are_taken_and_nothing_is_deleted(self):
+        self.put("notes.txt", b"hello")
+        self.put("fake.pdf", b"<html>not a pdf</html>")
+        self.put("half.pdf.crdownload", self.pdf)
+        self.put(".hidden.pdf", self.pdf)
+        (self.drop / "sub").mkdir()
+        self.put("good.pdf", self.pdf)
+        outside = self.tmp / "secret.pdf"
+        outside.write_bytes(self.pdf)
+        os.symlink(outside, self.drop / "link.pdf")
+        self.w.scan()
+        ev = self.w.scan()
+        self.assertEqual([f["name"] for f in ev["files"]], ["good.pdf"])
+        why = {i["name"]: i["why"] for i in self.w.status()["ignored"]}
+        self.assertIn("not a PDF", why["notes.txt"])
+        self.assertIn("not really a PDF", why["fake.pdf"])
+        self.assertIn("link", why["link.pdf"])
+        self.assertNotIn("half.pdf.crdownload", why)                        # still downloading: just wait
+        for left in ("notes.txt", "fake.pdf", "half.pdf.crdownload", ".hidden.pdf", "link.pdf", "sub"):
+            self.assertTrue((self.drop / left).exists() or (self.drop / left).is_symlink(), left)
+        self.assertTrue(outside.exists())
+
+    def test_a_second_drop_the_same_day_gets_its_own_batch(self):
+        for name in ("a.pdf", "b.pdf"):
+            self.put(name, self.pdf + name.encode())
+            self.w.scan()
+            self.w.scan()
+        names = sorted(p.name for p in (self.tmp / "inbox").iterdir() if p.name != "_incoming")
+        self.assertEqual(len(names), 2)
+        self.assertTrue(names[1].endswith("_watched-folder-2"))
+        self.assertEqual([b["batch"] for b in self.svc.list()], sorted(names, reverse=True))   # _incoming is not a batch
+
+    def test_pickups_pause_while_a_required_update_waits(self):
+        from unittest import mock
+        from ap_workflow import version
+        f = self.put("a.pdf", self.pdf)
+        self.w.scan()
+        required = version.status("1.0.0", [{"version": "9.0.0", "required": True}])
+        with mock.patch.object(self.svc, "update_info", return_value=required):
+            self.assertIsNone(self.w.scan())
+        self.assertIn("required update", self.w.status()["error"])
+        self.assertTrue(f.exists())
+
+    def test_check_now_needs_a_role_and_a_watcher(self):
+        import threading, urllib.request, urllib.error, http.server
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self.ws.make_handler(self.svc, self.tmp / "web"))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        def post(user):
+            req = urllib.request.Request(f"http://127.0.0.1:{httpd.server_address[1]}/api/watch/scan", data=json.dumps({"user": user}).encode(),
+                                         headers={"X-Penny": "1", "Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(req) as r:
+                    return r.status, json.loads(r.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read())
+        try:
+            clerk = {"id": "avery", "name": "Avery Chen", "role": "clerk"}
+            self.assertEqual(post({"id": "riley", "name": "Riley", "role": "viewer"})[0], 403)
+            self.assertEqual(post(clerk)[0], 409)                           # the watched folder is off
+            self.svc.watcher = self.w
+            code, body = post(clerk)
+            self.assertEqual((code, body["picked_up"], body["watch"]["folder"]), (200, None, "inbox/_incoming"))
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    @needs_package
+    def test_a_pickup_is_previewed_and_the_register_is_untouched(self):
+        svc = self.ws.BatchService(self.tmp, PKG, self.tmp / "state", self.tmp / "runs", self.tmp / "web", ROOT / "config" / "rules.json")
+        w = self.wm.Watcher(svc)
+        self.put("st.pdf", self.pdf)
+        w.scan()
+        ev = w.scan()
+        self.assertEqual(ev["count"], 1)
+        self.assertTrue(w.status()["last_pickup"]["preview"].endswith("_PREVIEW"))
+        self.assertFalse((self.tmp / "state" / "processed_register.csv").exists())
+        self.assertEqual([e["event"] for e in svc.read_log()][-1], "batch.run")
+        self.assertTrue(svc.read_log()[-1]["dry_run"])
 
 
 class EmailTestCommandTests(unittest.TestCase):

@@ -132,7 +132,7 @@ function docTable(rows, opt = {}) {
         <td class="num">${!d.amount && !(d.ex && d.ex.total) ? `<span class="hint">Not read</span>` : esc(money(d.amount))}</td>
       </tr>`;
     }).join("")}</tbody>
-    ${opt.footer ? `<tfoot><tr class="tfoot"><td>${plural(rows.length, "invoice")}</td><td class="hide-sm"></td><td></td><td class="num">${esc(amountLabel(rows))}</td></tr></tfoot>` : ""}
+    ${opt.footer ? `<tfoot><tr class="tfoot"><td>${plural((opt.all || rows).length, "invoice")}</td><td class="hide-sm"></td><td></td><td class="num">${esc(amountLabel(opt.all || rows))}</td></tr></tfoot>` : ""}
   </table></div>`;
 }
 
@@ -182,6 +182,8 @@ function viewRun(id, q) {
     const d = X.docById[x.doc_id];
     return { ...d, status: x.decision, codes: x.codes, amount: x._amount, billNo: x.bill_no || d.billNo, vendor: x.vendor_name || d.vendor, date: x.bill_date || d.date };
   });
+  const pg = paged(rows, q);
+  listIds = rows.map((d) => d.id);
   const seg = [{ key: "", label: "All", n: res.length }, ...STATUS_GROUPS.map((g) => ({ key: g.key, label: g.label, n: res.filter((x) => g.match(x.decision)).length }))]
     .filter((g) => g.n || !g.key);
   return `
@@ -199,7 +201,8 @@ function viewRun(id, q) {
         <div class="segmented" role="group" aria-label="Filter by result">${seg.map((g) =>
           `<button data-status="${g.key}" aria-pressed="${(q.get("status") || "") === g.key}">${esc(g.label)}<span class="count">${g.n}</span></button>`).join("")}</div>
       </div>
-      ${docTable(rows, { run: id, footer: true })}
+      ${docTable(pg.slice, { run: id, footer: true, all: rows })}
+      ${pagerHtml(pg, "documents")}
     </section>`;
 }
 
@@ -249,9 +252,14 @@ function viewInvoices(q) {
 function renderInvoiceResults(q) {
   const { rows, sort } = filterDocs(q);
   const active = ["q", "status", "code", "category", "vendor", "from", "to"].filter((k) => q.get(k)).length;
+  const pg = paged(rows, q);
+  listIds = rows.map((d) => d.id);
   $("#inv-results").innerHTML = `
     <div class="filter-summary" aria-live="polite"><span>${plural(rows.length, "invoice")}${active ? ` match${rows.length === 1 ? "es" : ""} ${plural(active, "filter")}` : ""}</span><span class="num">${esc(amountLabel(rows))} face value</span></div>
-    ${docTable(rows, { sort, footer: false })}`;
+    ${docTable(pg.slice, { sort, footer: false })}
+    ${pagerHtml(pg, "invoices")}`;
+  // Filters and sorting change the list without loading a new page, so keep Previous and Next on an invoice in step.
+  try { sessionStorage.setItem("penny.list", JSON.stringify({ ids: listIds, label: "Invoices", href: location.hash || "#/invoices" })); } catch (e) { /* fine */ }
 }
 function bindInvoices(q) {
   renderInvoiceResults(q);
@@ -261,6 +269,7 @@ function bindInvoices(q) {
     new FormData(form).forEach((v, k) => v && p.set(k, v));
     if (q.get("sort")) p.set("sort", q.get("sort"));
     if (q.get("dir")) p.set("dir", q.get("dir"));
+    if (q.get("per")) p.set("per", q.get("per"));          // a new filter starts again at page 1, with the same page size
     q = p;
     history.replaceState(null, "", `#/invoices${p.toString() ? "?" + p : ""}`);
     renderInvoiceResults(q);
@@ -275,6 +284,7 @@ function bindInvoices(q) {
     const cur = filterDocs(q).sort;
     q.set("sort", key);
     q.set("dir", cur.key === key && cur.dir === "asc" ? "desc" : cur.key === key ? "asc" : key === "vendor" ? "asc" : "desc");
+    q.delete("page");
     history.replaceState(null, "", `#/invoices?${q}`);
     renderInvoiceResults(q);
     const again = $(`#inv-results button[data-sort="${key}"]`);
@@ -305,7 +315,7 @@ function viewInvoice(id, q) {
           ${r.vendor_id ? `<span>Vendor ${esc(r.vendor_id)}</span>` : ""}
           <span>${esc(d.file)}</span>
         </div>
-        <div class="status-strip">${badge(isCurrent ? d.status : r.decision, true)}${destTag(r.decision)}${isCurrent ? approvalChip(d) + blockerChip(d) + manualChip(d) : ""}${confChip(r.confidence)}</div>
+        <div class="status-strip">${badge(isCurrent ? d.status : r.decision, true)}${destTag(r.decision)}${isCurrent ? approvalChip(d) + importChip(d) + blockerChip(d) + manualChip(d) : ""}${confChip(r.confidence)}</div>
       </div>
       <div class="inv-amount"><div class="eyebrow">${cents(r.amount) < 0 ? "Credit" : "Amount"}</div>${!cents(r.amount) && !ex.total
         ? `<div class="big" style="color:var(--text-3);font-size:22px">Not read</div>` : `<div class="big">${esc(money(cents(r.amount)))}</div>`}

@@ -315,13 +315,17 @@ def web_export(package, out_dir, web_dir):
     print("Next:  ./penny web")
 
 
-def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_browser=True):
+def serve_web(web_dir, port, package=None, state_dir=None, out_dir=None, open_browser=True, watch=None):
     """Serve the web app on this computer, with the batch upload and run API (see webserver.py)."""
     from .webserver import BatchService, serve
     web_dir = Path(web_dir)
     if not (web_dir / "data" / "penny-data.json").exists():
         sys.exit("No web data yet. Run this first:  ./penny web-export --package <package folder>")
     service = BatchService(ROOT, package, state_dir or ROOT / "state", out_dir or ROOT / "runs", web_dir, CFG_PATH)
+    cfg = json.loads(CFG_PATH.read_text(encoding="utf-8")).get("watch") or {}
+    if watch is not None or cfg.get("enabled"):          # --watch on the command line, or "enabled": true in rules.json
+        from .watcher import Watcher
+        service.watcher = Watcher(service, watch or cfg.get("folder"), cfg.get("every_seconds", 15))
     serve(service, web_dir, port, open_browser)
 
 
@@ -493,7 +497,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 91 automated checks")
+    t = sub.add_parser("test", help="run the 97 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
@@ -503,6 +507,8 @@ def main(argv=None):
     v = sub.add_parser("web", help="open the web app in your browser (add --package to run new batches from it)")
     v.add_argument("--web", default=str(ROOT / "web")); v.add_argument("--port", type=int, default=8765)
     v.add_argument("--package"); v.add_argument("--state", default=str(ROOT / "state")); v.add_argument("--out", default=str(ROOT / "runs"))
+    v.add_argument("--watch", nargs="?", const="", default=None, metavar="FOLDER",
+                   help="(added after submission) pick up PDFs dropped into a folder (inbox/_incoming unless you name one) and preview them")
     s = sub.add_parser("status")
     s.add_argument("--state", default=str(ROOT / "state"))
     u = sub.add_parser("update", help="check for a new Penny version and update to it")
@@ -561,7 +567,7 @@ def main(argv=None):
         web_export(find_package(pkg_arg) if pkg_arg else None, a.out, a.web)
     elif a.cmd == "web":
         pkg_arg = a.package or os.environ.get("HILLPOINTE_PACKAGE")
-        serve_web(a.web, a.port, find_package(pkg_arg) if pkg_arg else None, a.state, a.out)
+        serve_web(a.web, a.port, find_package(pkg_arg) if pkg_arg else None, a.state, a.out, watch=a.watch)
     elif a.cmd == "status":
         status(a.state)
 

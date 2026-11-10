@@ -90,19 +90,24 @@ function viewWork(q) {
   const order = q.get("order") === "team" ? "team" : "urgent";
   if (tab === "holds" && order === "urgent") {
     const rows = w.holds.map((d) => [urgency(d).score, d]).sort((a, b) => b[0] - a[0]).map((x) => x[1]);
+    const pg = paged(rows, q);
+    listIds = rows.map((d) => d.id);
     body = rows.length ? `<section class="card"><div class="team-head"><h2>Most urgent first</h2><span>${plural(rows.length, "hold")} · ${esc(amountLabel(rows))}</span></div>
         <p class="hint queue-why">Overdue blockers come first, then bills past or near their due date (bill date plus terms), then the oldest holds. Each row says why.</p>
-        ${docTable(rows, { route: true, suggest: true, urgent: true })}</section>`
+        ${docTable(pg.slice, { route: true, suggest: true, urgent: true })}${pagerHtml(pg, "holds")}</section>`
       : `<section class="card"><div class="empty-state">${ICON.check}<h2>No open holds</h2><p>Every hold has been resolved. Nice work.</p></div></section>`;
   } else if (tab === "holds") {
     const teams = {};
     w.holds.forEach((d) => { const t = routesFor(d.codes, d.id)[0] || "Unassigned"; (teams[t] = teams[t] || []).push(d); });
-    body = w.holds.length ? Object.entries(teams).sort((a, b) => b[1].length - a[1].length).map(([t, rows]) =>
-      `<section class="card" style="margin-bottom:16px"><div class="team-head"><h2>${esc(t)}</h2><span>${plural(rows.length, "hold")} · ${esc(amountLabel(rows))}</span></div>
-        ${docTable(rows.sort((a, b) => b.amount - a.amount), { route: true, suggest: true })}</section>`).join("")
+    body = w.holds.length ? Object.entries(teams).sort((a, b) => b[1].length - a[1].length).map(([t, rows]) => {
+      const top = topRows(rows.sort((a, b) => b.amount - a.amount), "These are the largest. Choose Most urgent to page through every hold.");
+      return `<section class="card" style="margin-bottom:16px"><div class="team-head"><h2>${esc(t)}</h2><span>${plural(rows.length, "hold")} · ${esc(amountLabel(rows))}</span></div>
+        ${docTable(top.rows, { route: true, suggest: true })}${top.note}</section>`; }).join("")
       : `<section class="card"><div class="empty-state">${ICON.check}<h2>No open holds</h2><p>Every hold has been resolved. Nice work.</p></div></section>`;
   } else {
-    body = w.approvals.length ? `<section class="card">${docTable(w.approvals, {})}</section>`
+    const pg = paged(w.approvals, q);
+    listIds = w.approvals.map((d) => d.id);
+    body = w.approvals.length ? `<section class="card">${docTable(pg.slice, {})}${pagerHtml(pg, "bills")}</section>`
       : `<section class="card"><div class="empty-state">${ICON.check}<h2>Nothing waiting for approval</h2><p>Every bill ready to import has its sign-offs recorded.</p></div></section>`;
   }
   const mine = EV.filter((e) => e.user.id === user.id).slice(-6).reverse();

@@ -1,6 +1,10 @@
 """The web side of the engine: the web export, the batch server, replaying saved runs, manual entry, and previews.
 Run everything with:  ./penny test   (or: python -m unittest discover -s tests -v)"""
-from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPECTED, outcome, cli, syn)
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))      # so one file can also be run on its own
+from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPECTED, outcome, cli, syn)  # noqa: E402
 
 
 class WebExportTests(unittest.TestCase):
@@ -33,6 +37,9 @@ class WebExportTests(unittest.TestCase):
             self.assertEqual(data["rules"]["thresholds"]["overpo_tolerance"], 500.0)
             first = {f["name"]: f for f in data["runs"][0]["files"]}
             self.assertEqual(first["intacct_bill_import.csv"]["rows"], 11)            # matches the submitted Batch 01 import file
+            import hashlib                                                           # export history names the exact file by its fingerprint
+            self.assertEqual(first["intacct_bill_import.csv"]["sha256"],
+                             hashlib.sha256((ROOT / "runs" / "run1_batch01" / "intacct_bill_import.csv").read_bytes()).hexdigest())
             self.assertTrue((tmp / "web" / "runs" / "run1_batch01" / "intacct_bill_import.csv").exists())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

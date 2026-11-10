@@ -23,6 +23,7 @@ function auditRows() {
 function auditTarget(e) {
   if (e.type === "run") return { html: `<a href="#/runs/${esc(e.run.id)}">${esc(e.run.label)}</a>`, text: e.run.label };
   if (e.doc) { const d = X.docById[e.doc]; const t = d ? `${d.vendor} ${d.billNo}` : e.doc; return { html: `<a href="#/invoices/${esc(e.doc)}">${esc(t)}</a>`, text: t }; }
+  if (e.type && e.type.startsWith("export.")) { const r = X.runById[e.run]; const t = `${(FILE_INFO[e.file] || { title: e.file }).title}, ${r ? r.label : e.run}`; return { html: `<a href="#/exports">${esc(t)}</a>`, text: t }; }
   if (e.type && e.type.startsWith("batch.")) return e.run_id && X.runById[e.run_id] ? { html: `<a href="#/runs/${esc(e.run_id)}">${esc(e.batch)}</a>`, text: e.batch } : { html: `<code>${esc(e.batch)}</code>`, text: e.batch };
   if (e.type.startsWith("rules.")) return { html: `<a href="#/rules">Rules</a>`, text: "Rules" };
   return { html: "", text: "" };
@@ -42,6 +43,9 @@ function auditDetail(e) {
     const ch = e.changes ? Object.entries(e.changes).map(([k, [b, a]]) => `${k}: ${k === "role" ? (ROLES[b] || {}).name || b : b || "none"} → ${k === "role" ? (ROLES[a] || {}).name || a : a}`).join("; ") : "";
     return [e.email, e.role ? `as ${(ROLES[e.role] || {}).name || e.role}` : "", ch, e.email_status ? `email ${e.email_status}` : ""].filter(Boolean).join(" · ");
   }
+  if (e.type === "watch.picked_up") return `${plural(e.count, "file")} from ${e.from} into ${e.folder}: ${(e.files || []).slice(0, 4).map((f) => f.name).join(", ")}${(e.files || []).length > 4 ? "…" : ""}. A preview only; nothing was entered.`;
+  if (e.type === "export.download") return `${e.file}${e.sha256 ? `, fingerprint ${e.sha256.slice(0, 10)}` : ""}`;
+  if (e.type === "export.imported") return `${e.after}; ${plural(e.rows, "row")}${e.sha256 ? `; file fingerprint ${e.sha256.slice(0, 10)}` : ""}`;
   if (e.type && e.type.startsWith("email.")) return `To ${(e.to || []).join(", ")}: “${e.subject}”${(e.attachments || []).length ? `; attached ${e.attachments.map((f) => `${f.name} (${String(f.sha256 || "").slice(0, 10)})`).join(", ")}` : ""}${e.error ? `; ${e.error}` : ""}`;
   if (e.type === "recheck.preview") return `${RC_SOURCE[e.source] || e.source}: ${(STATUS[e.was] || { label: e.was }).label} → ${(STATUS[e.result] || { label: e.result }).label}${(e.codes || []).length ? ` (${e.codes.join(", ")})` : ""}; rules ${e.rules_fingerprint}, data ${e.data_fingerprint}. Preview only.`;
   if (e.type === "manual.saved" && e.server) return `Keyed by ${(e.keyed_by || {}).name || "?"}${e.checked_by ? `, checked by ${e.checked_by.name}` : ""}; invoice ${e.invoice_no}, total ${money(cents(e.total))}; ${plural((e.evidence || []).length, "evidence file")}; saved to ${e.folder}`;
@@ -56,6 +60,7 @@ function viewAudit(q) {
   const rows = all.filter((e) => (!who || e.user.id === who) && (!type || e.type === type));
   const people = [...new Map(all.map((e) => [e.user.id, e.user.name])).entries()];
   const types = [...new Set(all.map((e) => e.type))];
+  const pg = paged(rows, q);
   return `${head("Audit trail", "Every Penny run and every action a person took, newest first. Entries are never edited or deleted; an undo is a new entry.",
       `<button class="btn" id="audit-csv" type="button">Download CSV</button>`)}
     <section class="card">
@@ -65,12 +70,12 @@ function viewAudit(q) {
       </form>
       <div class="filter-summary"><span>${plural(rows.length, "entry", "entries")}</span><span>${plural(EV.length, "action")} by people in this browser</span></div>
       ${rows.length ? `<div class="table-wrap"><table class="data audit"><thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col" class="hide-sm">On</th><th scope="col">Details</th></tr></thead><tbody>
-        ${rows.map((e) => `<tr><td style="white-space:nowrap">${esc(e.at ? fmtDateTime(e.at) : `Run ${e.run.order}`)}</td>
+        ${pg.slice.map((e) => `<tr><td style="white-space:nowrap">${esc(e.at ? fmtDateTime(e.at) : `Run ${e.run.order}`)}</td>
           <td><span style="display:inline-flex;gap:8px;align-items:center"><span class="avatar ${e.type === "run" ? "sys-avatar" : `av-${esc(e.user.role)}`}" style="width:26px;height:26px;font-size:10.5px" aria-hidden="true">${esc(e.user.initials)}</span>${esc(e.user.name)}</span></td>
           <td>${esc(e.type === "batch.run" && e.dry_run ? "Previewed a batch" : EVENT_LABEL[e.type] || e.type)}${S.revoked.has(e.id) ? ` <span class="badge b-skip">Undone</span>` : ""}${e.server ? ` <span class="pill" title="Recorded in state/batch_log.jsonl on the Penny computer">On disk</span>` : ""}</td>
           <td class="hide-sm">${auditTarget(e).html}</td>
           <td><span class="diff">${esc(auditDetail(e))}</span>${e.note ? `<span class="sub" style="display:block;color:var(--text-2)">“${esc(e.note)}”</span>` : ""}</td></tr>`).join("")}
-      </tbody></table></div>` : `<p class="empty">No entries match.</p>`}
+      </tbody></table></div>` + pagerHtml(pg, "entries") : `<p class="empty">No entries match.</p>`}
     </section>`;
 }
 /** CSV cells are quoted, and text that a spreadsheet would run as a formula is neutralized (CSV injection). */
@@ -98,8 +103,8 @@ function bindAudit() {
 const HELP = () => window.PENNY_HELP || [];
 const ROLE_ROWS = [
   ["Viewer", "Every run, invoice, check, rule, export and the audit trail.", "Nothing. Read-only for auditors and leaders."],
-  ["AP Clerk", "Everything a Viewer sees, plus a queue of holds, most urgent first.", "Resolve, reject, reassign and reopen holds, update and clear blockers, recheck invoices, key unreadable invoices by hand and check someone else's entry, apply suggested fixes, add notes, email exports and approval requests, upload new batches and run previews."],
-  ["Approver", "Everything a Viewer sees, plus bills waiting for sign-off.", "Approve or send back bills, email a bill for approval, email exports, and add notes."],
+  ["AP Clerk", "Everything a Viewer sees, plus a queue of holds, most urgent first.", "Resolve, reject, reassign and reopen holds, update and clear blockers, recheck invoices, key unreadable invoices by hand and check someone else's entry, apply suggested fixes, add notes, email exports and approval requests, upload new batches and run previews, and mark an import file as imported."],
+  ["Approver", "Everything a Viewer sees, plus bills waiting for sign-off.", "Approve or send back bills, confirm an import someone else made, email a bill for approval, email exports, and add notes."],
   ["Admin", "Everything, plus usage Insights.", "All of the above, plus run batches for real, edit every rule with a preview first and undo, test rule changes on every saved invoice, manage people (invite, roles, turn off, password resets), and set the company look."],
 ];
 /** Fill the live parts of an article from the same data the app uses. */

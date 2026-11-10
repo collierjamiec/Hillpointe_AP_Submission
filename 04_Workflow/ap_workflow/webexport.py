@@ -9,6 +9,7 @@ web view can show each invoice beside what Penny read from it.
 The web view only displays what Penny already decided. It never makes a decision of its own, so the terminal and
 the browser can never disagree.
 """
+import hashlib
 import json
 import re
 import shutil
@@ -52,7 +53,8 @@ def _copy_run_files(run_dir, out_dir):
         if name.endswith(".csv"):
             with open(src, encoding="utf-8") as f:
                 rows = max(sum(1 for line in f if line.strip()) - 1, 0)
-        files.append({"name": name, "path": f"data/runs/{run_dir.name}/{name}", "rows": rows, "bytes": src.stat().st_size})
+        files.append({"name": name, "path": f"data/runs/{run_dir.name}/{name}", "rows": rows, "bytes": src.stat().st_size,
+                      "sha256": hashlib.sha256(src.read_bytes()).hexdigest()})       # so export history can name the exact file
     return files
 
 

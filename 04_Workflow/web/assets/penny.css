@@ -682,7 +682,7 @@ body.booting .shell, body.booting .auth { visibility: hidden; }
 .user-pop button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; cursor: pointer; }
 .user-pop button:hover, .user-pop button:focus-visible { background: var(--surface-2); }
 .demo-pill { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; color: var(--copper-strong); background: var(--copper-soft); border: 1px solid color-mix(in srgb, var(--copper) 30%, transparent); }
-@media (max-width: 860px) { .user-text, .demo-pill { display: none; } .user-btn { padding: 0 6px 0 4px; } }
+@media (max-width: 860px) { .demo-pill { display: none; } .user-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .user-btn { padding: 0 6px 0 4px; } }   /* the name is hidden from sight, not from screen readers */
 
 /* dialogs */
 .dialog { width: min(560px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); }
@@ -1205,8 +1205,8 @@ a.hbar:hover { background: var(--surface-2); text-decoration: none; color: var(-
 .look-card { margin-bottom: 16px; }
 .look-card h2 { font-size: 17px; margin-bottom: 10px; }
 .look-follow { margin-bottom: 14px; }
-.look-dim { opacity: .55; }
-.look-dim:hover, .look-dim:focus-within { opacity: 1; }
+/* Following the company look: your own choices are set aside, shown with a side rule (never by fading text, which loses contrast). */
+.look-dim { border-left: 3px solid var(--border); padding-left: 12px; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .preset { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .preset:hover { border-color: var(--control-border); }
@@ -1233,3 +1233,54 @@ body.density-compact th, body.density-compact td { padding-top: 6px; padding-bot
 body.density-compact .stack { gap: 10px; }
 body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 .look-saved { margin: -10px 0 14px; font-size: 13px; color: var(--ok); }
+
+/* ---------------------------------------------------------------- v1.9: where values appear on the page */
+.pdf-page { position: relative; flex: none; width: 100%; }
+.pdf-hl-layer { position: absolute; inset: 0; pointer-events: none; }
+.pdf-hl { position: absolute; border-radius: 3px; background: color-mix(in srgb, var(--copper) 22%, transparent); outline: 1.5px solid var(--copper); }
+.pdf-hl.on { background: color-mix(in srgb, var(--accent) 24%, transparent); outline: 2px solid var(--accent); animation: hl-pulse 1.2s ease-out 1; }
+.pdf-hl span { position: absolute; left: 0; bottom: 100%; margin-bottom: 2px; padding: 0 5px; border-radius: 3px; background: #17212f; color: #fff; font-size: 10.5px; line-height: 15px; white-space: nowrap; }
+@keyframes hl-pulse { from { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
+.src-btn { margin-left: 8px; padding: 1px 8px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--accent-strong); font: inherit; font-size: 11.5px; font-weight: 500; cursor: pointer; white-space: nowrap; vertical-align: 1px; }
+.src-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.src-all[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.pdf-bar { gap: 8px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .pdf-hl.on { animation: none; } }
+body.reduce-motion .pdf-hl.on { animation: none; }
+
+/* ---------------------------------------------------------------- v1.9: export history */
+.ex-history { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.ex-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; }
+.ex-steps li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text-3); min-width: 0; }
+.ex-steps li b { display: block; color: var(--text-2); font-weight: 600; }
+.ex-steps li.done b { color: var(--ok); } .ex-steps li.now b { color: var(--text); }
+.ex-steps .sub { font-size: 12px; overflow-wrap: anywhere; }
+.ex-dot { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--border-strong); display: grid; place-items: center; background: var(--surface); }
+.ex-steps li.done .ex-dot { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+.ex-steps li.now .ex-dot { border-color: var(--accent); }
+.ex-dot svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.6; }
+.ex-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ex-sha { margin-top: 8px; font-size: 12px; color: var(--text-3); }
+.ex-none { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-3); }
+.ex-none svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; flex: none; }
+@media (max-width: 760px) { .ex-steps { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------------------------------------------------------------- v1.9: watched folder */
+.watch-card h2 { font-size: 17px; display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.watch-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; }
+.watch-card p { margin-bottom: 6px; }
+.watch-ignored { margin-top: 8px; font-size: 13.5px; }
+
+/* ---------------------------------------------------------------- v1.9: long lists */
+.pager { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13.5px; color: var(--text-2); }
+.pager-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pager-at { padding: 0 6px; font-variant-numeric: tabular-nums; }
+.pager-per { display: inline-flex; gap: 6px; align-items: center; margin-left: 8px; }
+.pager-per select { height: 30px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; padding: 0 6px; }
+.list-more { padding: 10px 16px; border-top: 1px solid var(--border); margin: 0; }
+
+/* ---------------------------------------------------------------- v1.9: accessibility pass */
+/* A link inside a sentence is underlined, so it never depends on color alone (WCAG 1.4.1). */
+main p a:not(.btn), main .prose li a, main .notes li a, .mode-banner a, #dialog p a, .login-foot a { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+.back-link, .pdf-bar a, .card-head a { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; }   /* WCAG 2.2 target size */
+.table-wrap[tabindex]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

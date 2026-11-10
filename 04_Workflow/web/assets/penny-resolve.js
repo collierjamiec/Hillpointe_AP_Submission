@@ -258,11 +258,14 @@ function tabChecks(r) {
 }
 
 function kvs(pairs) {
-  return `<dl class="kv">${pairs.filter(([, v]) => v !== undefined && v !== null && v !== "").map(([k, v, wide]) =>
-    `<div${wide ? ' class="wide"' : ""}><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
+  return `<dl class="kv">${pairs.filter(([, v]) => v !== undefined && v !== null && v !== "").map(([k, v, wide, src]) =>
+    `<div${wide ? ' class="wide"' : ""}><dt>${esc(k)}</dt><dd>${v}${src ? srcBtn(src, k) : ""}</dd></div>`).join("")}</dl>`;
 }
+/** A small button that shows where a value appears on the PDF (only when this invoice has a PDF to show). */
+const srcBtn = (key, label) => (SRC.doc && SRC.doc.pdf ? `<button type="button" class="src-btn" data-src="${esc(key)}" aria-label="Show on page: ${esc(label)}">Show on page</button>` : "");
 function tabRead(d) {
   const ex = d.ex;
+  SRC.doc = d;
   if (!ex || !ex.kind) return `<p class="empty">No extracted data for this document.</p>`;
   if (ex.kind === "unreadable") return `<p>${esc(ex.unreadable_reason)}</p>`;
   const bill = ex.bill_to || {};
@@ -270,13 +273,13 @@ function tabRead(d) {
   const out = [];
   out.push(kvs([
     ["Document type", esc(KIND[ex.kind] || ex.kind)],
-    ["Invoice number", esc(ex.invoice_no)],
-    ["Date", esc(fmtDate(ex.date))],
-    ["Printed terms", esc(ex.terms_printed)],
-    ["Customer ref", esc(ex.customer_ref)],
-    ["Vendor (as printed)", esc(ex.vendor_name_raw)],
-    ["Bill to", esc([bill.name, bill.c_o && `c/o ${bill.c_o}`].filter(Boolean).join(", "))],
-    ["Ship to", esc(ex.ship_to)],
+    ["Invoice number", esc(ex.invoice_no), false, "invoice_no"],
+    ["Date", esc(fmtDate(ex.date)), false, "date"],
+    ["Printed terms", esc(ex.terms_printed), false, "terms"],
+    ["Customer ref", esc(ex.customer_ref), false, "customer_ref"],
+    ["Vendor (as printed)", esc(ex.vendor_name_raw), false, "vendor"],
+    ["Bill to", esc([bill.name, bill.c_o && `c/o ${bill.c_o}`].filter(Boolean).join(", ")), false, "bill_to"],
+    ["Ship to", esc(ex.ship_to), false, "ship_to"],
     ["Remit to", esc([remit.name, remit.address].filter(Boolean).join(", ")), true],
     ["Phone", esc((ex.phones_on_doc || []).join(", "))],
     ["Email", esc((ex.emails_on_doc || []).join(", "))],
@@ -291,9 +294,9 @@ function tabRead(d) {
       ${ex.lines.map((l) => `<tr><td>${esc(l.desc)}</td><td class="num">${esc(l.qty ?? "")}</td><td class="hide-xs">${esc(l.unit ?? "")}</td><td class="num hide-xs">${l.rate ? esc(money(cents(l.rate))) : ""}</td><td class="num">${esc(money(cents(l.amount)))}</td></tr>`).join("")}
     </tbody></table></div>`);
     out.push(`<div class="totals">
-      ${ex.subtotal ? `<span class="t-label">Subtotal</span><span class="t-val">${esc(money(cents(ex.subtotal)))}</span>` : ""}
-      ${ex.tax_total && cents(ex.tax_total) ? `<span class="t-label">${esc(ex.tax_label || "Tax")}</span><span class="t-val">${esc(money(cents(ex.tax_total)))}</span>` : ""}
-      <span class="t-label grand">Total</span><span class="t-val grand">${esc(money(cents(ex.total)))}</span></div>`);
+      ${ex.subtotal ? `<span class="t-label">Subtotal</span><span class="t-val">${esc(money(cents(ex.subtotal)))}${srcBtn("subtotal", "Subtotal")}</span>` : ""}
+      ${ex.tax_total && cents(ex.tax_total) ? `<span class="t-label">${esc(ex.tax_label || "Tax")}</span><span class="t-val">${esc(money(cents(ex.tax_total)))}${srcBtn("tax", "Tax")}</span>` : ""}
+      <span class="t-label grand">Total</span><span class="t-val grand">${esc(money(cents(ex.total)))}${srcBtn("total", "Total")}</span></div>`);
   }
   const pa = ex.pay_app;
   if (pa) {
@@ -307,7 +310,7 @@ function tabRead(d) {
       ["Previous certificates", esc(money(cents(pa.previous_certificates)))],
       ["This period, gross", esc(money(cents(pa.this_period_gross)))],
       ["This period, retainage", esc(money(cents(pa.this_period_retainage)))],
-      ["Current payment due", `<strong>${esc(money(cents(pa.current_due)))}</strong>`],
+      ["Current payment due", `<strong>${esc(money(cents(pa.current_due)))}</strong>`, false, "current_due"],
     ]));
     if ((pa.continuation || []).length) {
       out.push(`<div class="table-wrap" style="margin-top:12px"><table class="mini"><thead><tr><th scope="col">Work this period</th><th class="num" scope="col">Amount</th><th class="num" scope="col">Retainage</th></tr></thead><tbody>
@@ -382,6 +385,10 @@ function describeEvent(e) {
     case "rules.revert": return "undid a rule change";
     case "batch.upload": return `uploaded ${plural(e.count || (e.files || []).length, "invoice")} to ${e.folder}`;
     case "batch.run": return `${e.dry_run ? "previewed" : "ran"} batch ${e.batch}`;
+    case "export.download": return `downloaded ${(FILE_INFO[e.file] || { title: e.file }).title}`;
+    case "export.imported": return `marked ${(FILE_INFO[e.file] || { title: e.file }).title} as imported, reference ${e.ref}`;
+    case "export.confirmed": return `confirmed the import of ${(FILE_INFO[e.file] || { title: e.file }).title}`;
+    case "export.undo": return `marked ${(FILE_INFO[e.file] || { title: e.file }).title} as not imported`;
     case "blocker.update": return `updated the ${e.code} blocker: ${e.after}`;
     case "blocker.clear": return `verified and cleared the ${e.code} blocker${(e.files || []).length ? ` with ${plural(e.files.length, "file")}` : ""}`;
     case "blocker.reopen": return `reopened the ${e.code} blocker`;
@@ -408,6 +415,7 @@ function pdfPanel(d) {
   if (d.pdf) {
     return `<aside class="card pdf-panel" aria-label="Invoice PDF">
       <div class="pdf-bar"><span>${ICON.doc.replace("<svg", '<svg style="width:16px;height:16px;vertical-align:-3px;margin-right:6px"')}${esc(d.file)}<span class="pdf-pages-count"></span></span>
+        <button type="button" class="btn btn-sm src-all" data-src-all aria-pressed="false" hidden>Highlight what Penny read</button>
         <a href="${esc(d.pdf)}" target="_blank" rel="noopener">Open in new tab ${ICON.ext.replace("<svg", '<svg style="width:14px;height:14px;vertical-align:-2px"')}</a></div>
       <div class="pdf-pages" data-pdf="${esc(d.pdf)}" data-file="${esc(d.file)}" tabindex="0" aria-label="Pages of ${esc(d.file)}">
         <p class="pdf-status" role="status">Loading the invoice…</p></div>
@@ -443,7 +451,7 @@ async function renderPdf(box) {
   try {
     const lib = await loadPdfJs();
     const pdf = await lib.getDocument(url).promise;
-    const canvases = [];
+    const canvases = [], texts = [];
     for (let n = 1; n <= pdf.numPages; n++) {
       const page = await pdf.getPage(n);
       const base = page.getViewport({ scale: 1 });
@@ -455,10 +463,23 @@ async function renderPdf(box) {
       c.setAttribute("role", "img");
       c.setAttribute("aria-label", `Page ${n} of ${pdf.numPages} of ${file}`);
       await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-      canvases.push(c);
+      const wrap = document.createElement("div");
+      wrap.className = "pdf-page";
+      const layer = document.createElement("div");
+      layer.className = "pdf-hl-layer";
+      layer.setAttribute("aria-hidden", "true");
+      wrap.append(c, layer);
+      canvases.push(wrap);
+      try { texts.push(pageText(await page.getTextContent(), vp)); } catch (e) { texts.push([]); }
     }
     if (!document.body.contains(box)) return;
     box.replaceChildren(...canvases);
+    SRC.pages = texts;
+    SRC.file = file;
+    const hasText = texts.some((t) => t.length);
+    const all = box.parentElement.querySelector("[data-src-all]");
+    if (all) all.hidden = !hasText;
+    paintSources(box);
     box.dataset.pages = String(pdf.numPages);
     const count = box.parentElement.querySelector(".pdf-pages-count");
     if (count) count.textContent = ` · ${plural(pdf.numPages, "page")}`;
@@ -466,6 +487,133 @@ async function renderPdf(box) {
     box.innerHTML = `<p class="pdf-status">This browser could not draw the PDF. <a href="${esc(url)}" target="_blank" rel="noopener">Open ${esc(file)} in a new tab</a>.</p>`;
   }
 }
+// ------------------------------------------------------------------ where values appear on the page (v1.9)
+/* Penny's reader works from the PDF's text. This finds where each value it read appears on the page and draws a box
+   there, so a reviewer can check a number against the original in one glance. Positions come from the PDF's own text
+   layer; nothing is guessed. A value that is not printed as such (a due date Penny worked out, or text split across
+   lines) is reported as not found. Scanned pictures and manual entries have no text layer, so there is nothing to show. */
+const SRC = { doc: null, file: "", pages: [], all: false, pick: "" };
+/** One page's text as lines, each item with its place on the page as a share of the page (0 to 1). */
+function pageText(tc, vp) {
+  const items = tc.items.filter((i) => i.str && i.str.trim()).map((i) => {
+    const [x, y] = vp.convertToViewportPoint(i.transform[4], i.transform[5]);
+    const h = (Math.hypot(i.transform[2], i.transform[3]) || i.height || 8) * vp.scale;
+    return { s: i.str, x: x / vp.width, y: (y - h) / vp.height, w: (i.width * vp.scale) / vp.width, h: h / vp.height };
+  });
+  const lines = [];
+  for (const it of items.sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const line = lines.find((l) => Math.abs(l.y - it.y) < 0.004);
+    if (line) line.items.push(it); else lines.push({ y: it.y, items: [it] });
+  }
+  return lines.map((l) => {
+    l.items.sort((a, b) => a.x - b.x);
+    let text = "";
+    const spans = l.items.map((it) => { if (text && !text.endsWith(" ")) text += " "; const at = text.length; text += it.s; return { it, at }; });
+    return { text, low: text.toLowerCase(), spans };
+  });
+}
+/** Every place a piece of text appears: [{ page, line, x, y, w, h }]. */
+function findText(value) {
+  const v = String(value || "").trim().toLowerCase();
+  const out = [];
+  if (v.length < 2) return out;
+  SRC.pages.forEach((lines, page) => lines.forEach((line) => {
+    let from = 0, at;
+    while ((at = line.low.indexOf(v, from)) >= 0) {
+      const end = at + v.length;
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const { it, at: s0 } of line.spans) {
+        const s1 = s0 + it.s.length;
+        if (s1 <= at || s0 >= end) continue;
+        const a = Math.max(at, s0) - s0, b = Math.min(end, s1) - s0, per = it.w / Math.max(it.s.length, 1);
+        x0 = Math.min(x0, it.x + a * per); x1 = Math.max(x1, it.x + b * per);
+        y0 = Math.min(y0, it.y); y1 = Math.max(y1, it.y + it.h);
+      }
+      if (x1 > x0) out.push({ page, line, x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+      from = end;
+    }
+  }));
+  return out;
+}
+const usDate = (isoDate) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate || ""); return m ? `${m[2]}/${m[3]}/${m[1]}` : ""; };
+const moneyForms = (v) => { const c = cents(v); if (!c && !v) return []; const n = (Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return [`$${n}`, n]; };
+/** What can be looked up for this document: key -> { label, values to try, a hint that picks the right line }. */
+function sourceTargets(d) {
+  const ex = d.ex || {}, pa = ex.pay_app || {};
+  const t = {
+    invoice_no: { label: "Invoice number", values: [ex.invoice_no], near: /invoice no|credit memo no|application no/ },
+    date: { label: "Date", values: [usDate(ex.date)], near: /\bdate\b/ },
+    terms: { label: "Printed terms", values: [ex.terms_printed], near: /\bterms\b/ },
+    customer_ref: { label: "Customer ref", values: [ex.customer_ref], near: /customer ref/ },
+    vendor: { label: "Vendor", values: [ex.vendor_name_raw], first: true },
+    bill_to: { label: "Bill to", values: [(ex.bill_to || {}).name], first: true },
+    ship_to: { label: "Ship to", values: [ex.ship_to, String(ex.ship_to || "").split(",")[0]], first: true },
+    subtotal: { label: "Subtotal", values: moneyForms(ex.subtotal), near: /subtotal/ },
+    tax: { label: "Tax", values: moneyForms(ex.tax_total), near: /tax/ },
+    total: { label: "Total", values: moneyForms(ex.total), near: /total|amount due|balance due/, not: /subtotal/ },
+    current_due: { label: "Current payment due", values: moneyForms(pa.current_due), near: /current payment due/ },
+  };
+  (ex.lines || []).forEach((l, i) => { t[`line-${i}`] = { label: `Line ${i + 1} amount`, values: moneyForms(l.amount), near: new RegExp(String(l.desc || "").slice(0, 14).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }; });
+  return t;
+}
+/** Where one value is on the page. A hint (the label printed beside it) picks the right place when it appears more than once. */
+function locate(target) {
+  for (const v of target.values || []) {
+    let hits = findText(v);
+    if (!hits.length) continue;
+    if (target.near) {
+      const good = hits.filter((h) => target.near.test(h.line.low) && !(target.not && target.not.test(h.line.low)));
+      if (good.length) hits = good;
+    }
+    if (target.first || target.near) hits = hits.slice(0, target.near ? hits.length : 1);
+    return hits;
+  }
+  return [];
+}
+function paintSources(box) {
+  box = box || $(".pdf-pages[data-pages]");
+  if (!box || !SRC.doc) return;
+  const layers = $$(".pdf-hl-layer", box);
+  layers.forEach((l) => (l.innerHTML = ""));
+  const targets = sourceTargets(SRC.doc);
+  const keys = SRC.all ? Object.keys(targets) : SRC.pick ? [SRC.pick] : [];
+  let first = null;
+  for (const key of keys) {
+    for (const h of locate(targets[key])) {
+      const el = document.createElement("div");
+      el.className = `pdf-hl${key === SRC.pick ? " on" : ""}`;
+      el.style.cssText = `left:${(h.x * 100 - 0.4).toFixed(2)}%;top:${(h.y * 100 - 0.25).toFixed(2)}%;width:${(h.w * 100 + 0.8).toFixed(2)}%;height:${(h.h * 100 + 0.5).toFixed(2)}%`;
+      el.dataset.key = key;
+      if (key === SRC.pick) el.innerHTML = `<span>${esc(targets[key].label)}</span>`;   // one label at a time; all at once would overlap
+      if (layers[h.page]) layers[h.page].appendChild(el);
+      if (key === SRC.pick && !first) first = el;
+    }
+  }
+  const all = box.parentElement.querySelector("[data-src-all]");
+  if (all) all.setAttribute("aria-pressed", String(SRC.all));
+  return first;
+}
+/** "Show on page" for one value: draw its box, bring it into view, and say so for people who cannot see it. */
+function showSource(key) {
+  const box = $(".pdf-pages[data-pages]");
+  const target = SRC.doc && sourceTargets(SRC.doc)[key];
+  if (!box || !target) { toast("The PDF is still loading. Try again in a moment."); return; }
+  if (!SRC.pages.some((p) => p.length)) { toast("This file has no text layer (a scanned picture or a file Penny could not read), so there is nothing to point to."); return; }
+  const n = locate(target).length;
+  track("source_shown", { key: key.startsWith("line-") ? "line" : key, found: n > 0 });
+  if (!n) { SRC.pick = ""; paintSources(box); toast(`${target.label} was not found as printed text on the page. Check it against the PDF by eye.`); return; }
+  SRC.pick = key;
+  const el = paintSources(box);
+  if (el) el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  toast(`${target.label} is highlighted on the page${n > 1 ? ` (${n} places)` : ""}.`);
+}
+function toggleAllSources() {
+  SRC.all = !SRC.all;
+  if (!SRC.all) SRC.pick = "";
+  paintSources();
+  if (SRC.all) track("source_all", {});
+}
+
 let pdfResize = null;
 window.addEventListener("resize", () => {
   clearTimeout(pdfResize);

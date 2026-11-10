@@ -14,6 +14,7 @@ module.exports = {
   UPDATES_LOCAL: 'http://127.0.0.1:8784/',   // Penny on a computer that has been told a required update is out
   FULL: 'http://127.0.0.1:8785/',            // Penny on a computer with the assessment package (only when it is present)
   UPDATES_RELEASES: path.join(LAB, 'updates-site', 'data', 'releases.json'),
+  LAB,                                         // the temp folder the lab lives in
   VERSION: fs.readFileSync(path.join(__dirname, '..', '..', 'VERSION'), 'utf8').trim(),
   SHOTS,
 };

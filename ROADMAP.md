@@ -7,7 +7,7 @@ This is the plan from version 1.7.0 to 2.0.0. It is kept up to date as work land
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 1.8.0 was finished.
+Last updated: November 2026, when 1.9.0 was finished.
 
 ---
 
@@ -24,15 +24,15 @@ No new features. This release makes the next two safe to build.
 | Split the two longest functions (the request handler and the PDF reader) and the single test file | Same reason | Done |
 | A short description on every function, starting with `rules.py`, `webserver.py` and `accounts.py` | Many functions had none | Done: 246 of 246 |
 
-## 1.9.0: finish the single-user roadmap (Planned)
+## 1.9.0: finish the single-user roadmap (Done)
 
-| Item | What it adds |
-|---|---|
-| Source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. |
-| Export history | Track each import file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. |
-| Watched inbox folder | Pick up new invoices from a shared folder automatically, then preview them. |
-| Accessibility pass | A full check with a screen reader and keyboard only, with fixes. |
-| Long lists | Paging and faster drawing, so thousands of invoices stay quick. |
+| Item | What it adds | Status |
+|---|---|---|
+| Source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. | Done |
+| Export history | Track each import file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. | Done |
+| Watched inbox folder | Pick up new invoices from a shared folder automatically, then preview them. | Done: previews only, never a real run |
+| Accessibility pass | A full check with a screen reader and keyboard only, with fixes. | Done for the automated and keyboard checks (WCAG 2.2 AA on every screen, with fixes). **Still open:** a session with a person who uses a screen reader every day. It needs a person, so it is carried into 2.0. |
+| Long lists | Paging and faster drawing, so thousands of invoices stay quick. | Done: tested with 5,000 invoices |
 
 ## 2.0.0: Penny for a real team (Planned)
 
@@ -45,6 +45,8 @@ No new features. This release makes the next two safe to build.
 | A one-time move of existing data | The register, runs, accounts and browser history are carried over. |
 | Required update | 2.0.0 is marked required, so every copy moves together. |
 | The public demo stays | A browser-only showcase with example data, as it is today. |
+| Screen reader session | Carried from 1.9.0: a person who uses a screen reader every day tries the main tasks, and what they find is fixed. |
+| Export history and paging move to the server | In 1.9.0 the import history is saved in each browser and lists are paged in the browser. With the server as the source of truth, both are shared by the team and paged by the database. |
 
 ## After 2.0 (intended, not scheduled)
 

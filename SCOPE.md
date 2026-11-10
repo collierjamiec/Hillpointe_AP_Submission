@@ -479,15 +479,72 @@ No new features. I reviewed the whole codebase for gaps and fixed what would mak
 
 ---
 
+## Version 1.9.0: finishing the single-user roadmap (November 2026, after submission)
+
+Five items from the roadmap. Nothing here changes how Penny decides an invoice.
+
+### See where each value came from
+
+* On an invoice, the **What Penny read** tab has **Show on page** beside each value: invoice number, dates, terms,
+  PO, vendor, bill-to, ship-to, subtotal, tax, total and every line. The PDF scrolls there and draws a labeled box.
+  **Highlight what Penny read** shows them all at once.
+* Penny finds a value by searching the PDF's own text, and uses the label beside it ("Total", "Invoice #") when the
+  same number appears twice. If a value is not on the page as text, it says so instead of guessing.
+
+### Export history
+
+* The Intacct bill import file and the Entrata handoff list each show a history on the Exports page: **Created,
+  Downloaded, Imported, Confirmed**, with who and when, and the file's SHA-256 fingerprint.
+* An AP Clerk or Admin marks a file as imported with the other system's reference and the number of rows it
+  accepted. **A row count that does not match the file is refused.** A different person (Approver or Admin) confirms.
+* Downloading a file that is already imported warns about duplicate bills first. Previews and empty files cannot be
+  marked as imported. An Admin can undo a wrong entry with a reason; nothing is erased.
+* Honest limit: this is what people tell Penny they did. Penny still never uploads, posts or pays, and "Import
+  recorded" does not mean approved or paid. Until 2.0 the history is saved in each person's browser.
+
+### Watched inbox folder
+
+* `./penny web --package <folder> --watch` (or `"watch": {"enabled": true}` in `config/rules.json`) picks up PDFs
+  dropped into `inbox/_incoming`, files them as a new dated batch and runs a **preview**. See
+  `04_Workflow/ap_workflow/watcher.py`.
+* It never runs a batch for real, waits until a file has stopped changing, takes only real PDFs of 25 MB or less,
+  never deletes, and ignores shortcuts, hidden files and sub-folders. Files it leaves alone are listed with the
+  reason. Every pickup is in the audit trail with each file's fingerprint.
+
+### Long lists
+
+* Invoices, a run's documents, the audit trail and the My work queue show 25 rows at a time (or 50 or 100). The
+  page is in the web address, so links and the Back button keep their place.
+* Counts, totals and CSV downloads always cover the whole list. Previous and Next on an invoice cross pages.
+* Tested with 5,000 invoices: every main page draws in well under two seconds.
+
+### Accessibility pass
+
+* A new suite checks every main screen against WCAG 2.2 A and AA with axe-core, in light and dark, on a desktop and
+  a phone, then tests keyboard order, focus in dialogs, target sizes, reduced motion and reflow at 200% zoom.
+* What it found, now fixed: links inside sentences were told apart by color alone (now underlined); "Skip to
+  content" changed the page instead of moving focus; on a phone the account button had no name for screen readers;
+  wide tables could not be scrolled from the keyboard; the Appearance page faded text below the contrast minimum;
+  some "Show on page" buttons had names that did not match their text; two links were smaller than 24 pixels.
+* **Not done:** a session with a person who uses a screen reader every day. Automated tools find only part of the
+  picture, so this is carried into 2.0 and said plainly in the new Accessibility help article.
+
+### Documentation and testing
+
+* Four new help articles (source highlighting, export history, the watched folder, accessibility) and updates to
+  nine others, the role tables, the glossary and the FAQ.
+* 97 Python tests; 62 run without the assessment package. Six new ones cover the watched folder.
+* 15 browser suites (14 without the package). Five are new: source highlighting, export history, the watched
+  folder, long lists and accessibility.
+
+---
+
 ## What comes next (planned, not built)
 
 The plan to 2.0, with the status of each item, is in [`ROADMAP.md`](ROADMAP.md). In short:
 
 | Next step | What it adds |
 |---|---|
-| 1.9.0: source highlighting | Show where on the PDF each value came from: the total, the PO, the invoice number. |
-| 1.9.0: export history | Track each Intacct file from created, to downloaded, to imported, to confirmed, so nobody imports a file twice. |
-| 1.9.0: watched inbox folder | Pick up new invoices from a shared folder automatically, then preview them. |
 | 2.0.0: Penny for a real team | The server becomes the single source of truth (SQLite): every action and rule change is saved and checked there, teammates see each other's work live, and Penny runs over the network with https. |
 | After 2.0: single sign-on | Sign in with the company's identity provider. Intended for 2.1; it needs a real identity provider to build and test against. |
 

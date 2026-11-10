@@ -8,16 +8,24 @@ function parseHash() {
   const [path, qs] = h.split("?");
   return { parts: path.split("/").filter(Boolean).map(decodeURIComponent), q: new URLSearchParams(qs || "") };
 }
+/** A table too wide for the screen scrolls sideways. Make that region reachable by keyboard and name it for screen readers. */
+function scrollableTables() {
+  $$("#main .table-wrap").forEach((w) => {
+    if (w.scrollWidth > w.clientWidth + 1) { w.tabIndex = 0; w.setAttribute("role", "region"); w.setAttribute("aria-label", "Table. Scroll sideways to see every column."); }
+    else if (w.hasAttribute("tabindex")) { ["tabindex", "role", "aria-label"].forEach((k) => w.removeAttribute(k)); }
+  });
+}
 let lastPath = null, lastHash = "";
 const scrollMemo = {};
 /** Remember the list a person is working through, so an invoice can offer Back, Previous and Next. */
 function rememberList(a, b, title) {
   if (a === "invoices" && b) return;
-  const ids = [...new Set($$("#main tr[data-href], #main a.att-row").map((el) => decodeURIComponent(((el.dataset.href || el.getAttribute("href")).match(/#\/invoices\/([^?]+)/) || [])[1] || "")).filter(Boolean))];
+  const ids = listIds || [...new Set($$("#main tr[data-href], #main a.att-row").map((el) => decodeURIComponent(((el.dataset.href || el.getAttribute("href")).match(/#\/invoices\/([^?]+)/) || [])[1] || "")).filter(Boolean))];
   if (!ids.length) return;
   try { sessionStorage.setItem("penny.list", JSON.stringify({ ids, label: title, href: location.hash || "#/" })); } catch (e) { /* fine */ }
 }
 function render() {
+  listIds = null;
   const link = linkRoute();
   if (link) return showAccountLink(link.purpose, link.token);
   if (!user) return showLogin();
@@ -57,6 +65,7 @@ function render() {
   else { html = notFound("That page"); title = "Not found"; }
   if (lastHash) scrollMemo[lastHash] = window.scrollY;
   main.innerHTML = html;
+  scrollableTables();
   document.title = `${title} · Penny`;
   $$("#nav a").forEach((l) => (l.dataset.nav === nav ? l.setAttribute("aria-current", "page") : l.removeAttribute("aria-current")));
   if (after) after();
@@ -135,6 +144,17 @@ function bindChrome() {
     if (act) { e.preventDefault(); doAction(act.dataset.act, act.dataset.doc, act.dataset); return; }
     const em = e.target.closest("[data-email-file]");
     if (em) { e.preventDefault(); emailDialog({ kind: "export", run: em.dataset.run, file: em.dataset.emailFile, bytes: +em.dataset.bytes || 0 }); return; }
+    const skip = e.target.closest("a.skip-link");
+    if (skip) { e.preventDefault(); const m = $("#main"); m.setAttribute("tabindex", "-1"); m.focus(); m.scrollIntoView(); return; }   // stay on this page: the address is how Penny knows which page to show
+    const pgb = e.target.closest("button[data-page]");
+    if (pgb) { e.preventDefault(); goToPage({ page: pgb.dataset.page }); return; }
+    const dl = e.target.closest("a[data-dl]");
+    if (dl) { onDownload(dl, e); return; }
+    const exb = e.target.closest("[data-ex]");
+    if (exb) { e.preventDefault(); exportDialog(exb.dataset.ex, exb.dataset.run, exb.dataset.file); return; }
+    const src = e.target.closest("[data-src]");
+    if (src) { e.preventDefault(); showSource(src.dataset.src); return; }
+    if (e.target.closest("[data-src-all]")) { e.preventDefault(); toggleAllSources(); return; }
     const of = e.target.closest("[data-open-file]");
     if (of) { e.preventDefault(); openFile(of.dataset.openFile); return; }
     const ap = e.target.closest("[data-apply]");
@@ -152,6 +172,8 @@ function bindChrome() {
   ["click", "keydown"].forEach((t) => document.addEventListener(t, activity, true));
   setInterval(() => { if (user && !AUTH().currentUser()) endSession("expired"); }, 20000);
   bindShortcuts();
+  document.addEventListener("change", (e) => { if (e.target.matches && e.target.matches("select[data-per]")) goToPage({ per: e.target.value, page: null }); });
+  window.addEventListener("resize", () => { clearTimeout(scrollableTables.t); scrollableTables.t = setTimeout(scrollableTables, 150); });
   window.addEventListener("hashchange", render);
 }
 
