@@ -187,9 +187,10 @@ def summarize(run_id, decisions, counts, errs, irows, routes=None, priority=None
              DUP: ("DUPLICATE", "33"), SKIP: ("SKIP", "2")}
     for d in decisions:
         label, color = badge[d.status]
-        vendor = d.vendor_name or d.doc["vendor_name_raw"]
+        vendor = d.vendor_name or d.doc.get("vendor_name_raw") or ("(could not read file)" if d.doc.get("kind") == "unreadable" else "")
         print(f"\n{_style(f'{label:<13}', color + ';1')}  {d.file}   {vendor}")
-        print(_wrap("Invoice:", f"{d.bill_no}   ${d.amount:,.2f}", width))
+        if d.doc.get("kind") != "unreadable":
+            print(_wrap("Invoice:", f"{d.bill_no}   ${d.amount:,.2f}", width))
         if d.status == SKIP:
             print(_wrap("Why:", "This exact file was already entered in an earlier run, so nothing is done. That is what makes a rerun safe.", width))
         elif d.status in (ENTER_INTACCT, ENTER_ENTRATA):
@@ -206,6 +207,12 @@ def summarize(run_id, decisions, counts, errs, irows, routes=None, priority=None
     print(_style("SUMMARY", "1") + f"   {e} to Intacct   {counts.get(ENTER_ENTRATA, 0)} to Entrata   "
           f"{counts.get(HOLD, 0)} held   {counts.get(DUP, 0)} duplicates   {counts.get(SKIP, 0)} skipped")
     print(f"          Intacct import rows written: {len(irows)}   Pre-flight check: {'PASS' if not errs else 'FAIL (' + str(len(errs)) + ' errors)'}")
+    unreadable = [d for d in decisions if d.doc.get("kind") == "unreadable"]
+    if unreadable:
+        print(_style(f"          {len(unreadable)} file{'s' if len(unreadable) > 1 else ''} could not be read and {'were' if len(unreadable) > 1 else 'was'} held. "
+                     "The rest of the batch was processed normally:", "31"))
+        for d in unreadable:
+            print(textwrap.fill(d.doc["unreadable_reason"], width=width, initial_indent=f"      {d.file}: ", subsequent_indent=" " * 8))
     for err in errs:
         print("    !", err)
     print()
@@ -270,7 +277,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 33 automated checks")
+    t = sub.add_parser("test", help="run the 37 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))

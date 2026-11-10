@@ -18,7 +18,11 @@ from ap_workflow.rules import allocate_tax       # noqa: E402
 from ap_workflow.util import norm_invoice_no     # noqa: E402
 import synthetic as syn                          # noqa: E402
 
-PKG = cli.find_package(os.environ.get("HILLPOINTE_PACKAGE"))
+try:
+    PKG = cli.find_package(os.environ.get("HILLPOINTE_PACKAGE"))
+except SystemExit:          # no assessment package on this machine: run the tests that do not need it, skip the rest
+    PKG = None
+needs_package = unittest.skipIf(PKG is None, "assessment package not found (set HILLPOINTE_PACKAGE)")
 EXPECTED = json.loads((ROOT / "tests" / "expected_decisions.json").read_text())
 
 
@@ -40,6 +44,7 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(out, [Decimal("416.00"), Decimal("107.60")])
 
 
+@needs_package
 class AssessmentBatches(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -96,6 +101,7 @@ class AssessmentBatches(unittest.TestCase):
         self.assertTrue(all(len(v) == 1 for v in seen.values()), seen)
 
 
+@needs_package
 class EdgeCases(unittest.TestCase):
     def run_docs(self, builders):
         tmp = Path(tempfile.mkdtemp())
@@ -214,6 +220,7 @@ class EdgeCases(unittest.TestCase):
         self.assertEqual(str(d.lines[0]["DUE_DATE"]), "2026-10-20")   # 09/20 + Net 30, not based on the posting date
 
 
+@needs_package
 class RuleChangeTests(unittest.TestCase):
     """The live session asks for a small rule change. These prove a one-line config edit changes behaviour, with no code edits."""
 
@@ -292,6 +299,79 @@ class LlmPathTests(unittest.TestCase):
         from ap_workflow import llm_extract
         out = llm_extract.merge({"refs_customer_ref": {}, "kind": "credit_memo"}, {"kind": "credit_memo", "lines": [{"desc": "x", "amount": "100.00"}]})
         self.assertEqual(out["lines"][0]["amount"], "-100.00")
+
+
+class UnreadableFiles(unittest.TestCase):
+    """A corrupt, empty, locked or scanned file must never crash a run. It is held, named, and given a reason a
+    person can act on, and every other file in the batch is still processed."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.cfg = json.loads((ROOT / "config" / "rules.json").read_text())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def make_bad(self, folder):
+        folder.mkdir(parents=True, exist_ok=True)
+        for name, (build, _) in syn.BAD_FILES.items():
+            build(folder / f"{name}.pdf")
+
+    def test_each_bad_file_gets_a_plain_reason(self):
+        from ap_workflow.llm_extract import extract
+        self.make_bad(self.tmp)
+        for name, (_, words) in syn.BAD_FILES.items():
+            for mode in ("rules", "hybrid"):
+                with self.subTest(file=name, mode=mode):
+                    doc = extract(self.tmp / f"{name}.pdf", self.cfg, mode)
+                    self.assertEqual(doc["kind"], "unreadable")
+                    self.assertEqual(doc["file"], f"{name}.pdf")
+                    self.assertIn(words, doc["unreadable_reason"])
+
+    def test_unexpected_parser_error_is_caught_too(self):
+        from unittest import mock
+        from ap_workflow import llm_extract
+        syn.make_invoice(self.tmp / "x.pdf")
+        with mock.patch.object(llm_extract, "extract_with_rules", side_effect=ValueError("bad layout")):
+            doc = llm_extract.extract(self.tmp / "x.pdf", self.cfg, "rules")
+        self.assertEqual(doc["kind"], "unreadable")
+        self.assertIn("bad layout", doc["unreadable_reason"])
+
+    def test_run_of_only_bad_files_finishes_without_reference_data(self):
+        """The whole pipeline (decisions, exception log, workbook, register) runs on bad files without crashing.
+        No reference data is needed because an unreadable file is held before any lookup."""
+        from unittest import mock
+        import csv
+        batch = self.tmp / "batch"
+        self.make_bad(batch)
+        with mock.patch.object(cli, "load_package", return_value=(None, None, None)):
+            decs, errs = cli.run(self.tmp, batch, "bad", self.tmp / "state", self.tmp / "out", quiet=True)
+        self.assertEqual(errs, [])
+        self.assertEqual(len(decs), len(syn.BAD_FILES))
+        for d in decs:
+            self.assertEqual((d.status, d.codes), ("HOLD", ["OTHER"]), d.file)
+            self.assertIn("Could not read this file", d.reasons[0])
+        out = self.tmp / "out" / "bad"
+        with open(out / "exception_log.csv", encoding="utf-8") as f:
+            logged = {r["File"]: r for r in csv.DictReader(f)}
+        self.assertEqual(set(logged), {f"{n}.pdf" for n in syn.BAD_FILES})
+        self.assertIn("password protected", logged["password.pdf"]["Reason"])
+        self.assertEqual(logged["password.pdf"]["Recommended Route"], "AP Manager")
+        self.assertTrue((out / "review_workbook.xlsx").exists())
+        self.assertEqual(cli.Register(self.tmp / "state").rows, {})   # nothing to key on, so nothing in the register
+
+    @needs_package
+    def test_good_invoices_still_entered_when_batch_has_bad_files(self):
+        batch = self.tmp / "batch"
+        self.make_bad(batch)
+        syn.make_invoice(batch / "good.pdf")
+        decs, errs = cli.run(PKG, batch, "mixed", self.tmp / "state", self.tmp / "out", quiet=True)
+        self.assertEqual(errs, [])
+        by_file = {d.file: d for d in decs}
+        self.assertEqual(by_file["good.pdf"].status, "ENTER_INTACCT")
+        self.assertTrue(all(by_file[f"{n}.pdf"].status == "HOLD" for n in syn.BAD_FILES))
+        rerun, _ = cli.run(PKG, batch, "mixed2", self.tmp / "state", self.tmp / "out", quiet=True)
+        self.assertTrue(all(d.status == "HOLD" for d in rerun if d.file != "good.pdf"))   # re-read every run, never skipped
 
 
 if __name__ == "__main__":

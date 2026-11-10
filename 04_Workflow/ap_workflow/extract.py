@@ -12,7 +12,7 @@ The 'hybrid' mode uses rules first and asks the LLM only when validation fails.
 import re
 from pathlib import Path
 
-from .pdfio import read_pdf
+from .pdfio import read_pdf, UnreadableFile  # noqa: F401  (UnreadableFile is re-exported for callers)
 from .util import D, parse_money, parse_us_date, iso, sha256_file, q
 
 MONEY = r"\(?-?\$[\d,]+\.\d{2}\)?"
@@ -34,6 +34,21 @@ def _strip_titles(s):
 def _find(pattern, text, flags=0, group=1, default=""):
     m = re.search(pattern, text, flags)
     return m.group(group).strip() if m else default
+
+
+def unreadable_doc(path: Path, problem: str) -> dict:
+    """The record for a file Penny could not read. It carries the file name and the reason, so the decision
+    engine can hold that one file (and say why) while the rest of the batch is processed normally."""
+    try:
+        sha = sha256_file(path)
+    except OSError:
+        sha = ""
+    return {
+        "file": path.name, "supdoc_id": path.stem, "sha256": sha, "pages": 0, "stamps": [], "raw_text": "",
+        "kind": "unreadable", "unreadable_reason": problem,
+        "invoice_no": "", "date": "", "vendor_name_raw": "", "customer_ref": "", "total": None, "lines": [],
+        "extraction": {"method": "none", "warnings": [problem]},
+    }
 
 
 def extract_with_rules(path: Path, cfg: dict) -> dict:

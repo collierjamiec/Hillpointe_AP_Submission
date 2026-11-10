@@ -121,6 +121,12 @@ class Engine:
     # ================================================================================== decision
     def decide(self, doc):
         dec = Decision(doc)
+        if doc["kind"] == "unreadable":
+            dec.hold("OTHER", f"Could not read this file: {doc['unreadable_reason']} Nothing was entered. "
+                              "Ask the vendor for a clean PDF copy, or enter it by hand after review.")
+            dec.downgrade("Low", "file could not be read")
+            dec.status = HOLD
+            return self._finish(dec)
         if doc["kind"] == "other":
             dec.hold("OTHER", "Not a bill, pay application or credit memo (for example a standalone lien waiver). Not entered.")
             dec.status = HOLD
@@ -762,6 +768,8 @@ class Engine:
     # ================================================================================== commit to register
     def commit(self, dec):
         d = dec.doc
+        if d.get("kind") == "unreadable":
+            return   # no vendor or invoice number to key on; it is held in the exception log and run log, and re-read next run
         vid = dec.vendor_id or "UNKNOWN:" + norm_name(d.get("vendor_name_raw", ""))
         key = make_key(vid, dec.bill_no, dec.doc_type)
         common = dict(system="Entrata" if dec.system == "Entrata" else "Sage Intacct", vendor_id=vid, bill_no=dec.bill_no,

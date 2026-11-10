@@ -26,7 +26,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 33 automated checks
+./penny test                                  # run the 37 automated checks
 ./penny reset                                 # forget everything and start fresh
 ```
 
@@ -80,6 +80,7 @@ PDF  ->  1. EXTRACT  ->  2. VALIDATE  ->  3. DECIDE  ->  4. PRE-FLIGHT  ->  5. W
 
 | # | Check | If it fails |
 |---|---|---|
+| 0 | File can be read (not empty, a real PDF, not password protected or damaged, has a text layer) | OTHER, with the file name and the exact problem. The rest of the batch carries on |
 | 1 | Document is a bill, pay app or credit | OTHER (a standalone lien waiver is not a bill) |
 | 2 | Arithmetic ties | OTHER |
 | 3 | Vendor is in the master and Active (inactive merged names map to the surviving ID, with Medium confidence) | NEWVEND |
@@ -184,6 +185,9 @@ what produced every result in this package.
 
 * The rules parser expects the layouts in the sample package. A very different layout will fail validation and go to a
   person, which is the safe outcome. `--extractor hybrid` is the answer for that.
-* Scanned images (no text layer) would need OCR first.
+* Scanned images (no text layer) would need OCR first. Today they are held with a clear reason instead of being guessed at.
+* A file Penny cannot read (empty, not really a PDF, password protected, damaged) never stops a run. It is held under
+  OTHER and routed to the AP Manager with the reason, in the terminal summary, the exception log and the workbook. It is
+  not written to the register (there is no vendor or invoice number to key on), so a fixed copy is read fresh next run.
 * Only the first PO or subcontract in the Customer Ref box is used.
 * The workflow never talks to Intacct or Entrata. It produces files for a person to upload.
