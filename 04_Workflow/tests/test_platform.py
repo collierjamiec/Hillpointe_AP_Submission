@@ -887,6 +887,117 @@ class TeamTests(unittest.TestCase):
         t[0] += 301
         self.assertTrue(self.svc.accounts.sign_in("sam@hillpointe.com", AccountTests.GOOD, addr="10.0.0.9")[0])   # and it ends after five minutes
 
+    # ---- found in the v2.0.1 security review
+    def raw(self, method, path, headers=None, body=None):
+        """One request exactly as written (no cleaning up of the path), signed out. Returns (status, body bytes)."""
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.httpd.server_address[1], timeout=10)
+        c.request(method, path, body=body, headers=headers or {})
+        r = c.getresponse()
+        out = (r.status, r.read())
+        c.close()
+        return out
+
+    def test_no_spelling_of_an_address_gets_past_sign_in(self):
+        (self.tmp / "web" / "index.html").write_text("<html>Penny</html>")
+        (self.tmp / "web" / "assets").mkdir()
+        (self.tmp / "web" / "assets" / "penny.css").write_text("body{}")
+        (self.tmp / "web" / "data" / "pdfs").mkdir()
+        (self.tmp / "web" / "data" / "pdfs" / "a.pdf").write_bytes(b"%PDF-1.4 secret invoice")
+        (self.tmp / "web" / "notes.txt").write_text("a new file nobody listed as public")
+        for path in ("/", "/index.html", "/assets/penny.css", "/data/releases.json"):
+            self.assertEqual(self.raw("GET", path)[0], 200, path)                                # the page itself needs no session
+        private = ["/data/penny-data.json", "/%64ata/penny-data.json", "/assets/../data/penny-data.json", "//data/penny-data.json", "/./data/penny-data.json",
+                   "/assets/..%2fdata/penny-data.json", "/%2564ata/penny-data.json", "/data/pdfs/a.pdf", "/%64ata/pdfs/a.pdf", "/DATA/../data/pdfs/a.pdf",
+                   "/data/", "/%64ata/pdfs/", "/api/events", "/%61pi/events", "/api/rules", "/notes.txt", "/%2e%2e/%2e%2e/etc/passwd", "/data\\penny-data.json"]
+        for path in private:
+            for method in ("GET", "HEAD"):
+                code, body = self.raw(method, path)
+                self.assertIn(code, (401, 404), f"{method} {path}")
+                self.assertNotIn(b"secret invoice", body)
+                self.assertNotIn(b"run1", body)
+        self.assertEqual(self.raw("GET", "/assets/")[0], 404)                                    # a folder is never listed
+        sam = self.login("sam@hillpointe.com")
+        code, body = self.raw("GET", "/%64ata/pdfs/a.pdf", {"Cookie": f"penny_session={sam}"})
+        self.assertEqual((code, body), (200, b"%PDF-1.4 secret invoice"))                         # signed in, every spelling works
+
+    def test_a_page_elsewhere_cannot_reach_penny_by_borrowing_its_address(self):
+        evil = {"Host": "evil.example:8765", "Origin": "http://evil.example:8765", "X-Penny": "1", "Content-Type": "application/json"}
+        self.assertEqual(self.raw("GET", "/api/status", {"Host": "evil.example:8765"})[0], 403)
+        self.assertEqual(self.raw("HEAD", "/index.html", {"Host": "evil.example:8765"})[0], 403)
+        self.assertEqual(self.raw("POST", "/api/auth/login", evil, json.dumps({"email": "sam@hillpointe.com", "password": AccountTests.GOOD}))[0], 403)
+        for host in ("127.0.0.1:8765", "localhost:8765", "[::1]:8765"):
+            self.assertEqual(self.raw("GET", "/api/status", {"Host": host})[0], 200, host)
+        self.httpd.local_only = False                                                             # opened to the network: people use its real name
+        self.assertEqual(self.raw("GET", "/api/status", {"Host": "ap-server.hillpointe.local"})[0], 200)
+
+    def test_odd_requests_get_an_answer_and_details_stay_in_the_terminal(self):
+        h = {"X-Penny": "1", "Content-Type": "application/json"}
+        for length in ("-5", "abc", ""):
+            code, _ = self.raw("POST", "/api/auth/logout", {**h, "Content-Length": length}, b"")
+            self.assertEqual(code, 200, length)                                                   # a nonsense length is treated as no body, never a hang
+        sam = self.login("sam@hillpointe.com")
+        with unittest.mock.patch.object(self.svc, "list", side_effect=OSError("/home/someone/secret/path is missing")), unittest.mock.patch("sys.stderr"):
+            code, body, _ = self.call("/api/batches", cookie=sam)
+        self.assertEqual(code, 500)
+        self.assertNotIn("secret", body["error"])                                                 # folder names never reach the browser
+        self.assertIn("reference", body["error"])
+        self.assertIn("no-store", self.raw_headers("/data/penny-data.json", sam).get("Cache-Control", ""))
+
+    def raw_headers(self, path, cookie):
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.httpd.server_address[1], timeout=10)
+        c.request("GET", path, headers={"Cookie": f"penny_session={cookie}"})
+        r = c.getresponse()
+        r.read()
+        c.close()
+        return r.headers
+
+    def test_an_action_of_the_wrong_shape_never_reaches_teammates(self):
+        avery = self.login("avery@hillpointe.com")
+        bad = [("blocker.update", dict(doc="INV1", code="COI", status="exploded")), ("blocker.update", dict(doc="INV1", code="<b>", status="open")),
+               ("blocker.update", dict(doc="INV1", code="COI", due="soon")), ("blocker.update", dict(doc="INV1")), ("hold.reassign", dict(doc="INV1", route="")),
+               ("hold.reassign", dict(doc="INV1", route={"x": 1})), ("note.add", dict(doc="INV1", note=["a"])), ("note.add", dict(doc="INV1", note="x" * 2001)),
+               ("manual.keyed", dict(doc="INV1", entry="nope")), ("manual.keyed", dict(doc="INV1", entry={"vendor_name": {"x": 1}})),
+               ("blocker.clear", dict(doc="INV1", code="COI", files=[{"name": "a.pdf"}])), ("blocker.clear", dict(doc="INV1", code="COI", files=[{"name": "a.pdf", "sha256": 5}])), ("manual.check", dict(doc="INV1", entry_id="x", match="yes")),
+               ("export.imported", dict(run="run1", file="intacct_bill_import.csv", ref="R", rows="11")), ("blocker.clear", dict(doc="INV1", code="COI", files="a.pdf")),
+               ("note.add", dict(doc="INV1", note="ok", extra={"a": {"b": {"c": {"d": {"e": {"f": {"g": {"h": {"i": {"j": 1}}}}}}}}}}))]
+        for kind, data in bad:
+            self.assertEqual(self.act(avery, kind, **data)[0], 422, (kind, data))
+        self.assertEqual([e for e in self.svc.store.events() if e["origin"] == "web"], [])        # nothing was saved
+        self.assertEqual(self.act(avery, "blocker.update", doc="INV1", code="COI", status="waiting", owner="Compliance", due="2026-11-30", note="Asked the broker.",
+                                  files=[{"name": "coi.pdf", "type": "pdf", "bytes": 10, "sha256": "ab" * 32}])[0], 200)
+
+    def test_moved_history_never_counts_as_a_sign_off(self):
+        sam, jordan = self.login("sam@hillpointe.com"), self.login("jordan@hillpointe.com")
+        f = {"run": "run1", "file": "intacct_bill_import.csv"}
+        j = {"id": "someone-else", "name": "Jordan Patel", "role": "approver"}
+        forged = [{"id": "1" * 16, "at": "2026-10-01T10:00:00.000Z", "type": "export.imported", **f, "ref": "OLD", "rows": 11, "user": {"id": "sam-old", "name": "Sam Rivera", "role": "admin"}},
+                  {"id": "2" * 16, "at": "2026-10-01T11:00:00.000Z", "type": "export.confirmed", **f, "user": j},
+                  {"id": "3" * 16, "at": "2026-10-01T12:00:00.000Z", "type": "bill.approve", "doc": "INV4", "step": "Controller", "user": j},
+                  {"id": "4" * 16, "at": "2026-10-01T13:00:00.000Z", "type": "hold.resolve", "doc": "INV5", "outcome": "cleared", "user": j}]
+        self.assertEqual(self.call("/api/events/import", {"events": forged}, cookie=sam)[1]["added"], 4)
+        self.assertEqual(self.act(jordan, "export.confirmed", **f)[0], 409)                           # the moved "import" does not stand: nothing to confirm
+        self.assertEqual(self.act(sam, "export.imported", **f, ref="NEW", rows=11)[0], 200)           # so it has to be done for real
+        self.assertEqual(self.act(sam, "export.confirmed", **f)[0], 403)                              # and still by a second person
+        self.assertEqual(self.act(sam, "bill.approve", doc="INV4", step="Controller")[0], 200)        # a moved approval is not a sign-off
+        self.assertEqual(self.act(sam, "hold.resolve", doc="INV5", outcome="cleared")[0], 409)        # a moved resolution is still how the hold stands
+        js = (ROOT / "web" / "assets" / "penny-core.js").read_text()
+        from ap_workflow import actions
+        self.assertIn("/" + actions.MOVED_IS_HISTORY.pattern + "/", js)                             # the web app uses the same list
+
+    def test_behind_a_proxy_the_lockout_follows_the_real_computer(self):
+        h = {"X-Penny": "1", "Content-Type": "application/json"}
+        self.httpd.behind_proxy = True
+        from ap_workflow import accounts
+        for i in range(accounts.MAX_TRIES_ADDR):                                                    # guesses across many emails, all through the proxy
+            self.raw("POST", "/api/auth/login", {**h, "X-Forwarded-For": "203.0.113.5"}, json.dumps({"email": f"guess{i}@hillpointe.com", "password": "wrong"}))
+        good = json.dumps({"email": "sam@hillpointe.com", "password": AccountTests.GOOD})
+        self.assertEqual(self.raw("POST", "/api/auth/login", {**h, "X-Forwarded-For": "203.0.113.5"}, good)[0], 429)   # that computer waits
+        self.assertEqual(self.raw("POST", "/api/auth/login", {**h, "X-Forwarded-For": "203.0.113.9"}, good)[0], 200)   # everyone else carries on
+        self.httpd.behind_proxy = False
+        self.assertEqual(self.raw("POST", "/api/auth/login", {**h, "X-Forwarded-For": "203.0.113.5"}, good)[0], 200)   # with no proxy the header is ignored
+
     def test_without_real_accounts_actions_stay_in_the_browser(self):
         from ap_workflow import webserver
         demo = webserver.BatchService(self.tmp, None, self.tmp / "demo", self.tmp / "runs", self.tmp / "web", self.tmp / "rules.json")

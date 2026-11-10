@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.0.1";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -324,12 +324,16 @@ function record(type, data) {
   return ev;
 }
 
+const MOVED_IS_HISTORY = /^(bill\.|export\.|manual\.check$|rules\.)/;
 /** Rebuild the current state by replaying the audit log over Penny's results. */
 function derive() {
   const revoked = new Set(EV.filter((e) => e.type === "rules.revert").map((e) => e.target));
   const holds = {}, approvals = {}, notes = {}, blockers = {}, manual = {}, exports = {};
   const rules = JSON.parse(JSON.stringify(D.rules || {}));
   for (const e of EV) {
+    // Work moved in from a browser before 2.0 was never checked by the server. It stays in the audit trail as
+    // history, but it does not count as a sign-off, an import or a second check.
+    if (e.moved && MOVED_IS_HISTORY.test(e.type)) continue;
     if (e.type === "hold.resolve") holds[e.doc] = { ...(holds[e.doc] || {}), outcome: e.outcome, by: e.user, at: e.at, note: e.note };
     else if (e.type === "hold.reopen" && holds[e.doc]) holds[e.doc] = { route: holds[e.doc].route };
     else if (e.type === "hold.reassign") holds[e.doc] = { ...(holds[e.doc] || {}), route: e.route };

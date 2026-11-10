@@ -54,6 +54,7 @@ CANNOT = {
     "note": "Viewers cannot add notes.", "rules": "Only an Admin can change rules.",
     "export": "Only an AP Clerk or Admin can mark a file as imported.", "confirm": "Only an Approver or Admin can confirm an import.",
 }
+MOVED_IS_HISTORY = re.compile(r"^(bill\.|export\.|manual\.check$|rules\.)")   # the same list as in penny-core.js
 MAX_EVENT = 200 * 1024
 ID_RE = re.compile(r"^[0-9a-f]{16,64}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,160}$")
@@ -202,7 +203,54 @@ def clean(event):
     for k in ("doc", "run", "file"):
         if k in body and not (isinstance(body[k], str) and NAME_RE.match(body[k])):
             raise ActionError("That action does not say clearly what it is about.", 422)
+    check_shape(t, body)
     return {"id": eid, "type": t, **body}
+
+
+# What each field must look like. An action is shown on every teammate's screen, so a value of the wrong kind from
+# one browser must never reach the others: it could break their pages. (Added in the v2.0.1 security review.)
+TEXT = ("note", "route", "step", "owner", "before", "after", "ref", "sha256", "entry_id", "target", "invoice_no", "total")
+CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,15}$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def check_shape(kind, body):
+    """Refuse (422) an action whose fields are the wrong kind of value, too long or too deeply nested."""
+    def walk(v, depth=0):
+        if depth > 8:
+            raise ActionError("That action is nested too deeply.", 422)
+        if isinstance(v, str) and len(v) > 20000:
+            raise ActionError("Part of that action is too long.", 422)
+        for x in (v.values() if isinstance(v, dict) else v if isinstance(v, list) else ()):
+            walk(x, depth + 1)
+    walk(body)
+    for k in TEXT:
+        if k in body and body[k] is not None and not (isinstance(body[k], str) and len(body[k]) <= 2000):
+            raise ActionError(f"The {k.replace('_', ' ')} is not text Penny can save.", 422)
+    if kind in ("hold.reassign",) and not (isinstance(body.get("route"), str) and body["route"].strip()):
+        raise ActionError("Choose who the hold goes to.", 422)
+    if kind.startswith("blocker."):
+        if not (isinstance(body.get("code"), str) and CODE_RE.match(body["code"])):
+            raise ActionError("That blocker does not say which reason it is for.", 422)
+        if body.get("status") is not None and body["status"] not in ("open", "waiting", "ready", "cleared"):
+            raise ActionError("That is not a blocker status Penny knows.", 422)
+        if body.get("due") not in (None, "") and not (isinstance(body["due"], str) and DATE_RE.match(body["due"])):
+            raise ActionError("The target date is not a date.", 422)
+    for k in ("files", "evidence"):
+        if k in body and not (isinstance(body[k], list) and len(body[k]) <= 20 and all(
+                isinstance(f, dict) and isinstance(f.get("name"), str) and isinstance(f.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", f["sha256"])
+                for f in body[k])):
+            raise ActionError("The list of files is not one Penny can save.", 422)
+    if kind == "manual.keyed":
+        entry = body.get("entry")
+        if not isinstance(entry, dict) or not all(isinstance(entry.get(k, ""), (str, int, float)) and not isinstance(entry.get(k, ""), bool) for k in ("vendor_name", "invoice_no", "total", "reason")):
+            raise ActionError("That manual entry is not one Penny can save.", 422)
+    if kind == "manual.check" and not isinstance(body.get("match"), bool):
+        raise ActionError("That check does not say whether the entry matched.", 422)
+    if kind == "export.imported" and not (isinstance(body.get("rows"), int) and not isinstance(body["rows"], bool) and 0 <= body["rows"] < 10 ** 7):
+        raise ActionError("The number of rows is not a number.", 422)
+    if "suggestion" in body and body["suggestion"] is not None and not isinstance(body["suggestion"], dict):
+        raise ActionError("That action is not one Penny understands.", 422)
 
 
 def allowed(actor, kind):
@@ -283,7 +331,9 @@ def record(service, actor, event):
     new_rules = {}
 
     def check(db):
-        about = service.store.about(subject, db=db) if subject else []
+        # Work moved in from a browser is history only: it was never checked by the server, so it does not count
+        # as a sign-off, an import or a second check.
+        about = [e for e in service.store.about(subject, db=db) if not (e["origin"] == "import" and MOVED_IS_HISTORY.match(e.get("type", "")))] if subject else []
         state_check(service, saved, about, who)
         if event["type"].startswith("rules."):
             new_rules["rules"] = _apply_rules(service, saved, about, who)

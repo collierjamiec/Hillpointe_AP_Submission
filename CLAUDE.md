@@ -32,6 +32,9 @@ where each rule lives, assumptions). Read it before changing behavior.
   updates. The public demo and demo-account mode still use the browser sandbox. `ROLE_CAN` and `NEEDS` in
   `actions.py` must match `ROLES` and `EVENT_NEEDS` in `penny-core.js`; a test checks it.
   With accounts on, the server ignores any user the browser sends and acts as the session's user.
+- Serving files safely (v2.0.1): `PennyHandler.plain_path()` decodes and normalizes the address before any check,
+  and `open_to_all()` is a short allow-list of what is served without a session. Never test `self.path` or the raw
+  URL for "is this private"; add to the allow-list on purpose. HEAD goes through the same gate.
 - `04_Workflow/VERSION` and `04_Workflow/releases.json`: the current version (three parts) and every release. A new
   release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
   `web/data/releases.json` and `APP_VERSION` in `web/assets/penny-core.js`; a test checks all four agree.
@@ -51,7 +54,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 108 checks, uses temp dirs, safe
+./penny test                                   # 114 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 

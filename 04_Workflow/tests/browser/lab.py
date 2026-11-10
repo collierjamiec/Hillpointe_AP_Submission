@@ -45,7 +45,7 @@ def service(name, package=None, state=False):
 def serve(svc, port):
     import http.server
     from ap_workflow import webserver
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), webserver.make_handler(svc, svc.web_dir))
+    httpd = webserver.make_server(svc, svc.web_dir, port)      # the same server ./penny web starts
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd
 

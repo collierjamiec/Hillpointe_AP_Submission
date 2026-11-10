@@ -7,7 +7,7 @@ This was the plan from version 1.7.0 to 2.0.0, which is now finished. It is kept
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.0.0 was finished.
+Last updated: November 2026, when 2.0.1 was finished.
 
 ---
 
@@ -66,6 +66,21 @@ designed for it.
 compares those files, and a CSV is what an auditor opens. The server takes a lock around every run, so two runs
 cannot write it at once.
 
+## 2.0.1: security review (Done)
+
+Not on the original plan. 2.0 opened Penny to a network, so the code was reviewed for ways around its own checks
+before anything else was built.
+
+| Item | Status |
+|---|---|
+| A way around sign-in: the check and the file server read the address differently, so invoices could be downloaded without signing in. In every version since 1.7. | Fixed, with a test of 18 spellings |
+| File size requests, folder listings, stalled connections, error details | Fixed |
+| Penny on one computer answered to any name (DNS rebinding) | Fixed |
+| Actions with the wrong kind of value could break teammates' pages | Fixed: every field is checked |
+| Moved browser history could stand in for a real approval or confirmation | Fixed: history only |
+| Wrong-password lockout behind a proxy locked everyone out | Fixed |
+| A review by someone outside the project | **Still open.** This review was done by the project's own author. |
+
 ## After 2.0 (intended, not scheduled)
 
 | Item | Note |
@@ -73,7 +88,7 @@ cannot write it at once.
 | **Single sign-on** | Sign in with the company's identity provider (OpenID Connect or SAML) instead of a Penny password. We intend to add this in 2.1. It is not in 2.0 because it needs a real identity provider to build and test against. Until then, Penny's own accounts stay: invitations, password rules, lockouts and resets. |
 | Real phones and tablets | Carried from 1.9.1: the phone layout is tried on real devices, and what is found is fixed. Needs a person with the devices. |
 | Screen reader session | Carried from 1.9.0: a person who uses a screen reader every day tries the main tasks, and what they find is fixed. Needs that person. |
-| An outside security review | 2.0 opens Penny to a network. The checks are tested on every change, but nobody outside the project has tried to break them. |
+| An outside security review | 2.0 opens Penny to a network. The 2.0.1 review by the author found a real way around sign-in, which is the best argument for a second pair of eyes. Nobody outside the project has tried to break it yet. |
 | Sign-ins that survive a restart | Sessions are kept in memory, so restarting Penny signs everyone out. |
 | Paging by the database | Lists are still paged in the browser, which loads the whole audit log at sign-in. Fine for thousands of entries; a very long history should be paged by the server. |
 | Argon2id password hashing | A stronger hash than today's PBKDF2, moved to on next sign-in. |

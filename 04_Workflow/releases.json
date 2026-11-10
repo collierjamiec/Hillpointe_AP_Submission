@@ -2,6 +2,19 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.0.1",
+      "date": "2026-11-10",
+      "required": true,
+      "summary": "Security fixes from a review of 2.0, including a way around sign-in. Update now if Penny runs with real accounts.",
+      "notes": [
+        "Fixed: with real accounts on, invoices and files could be downloaded without signing in by spelling the address another way. This was in every version since 1.7.",
+        "Penny on one computer now only answers to that computer's own address.",
+        "Every field of an action is checked before it is saved, so one browser cannot break a page for the team.",
+        "Work moved in from a browser never counts as an approval, an import or a second check.",
+        "Wrong-password limits work properly behind a proxy, and error details stay in the terminal."
+      ]
+    },
+    {
       "version": "2.0.0",
       "date": "2026-11-10",
       "required": true,

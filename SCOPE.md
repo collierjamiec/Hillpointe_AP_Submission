@@ -646,6 +646,53 @@ Nothing here changes how Penny decides an invoice.
 
 ---
 
+## Version 2.0.1: security review (November 2026, after submission)
+
+2.0 opened Penny to a network, so I reviewed the code for ways around its own checks before building anything else.
+**This release is required.** It was a review by the project's own author, not an outside one.
+
+### The serious one: a way around sign-in
+
+* With real accounts on, the server checked whether an address was private by looking at its raw text, and the file
+  server decoded the address afterwards. So `/data/penny-data.json` asked for a sign-in, but `/%64ata/penny-data.json`
+  or `/assets/../data/pdfs/x.pdf` was served to anyone: invoices, PDFs and import files.
+* **This was in every version since 1.7.** Before 2.0 it could only be reached from the same computer. In 2.0 it
+  could be reached over the network.
+* Fixed two ways. The address is now decoded and normalized once, and both the check and the file server use that.
+  And the rule is turned around: a short list of what is served without a session (the page, its scripts and
+  styles, the release list), so anything new is private until someone decides otherwise.
+* A test asks for 18 spellings of private addresses, signed out, with GET and HEAD. None is served.
+
+### The rest
+
+* **HEAD requests** skipped the check, which revealed which files exist and their size. They now pass the same gate.
+* **Penny on one computer answered to any name.** A page elsewhere could point its own name at 127.0.0.1 and use
+  Penny through the person's browser (DNS rebinding). While Penny listens only on this computer, it now refuses any
+  request whose Host is not this computer's.
+* **Every field of an action is checked** before it is saved (`actions.check_shape`). One browser could send a
+  value of the wrong kind (a blocker status that does not exist, a note that is a list) and break a page for the
+  whole team.
+* **Moved browser history never counts as a sign-off.** An Admin could move in a made-up approval or import
+  confirmation under someone else's name. Moved approvals, import history, second checks and rule changes are now
+  history only, on the server and in the web app. A bill approved before the move needs its sign-off again.
+* **Behind a proxy, the wrong-password limit follows the real computer**, not the proxy, so one person cannot lock
+  everyone out.
+* **Unexpected errors keep their details in the terminal.** The browser gets a reference to quote.
+* A stalled connection is closed after a minute, a nonsense request length is treated as no body, folders are never
+  listed, and invoice files are not left in a shared computer's browser cache.
+
+### What I checked and did not find
+
+* I spot-checked how the web app puts teammates' text on the page and found it escaped. The content security policy
+  also blocks injected scripts. This was a spot check, not a line-by-line audit.
+
+### Testing
+
+* 114 Python tests; 79 run without the assessment package. Six are new, one per finding above.
+* The browser test lab now starts the same server `./penny web` starts, so the suites exercise these checks too.
+
+---
+
 ## What comes next (intended, not scheduled)
 
 The plan to 2.0 is finished. What is intended next is in [`ROADMAP.md`](ROADMAP.md). In short:

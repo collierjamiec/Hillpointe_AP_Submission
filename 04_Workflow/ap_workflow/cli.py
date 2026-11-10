@@ -516,7 +516,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 108 automated checks")
+    t = sub.add_parser("test", help="run the 114 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))
