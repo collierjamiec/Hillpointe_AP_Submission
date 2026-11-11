@@ -688,6 +688,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <tr><td><code>./penny users list</code></td><td>List everyone with an account, their role and status.</td></tr>
 <tr><td><code>./penny email status</code></td><td>Show the mail settings Penny will use. The password is never printed.</td></tr>
 <tr><td><code>./penny email test --to &lt;email&gt;</code></td><td>Send one test email. If it fails, Penny says what to check.</td></tr>
+<tr><td><code>./penny require 2.3.0</code></td><td>(Maintainer) mark a release that is already out as required. Older copies must then update before real runs or changes.</td></tr>
 <tr><td><code>./penny release 2.1.0 --summary "..."</code></td><td>(Maintainer) publish a new version. Add <code>--note</code> for each change and <code>--required</code> to make it the minimum.</td></tr>
 </tbody></table>
 <p>Add <code>--package &lt;folder&gt;</code> when the assessment package is not next to Penny's folder.</p>` },

@@ -121,7 +121,7 @@ For a team, the setup wizard turns on real accounts, where one server checks and
   a double-click (v2.1.0), the reasons for my decisions written into every page (v2.1.1), and an honest list of what production would
   take (v2.1.2), and a left menu that scrolls on short screens (v2.1.3), and a
   front door for the project: a guided tour in the app, a case study, a getting started guide and screenshots
-  (v2.2.0), and a profile each person manages themselves, with a photo and private activity numbers (v2.3.0).
+  (v2.2.0), and a profile each person manages themselves, with a photo and private activity numbers (v2.3.0, a required update).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

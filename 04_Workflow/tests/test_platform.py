@@ -96,7 +96,20 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(entry, {"version": nxt, "date": "2026-12-01", "required": True, "summary": "Fixes a rounding problem in tax splits.", "notes": ["Tax splits round to the cent."]})
         self.assertEqual(set(self.v.consistency(root).values()), {nxt})
         self.assertEqual(self.v.minimum(self.v.load_releases(root / "releases.json")), nxt)
-        for args in ((nxt, "Same version again."), (f"{major}.{minor}.9", "Older than the current one."), (later, "short"), (f"{major}.{minor + 2}", "Not three numbers here.")):
+        # (v2.3) a release that is already out can be made required later, in both lists, and only if it exists
+        opt = self.v.release(later, "An optional release that later turns out to matter.", root=root, today=date(2026, 12, 2))
+        self.assertEqual((opt["required"], self.v.minimum(self.v.load_releases(root / "releases.json"))), (False, nxt))
+        self.assertEqual(self.v.status(nxt, self.v.load_releases(root / "releases.json"), skipped=later)["state"], "skipped")
+        made = self.v.require(later, root=root)
+        self.assertEqual((made["required"], made["already"]), (True, False))
+        for f in (root / "releases.json", root / "web" / "data" / "releases.json"):
+            self.assertEqual(self.v.minimum(self.v.load_releases(f)), later)
+        self.assertEqual(self.v.status(nxt, self.v.load_releases(root / "releases.json"), skipped=later)["state"], "required")   # waiting on it no longer counts
+        self.assertTrue(self.v.require(later, root=root)["already"])
+        with self.assertRaises(self.v.VersionError):
+            self.v.require("9.9.9", root=root)
+        later = f"{major}.{minor + 3}.0"
+        for args in ((nxt, "Same version again."), (f"{major}.{minor}.9", "Older than the current one."), (later, "short"), (f"{major}.{minor + 3}", "Not three numbers here.")):
             with self.subTest(args=args):
                 with self.assertRaises(self.v.VersionError):
                     self.v.release(*args, root=root)

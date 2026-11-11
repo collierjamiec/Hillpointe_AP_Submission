@@ -4,7 +4,7 @@
     {
       "version": "2.3.0",
       "date": "2026-11-11",
-      "required": false,
+      "required": true,
       "summary": "A profile each person manages: details, photo, password and private activity",
       "notes": [
         "My profile, in the menu under your name: change your name, title, about line, who covers for you, and your photo. Your username and user ID stay the same.",

@@ -27,7 +27,7 @@ and what I chose to build on my own.
 | 2.1.2 | November 2026 | **After submission:** an honest list of what production would take, with sign-in through Microsoft and Google named as the next step. | Pull request #15, [`PRODUCTION.md`](PRODUCTION.md) |
 | 2.1.3 | November 2026 | **After submission:** a fix so the left menu scrolls and Help center is never cut off. | Pull request #16 |
 | 2.2.0 | November 2026 | **After submission:** a front door for the project: a guided tour in the app, a case study, a getting started guide and screenshots. | Pull request #17 |
-| 2.3.0 | November 2026 | **After submission:** a profile each person manages themselves, with a photo, a password change and private activity numbers. | This pull request |
+| 2.3.0 | November 2026 | **After submission, required:** a profile each person manages themselves, with a photo, a password change and private activity numbers. | Pull requests #18 and #19 |
 
 **The short version of every release** is in [`CHANGELOG.md`](CHANGELOG.md), with where each idea came from and a
 list of every idea and where it went. **Why I made each choice** is in [`DECISIONS.md`](DECISIONS.md), and in a short "Why I built this" line under each
@@ -869,6 +869,8 @@ details with it.
 * **Import from Microsoft or Google** is written and tested with sample data. Imported details can be changed, and
   a later import never overwrites a change made by hand. It runs once that sign-in is built.
 * Three new code tests and a new browser suite (38 checks).
+* **This is a required update.** It shipped as optional and I marked it required the same day, with a new command,
+  `./penny require <version>`, so the release lists are never edited by hand.
 
 ---
 

@@ -17,7 +17,7 @@ marked **Required** makes older copies read-only until they update.
 
 | Version | Date | In one line |
 |---|---|---|
-| [2.3.0](#230-my-profile) | Nov 2026 | A profile each person manages: details, photo, password and private activity |
+| [2.3.0](#230-my-profile) | Nov 2026 | **Required.** A profile each person manages: details, photo, password and private activity |
 | [2.2.0](#220-a-front-door) | Nov 2026 | A guided tour, a case study, a getting started guide and screenshots |
 | [2.1.3](#213-a-menu-that-scrolls) | Nov 2026 | The left menu scrolls, so Help center is never cut off |
 | [2.1.2](#212-what-production-would-take) | Nov 2026 | An honest list of what production would take, and this change log |
@@ -43,7 +43,10 @@ Also on this page: [Penny by the numbers](#penny-by-the-numbers) and [Ideas, and
 
 ## 2.3.0: my profile
 
-*November 2026. Optional.*
+*November 2026. **Required.** Pull requests #18 and #19.*
+
+It shipped as optional. I then said, "This is a required update," so it was marked required the same day. Older
+copies of Penny must update before real runs or changes, including copies that chose to wait on it.
 
 **Where it started.** "Can users edit their own profiles? Add photos, bios, stats, etc??" They could not. Then two
 rules from me while it was being built: "If the profile is Microsoft or Google, import about data," and "Only thing
@@ -69,6 +72,8 @@ unchangeable is user name / user id."
 
 **Changed**
 
+* A new maintainer command, `./penny require <version>`, marks a release that is already out as required. It
+  changes both release lists together, so it is never done by hand.
 * The Users page shows each person's photo, about line and who covers for them.
 * A profile change is one entry in the audit trail, with before and after. It says a photo changed and never holds
   the picture.
@@ -80,7 +85,8 @@ unchangeable is user name / user id."
 * SVG pictures are refused, because they can carry script.
 
 **Tested:** 125 code checks (3 new) and 20 browser suites. The new profile suite has 38 checks: the demo, a phone,
-real accounts, a WCAG 2.2 AA check, and the password change.
+real accounts, a WCAG 2.2 AA check, and the password change. The release test now also covers making an optional
+release required after the fact.
 
 **Not done:** sign-in with Microsoft and Google is not built, so nothing calls the import yet. A photo does not
 show beside past entries in the audit trail, which keep the initials recorded at the time. Not tried on a real
@@ -634,6 +640,7 @@ A lot of ideas came up along the way. This table keeps track of them, including 
 | A portfolio front door: screenshots, a case study and a guided tour | Built in 2.2.0. |
 | A getting started guide for people who download the project | Built in 2.2.0. |
 | Profiles people edit themselves: photo, about line, stats | Built in 2.3.0. Stats are private to each person. |
+| Make a release required after it is already out | Built in 2.3.0: `./penny require`. |
 | Import profile details from Microsoft or Google | The import is built and tested in 2.3.0. It runs once sign-in with Microsoft and Google exists. |
 | Photos beside past entries in the audit trail | Not built. Past entries keep the initials recorded at the time. |
 | Sign in with Microsoft | **Planned next.** Needs a Microsoft tenant to build and test against. |
