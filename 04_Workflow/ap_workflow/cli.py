@@ -518,6 +518,21 @@ def publish_release(version, summary, notes, required):
     print("Also add this version to CHANGELOG.md (what changed, where it started, what was tested) and to SCOPE.md. A test fails until the change log has it.")
 
 
+def require_release(version):
+    """(v2.3) Mark a release that is already out as required, and say what that means."""
+    from .version import require, VersionError
+    try:
+        entry = require(version)
+    except VersionError as e:
+        sys.exit(str(e))
+    if entry["already"]:
+        print(f"Release {version} was already required. Nothing changed.")
+        return
+    print(f"Release {version} is now required, in releases.json and web/data/releases.json.")
+    print("Next: say so in CHANGELOG.md (a test fails until its section says **Required.**), run ./penny test, commit, and merge to main. "
+          "Every older copy of Penny must then update before real runs or changes.")
+
+
 def status(state_dir):
     """Print what the register remembers."""
     reg = Register(state_dir)
@@ -586,6 +601,8 @@ def main(argv=None):
     rl = sub.add_parser("release", help="(maintainer) publish a new version: VERSION, releases.json and the web app")
     rl.add_argument("version", help="like 1.7.0"); rl.add_argument("--summary", required=True); rl.add_argument("--note", action="append", default=[])
     rl.add_argument("--required", action="store_true", help="older copies must update before real runs or changes")
+    rq = sub.add_parser("require", help="(maintainer) mark a release that is already out as required")
+    rq.add_argument("version", help="like 2.3.0")
     a = ap.parse_args(argv)
     if a.cmd in ("run", "demo", "web", "check"):
         info = update_notice(a.state)
@@ -623,6 +640,8 @@ def main(argv=None):
         users_cmd(a.state, a.action, a.email, a.name, a.role, a.title, f"http://127.0.0.1:{a.port}")
     elif a.cmd == "release":
         publish_release(a.version, a.summary, a.note, a.required)
+    elif a.cmd == "require":
+        require_release(a.version)
     elif a.cmd == "reset":
         reset(a.state, a.out)
     elif a.cmd == "web-export":

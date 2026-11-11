@@ -18,6 +18,7 @@ Checking for updates (terminal and local web app)
 
 Publishing a release
   ./penny release 1.7.0 --summary "..." [--note "..."]... [--required]
+  ./penny require 2.3.0        (v2.3) mark a release that is already out as required
   updates VERSION, releases.json, the web app's copy, and the version inside the web app, all at once.
 """
 import json
@@ -188,6 +189,26 @@ def release(version, summary, notes=(), required=False, root=ROOT, today=None):
             raise VersionError("Could not find APP_VERSION in the web app.")
         app.write_text(APP_VERSION_RE.sub(f'const APP_VERSION = "{version}";', js, count=1), encoding="utf-8")
     return entry
+
+
+def require(version, root=ROOT):
+    """(v2.3) Mark a release that is already out as required, in both release lists. Older copies must then update
+    before real runs or changes, even if they chose to wait on it while it was optional. Refuses a version that was
+    never released. Returns the entry, with "already" set when nothing had to change."""
+    root = Path(root)
+    parse(version)
+    path = root / "releases.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entry = next((r for r in data["releases"] if r["version"] == version), None)
+    if not entry:
+        raise VersionError(f"{version} is not a released version, so it cannot be made required.")
+    already = bool(entry.get("required"))
+    entry["required"] = True
+    text = json.dumps(data, indent=2) + "\n"
+    path.write_text(text, encoding="utf-8")
+    (root / "web" / "data").mkdir(parents=True, exist_ok=True)
+    (root / "web" / "data" / "releases.json").write_text(text, encoding="utf-8")
+    return {**entry, "already": already}
 
 
 def consistency(root=ROOT):

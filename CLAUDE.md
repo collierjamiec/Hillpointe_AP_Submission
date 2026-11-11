@@ -52,7 +52,8 @@ where each rule lives, assumptions). Read it before changing behavior.
   and `open_to_all()` is a short allow-list of what is served without a session. Never test `self.path` or the raw
   URL for "is this private"; add to the allow-list on purpose. HEAD goes through the same gate.
 - `04_Workflow/VERSION` and `04_Workflow/releases.json`: the current version (three parts) and every release. A new
-  release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
+  release is made with `./penny release <x.y.z> --summary "..."` (never by hand; `./penny require <x.y.z>` marks one
+  that is already out as required, and its `CHANGELOG.md` section must then say `**Required.**`), which also updates
   `web/data/releases.json` and `APP_VERSION` in `web/assets/penny-core.js`; a test checks all four agree.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
 - `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (16 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),

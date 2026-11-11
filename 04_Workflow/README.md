@@ -39,6 +39,7 @@ python tests/browser/run.py                   # (added after submission, v1.8) t
 ./penny --version                             # (added after submission, v1.6) which Penny this is
 ./penny update                                # (added after submission, v1.6) see what is new and update; --check only looks, --skip waits
 ./penny release 1.7.0 --summary "..."         # (added after submission, v1.6, maintainer) publish a version; add --required to make it the minimum
+./penny require 2.3.0                         # (added after submission, v2.3, maintainer) mark a release that is already out as required
 ./penny users invite --email you@co.com --name "You" --role admin   # (added after submission, v1.7) turn on real accounts
 ./penny users list                            # (added after submission, v1.7) who has an account
 ./penny email test --to you@co.com            # (added after submission, v1.7) send one test email; `email status` shows the settings

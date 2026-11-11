@@ -131,6 +131,7 @@ Penny is a portfolio project. This release writes down, in one place, what stand
 | Change your password while signed in | Done |
 | My activity, private to each person | Done |
 | Import profile details from Microsoft or Google | Done (the import; it runs once that sign-in is built) |
+| Marked a required update, with `./penny require` to do it safely | Done |
 
 ## After 2.0 (intended, not scheduled)
 
