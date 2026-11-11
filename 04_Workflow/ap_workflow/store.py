@@ -33,6 +33,8 @@ ORIGINS = ("web", "server", "import")     # a person in the web app; the server'
 
 
 class Store:
+    """Penny's database (state/penny.db): the audit log that can only grow, plus accounts and settings."""
+
     def __init__(self, state_dir):
         """Open (and create if needed) state/penny.db."""
         self.dir = Path(state_dir)

@@ -1,16 +1,20 @@
-/* Penny web app: The urgency order, suggested fixes, and the dialogs for resolving, reassigning, approving and notes.
-   Sections: urgency (v1.5), suggested fixes, dialogs. */
+/* Penny web app: The urgency order, suggested fixes, the dialogs for resolving, reassigning, approving and notes,
+   and showing on the PDF where each value came from.
+   Sections: urgency (v1.5), suggested fixes, dialogs, where values appear on the page (v1.9). */
 "use strict";
 
 // ------------------------------------------------------------------ urgency (v1.5)
 /* My work puts the most urgent holds first: a blocker past its target date, then a bill past or near its due date
    (bill date plus payment terms from Rules), then how long it has been held. Each row says why it is where it is. */
 function addDays(isoDate, n) { const t = Date.parse(`${isoDate}T00:00:00Z`); return isNaN(t) ? "" : new Date(t + n * 86400000).toISOString().slice(0, 10); }
+/** Whole days from one date to another. Zero when either date cannot be read. */
 function daysBetween(a, b) { const x = Date.parse(`${a}T00:00:00Z`), y = Date.parse(`${b}T00:00:00Z`); return isNaN(x) || isNaN(y) ? 0 : Math.round((y - x) / 86400000); }
+/** When a bill is due, from its date and its payment terms, or nothing when the terms are unknown. */
 function billDue(d) {
   const days = (RULES().terms_days || {})[d.ex.terms_printed || ""];
   return d.date && Number.isFinite(days) ? addDays(d.date, days) : "";
 }
+/** How urgent a held invoice is, as a score with the reasons: overdue blockers first, then the bill's due date, its age and its amount. */
 function urgency(d) {
   const t = today();
   let score = 0;
@@ -46,6 +50,7 @@ const urgencyTags = (d) => { const u = urgency(d); return u.why.length ? `<div c
    own decision never changes, and a cleared invoice is still checked from scratch on the next run.
    Guardrail: payment-instruction changes are never cleared in one click; Treasury must confirm first. */
 const GUARDED = new Set(["BANKCHG"]);
+/** The likely fixes for a held invoice, worked out from Penny's own reasons for holding it. */
 function playbook(d) {
   const text = (d.cur.reasons || []).join(" ");
   const po = (/Likely match[^:]*:\s*(PO[\w-]+)/.exec(text) || [])[1];
@@ -68,6 +73,7 @@ function playbook(d) {
   }
 }
 const sugKey = (x) => `${x.outcome}|${(x.route || "").toLowerCase()}|${String(x.note || "").trim().toLowerCase()}`;
+/** Suggested fixes for an open hold, ranked by what worked on similar holds before. */
 function suggestionsFor(d) {
   if (!openHold(d)) return [];
   const scores = {};
@@ -96,6 +102,7 @@ function suggestionsFor(d) {
     .sort((a, b) => b.score - a.score).slice(0, 3);
 }
 const OUTCOME = { cleared: ["Clear for next run", "b-cleared", "redo"], rejected: ["Reject to vendor", "b-rejected", "x"], reassign: ["Reassign", "b-waiting", "clock"] };
+/** The Suggested fixes card on a held invoice. Shown only to people who may resolve holds. */
 function suggestionCard(d) {
   if (!can("resolve")) return "";
   const list = suggestionsFor(d);
@@ -111,6 +118,7 @@ function suggestionCard(d) {
       <button class="btn ${n === 0 ? "btn-accent" : ""}" type="button" data-apply="${esc(d.id)}" data-n="${n}">${x.guarded ? "Review and apply" : "Apply"}</button></li>`; }).join("")}</ul>
   </section>`;
 }
+/** Open the right dialog for a suggested fix, filled in and ready for the person to confirm. */
 function applySuggestion(id, n) {
   const d = X.docById[id];
   const x = d && suggestionsFor(d)[n];
@@ -151,6 +159,7 @@ function inlineSuggestion(d) {
 function teamsList() {
   return [...new Set(Object.values(RULES().routes || {}))].sort();
 }
+/** Open the shared dialog: a title, a line of explanation, a body, and Cancel with one main button. */
 function openDialog(title, lede, body, submitLabel, onSubmit, opts = {}) {
   const dlg = $("#dialog");
   dlg.classList.toggle("dialog-wide", !!opts.wide);
@@ -176,11 +185,13 @@ function openDialog(title, lede, body, submitLabel, onSubmit, opts = {}) {
 const noteField = (label, required, placeholder) => `<div class="field"><label for="dlg-note">${esc(label)}${required ? "" : " (optional)"}</label>
   <textarea id="dlg-note" name="note" maxlength="1000" placeholder="${esc(placeholder || "")}" ${required ? "required" : ""}></textarea>
   <span class="hint">Saved to the audit trail with your name and the time.</span></div>`;
+/** Why a note is too short, in plain words, or nothing when it is long enough. */
 function needNote(fd, min) {
   const n = String(fd.get("note") || "").trim();
   return n.length < min ? `Please write at least ${min} characters, so the next person knows why.` : "";
 }
 
+/** Carry out one action on an invoice: open its dialog, check the answer and record it. */
 function doAction(act, id, data = {}) {
   const d = X.docById[id];
   if (!d) return;
@@ -247,6 +258,7 @@ function doAction(act, id, data = {}) {
   }
 }
 
+/** The Checks tab: every check Penny ran on this invoice, in order, with pass or fail. */
 function tabChecks(r) {
   const trail = (r.trail || []).map(parseTrail);
   if (!trail.length) return `<p class="empty">No checks recorded for this result.</p>`;
@@ -257,12 +269,14 @@ function tabChecks(r) {
       <p><span class="sr-only">${t.ok ? "Passed:" : "Failed:"} </span>${t.code ? `<span class="code">${esc(t.code)}</span>` : ""}${esc(t.text)}</p></li>`).join("")}</ol>`;
 }
 
+/** A list of labels and values, leaving out anything empty. */
 function kvs(pairs) {
   return `<dl class="kv">${pairs.filter(([, v]) => v !== undefined && v !== null && v !== "").map(([k, v, wide, src]) =>
     `<div${wide ? ' class="wide"' : ""}><dt>${esc(k)}</dt><dd>${v}${src ? srcBtn(src, k) : ""}</dd></div>`).join("")}</dl>`;
 }
 /** A small button that shows where a value appears on the PDF (only when this invoice has a PDF to show). */
 const srcBtn = (key, label) => (SRC.doc && SRC.doc.pdf ? `<button type="button" class="src-btn" data-src="${esc(key)}" aria-label="Show on page: ${esc(label)}">Show on page</button>` : "");
+/** The "What Penny read" tab: each value from the invoice, with a button to show where it came from. */
 function tabRead(d) {
   const ex = d.ex;
   SRC.doc = d;
@@ -333,6 +347,7 @@ function tabRead(d) {
   return out.join("");
 }
 
+/** The Coding and approvals tab: the import lines, the Entrata rows and who has to approve. */
 function tabCoding(r) {
   const out = [];
   const lines = r.lines || [], erows = r.entrata_rows || [];
@@ -368,11 +383,13 @@ function tabCoding(r) {
   return out.join("");
 }
 
+/** A list of what people did, each with who, what and when. */
 function activityList(events, withTarget) {
   return `<ol class="activity">${events.map((e) => `<li><span class="avatar av-${esc(e.user.role)}" aria-hidden="true">${esc(e.user.initials)}</span><div>
     <div class="a-head"><b>${esc(e.user.name)}</b><span>${esc(describeEvent(e))}${withTarget && e.doc && X.docById[e.doc] ? ` on <a href="#/invoices/${esc(e.doc)}">${esc(X.docById[e.doc].vendor)} ${esc(X.docById[e.doc].billNo)}</a>` : ""}</span><time datetime="${esc(e.at)}">${esc(fmtDateTime(e.at))}</time></div>
     ${e.note ? `<p class="a-note">${esc(e.note)}</p>` : ""}</div></li>`).join("")}</ol>`;
 }
+/** One audit entry as a short phrase, like "cleared the hold for the next run". */
 function describeEvent(e) {
   switch (e.type) {
     case "hold.resolve": return e.outcome === "cleared" ? "cleared the hold for the next run" : "rejected it and returned it to the vendor";
@@ -398,6 +415,7 @@ function describeEvent(e) {
     default: return EVENT_LABEL[e.type] || e.type;
   }
 }
+/** The History tab: what people did to this invoice, and what Penny decided in each run. */
 function tabHistory(d, shown) {
   const people = EV.filter((e) => e.doc === d.id).slice().reverse();
   return `${people.length ? `<h3 class="sub-h" style="margin-top:0">What people did</h3>${activityList(people)}<h3 class="sub-h">What Penny did</h3>` : ""}
@@ -411,6 +429,7 @@ function tabHistory(d, shown) {
     }).join("")}</ol>`;
 }
 
+/** The panel beside an invoice that shows its PDF, or says why there is none. */
 function pdfPanel(d) {
   if (d.pdf) {
     return `<aside class="card pdf-panel" aria-label="Invoice PDF">
@@ -431,6 +450,7 @@ function pdfPanel(d) {
    including phones that cannot show a PDF inside a page. Loaded only when an invoice is opened. */
 const PDFJS = "assets/vendor/pdfjs-3.11.174/";
 let pdfjsReady = null;
+/** Load the PDF reader the first time a PDF is shown. */
 function loadPdfJs() {
   if (!pdfjsReady) {
     pdfjsReady = new Promise((resolve, reject) => {
@@ -443,6 +463,7 @@ function loadPdfJs() {
   }
   return pdfjsReady;
 }
+/** Draw each page of an invoice PDF, with a layer on top for highlights. */
 async function renderPdf(box) {
   const url = box.dataset.pdf, file = box.dataset.file;
   const width = box.clientWidth - 24;
@@ -570,6 +591,7 @@ function locate(target) {
   }
   return [];
 }
+/** Outline on the PDF the values Penny read: the one that was picked, or all of them. */
 function paintSources(box) {
   box = box || $(".pdf-pages[data-pages]");
   if (!box || !SRC.doc) return;
@@ -607,6 +629,7 @@ function showSource(key) {
   if (el) el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   toast(`${target.label} is highlighted on the page${n > 1 ? ` (${n} places)` : ""}.`);
 }
+/** Turn "Highlight what Penny read" on or off. */
 function toggleAllSources() {
   SRC.all = !SRC.all;
   if (!SRC.all) SRC.pick = "";

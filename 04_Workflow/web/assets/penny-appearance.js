@@ -28,6 +28,7 @@ const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || "").trim
 const rgbHex = (r) => "#" + r.map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0")).join("");
 const lum = (h) => { const c = hexRgb(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+/** Turn a red, green and blue color into hue, saturation and lightness. */
 function rgbHsl([r, g, b]) {
   r /= 255; g /= 255; b /= 255;
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
@@ -36,6 +37,7 @@ function rgbHsl([r, g, b]) {
   const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   return [h / 6, s, l];
 }
+/** Turn hue, saturation and lightness back into red, green and blue. */
 function hslRgb([h, s, l]) {
   if (!s) return [l * 255, l * 255, l * 255];
   const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
@@ -65,6 +67,7 @@ function lookPalette(look) {
     lightSoft: mix(light, LIGHT_SURFACE, 0.12), darkSoft: mix(dark, DARK_SURFACE, 0.2),
     sideLightBg: mix(light, LIGHT_SIDE, 0.3), sideDarkBg: mix(dark, DARK_SIDE, 0.22) };
 }
+/** The style rules for a chosen look. Empty for the standard look. */
 function lookCss(look) {
   const plain = look.preset === "teal" && look.bg === "default" && look.corners === "rounded";
   if (plain) return "";
@@ -92,6 +95,7 @@ function lookCss(look) {
 const companyLook = () => ({ ...LOOK_DEFAULT, ...((RULES().display || {}).theme || {}) });
 const myLook = () => (MYPREFS.follow !== false ? companyLook() : { ...LOOK_DEFAULT, ...(MYPREFS.look || {}) });
 const lookName = (l) => (l.preset === "custom" ? `Custom ${l.accent}` : (PRESETS[l.preset] || PRESETS.teal).name) + (l.bg !== "default" ? `, ${l.bg} background` : "") + (l.corners === "square" ? ", square corners" : "");
+/** Apply the person's look to the page: colors, corners, mode, text size, spacing and motion. */
 function applyLook() {
   const css = lookCss(myLook());
   let st = $("#appearance");
@@ -105,6 +109,7 @@ function applyLook() {
   document.body.classList.toggle("density-compact", f.density === "compact");
   document.body.classList.toggle("reduce-motion", f.motion === "reduce");
 }
+/** Read a person's saved appearance settings when they sign in. */
 function loadMyLook(u) {
   const saved = (u && u.prefs) || {};
   const legacy = store.get("penny.theme", "");          // the moon/sun choice from before v1.7
@@ -112,6 +117,7 @@ function loadMyLook(u) {
   applyLook();
 }
 let saveTimer = null;
+/** Change one appearance setting, show it at once and save it to the person's account. */
 function setLook(change) {
   MYPREFS = { ...MYPREFS, ...change, look: { ...MYPREFS.look, ...(change.look || {}) } };
   applyLook();
@@ -122,9 +128,11 @@ function setLook(change) {
   }, 350);
   if ($("#look-page")) paintAppearance();
 }
+/** Say that an appearance change was saved. */
 function paintLookSaved(msg) { const el = $("#look-saved"); if (el) { el.textContent = msg; el.hidden = false; } }
 const SEG_LABEL = { bg: "Background", corners: "Corners", mode: "Mode", text: "Text size", density: "Density", motion: "Motion" };
 const seg = (name, cur, opts) => `<div class="segmented look-seg" role="radiogroup" aria-label="${esc(SEG_LABEL[name] || name)}">${opts.map(([v, l]) => `<button type="button" role="radio" aria-checked="${v === cur}" data-feel="${esc(name)}" data-v="${esc(v)}">${esc(l)}</button>`).join("")}</div>`;
+/** The row of color themes to choose from. */
 function swatches(cur, follow) {
   return `<div class="presets" role="radiogroup" aria-label="Color theme">${Object.entries(PRESETS).map(([k, p]) => {
     const pal = lookPalette({ ...LOOK_DEFAULT, preset: k });
@@ -135,6 +143,7 @@ function swatches(cur, follow) {
     <button type="button" class="preset${!follow && cur.preset === "custom" ? " on" : ""}" role="radio" aria-checked="${!follow && cur.preset === "custom"}" data-preset="custom">
       <span class="sw sw-custom" aria-hidden="true"><i style="background:${esc(cur.preset === "custom" ? cur.accent : "conic-gradient(#e11d48,#f59e0b,#16a34a,#2563eb,#9333ea,#e11d48)")}"></i></span><b>Custom</b><span class="sub">Any color you like</span></button></div>`;
 }
+/** The body of the Appearance page: theme, colors, comfort settings and the company look. */
 function appearanceBody() {
   const f = { ...FEEL_DEFAULT, ...MYPREFS };
   const follow = MYPREFS.follow !== false;
@@ -173,9 +182,11 @@ function appearanceBody() {
       ${follow ? `<p class="hint">Choose your own colors above first, then make them the company look.</p>` : ""}
       <p class="hint">Saved as the rule <code>display.theme</code>, with your reason, in the Rules change history and the audit trail. You can undo it there.</p></section>` : ""}`;
 }
+/** The Appearance page. */
 function viewAppearance() {
   return `${head("Appearance", "Make Penny comfortable to look at. Changes show right away and are saved to your account.")}<p class="look-saved" id="look-saved" role="status" hidden></p><div id="look-page">${appearanceBody()}</div>`;
 }
+/** Redraw the Appearance page, keeping focus where it was. */
 function paintAppearance() {
   const box = $("#look-page");
   if (!box) return;
@@ -186,6 +197,7 @@ function paintAppearance() {
     if (el) el.focus();
   } catch (e) { /* focus is a nicety */ }
 }
+/** Change the look everyone starts with, after asking an Admin for a reason. */
 function setCompanyLook(look, why) {
   const before = (RULES().display || {}).theme;
   openDialog(why, `New company look: <b>${esc(lookName(look))}</b>. People who follow the company look see it at once.`, noteField("Why are you changing it?", true, "For example: matches our brand colors."), "Save company look", (fd) => {
@@ -194,6 +206,7 @@ function setCompanyLook(look, why) {
     return "";
   });
 }
+/** Wire every control on the Appearance page. */
 function bindAppearance() {
   const box = $("#look-page");
   if (!box) return;

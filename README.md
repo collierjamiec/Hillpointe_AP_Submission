@@ -26,8 +26,8 @@ about a real product.
 | **Case study** | The problem, my approach, the hard calls, and what I would do next | [`CASE_STUDY.md`](CASE_STUDY.md) |
 | **Getting started** | Download it, install it and look around, step by step | [`GETTING_STARTED.md`](GETTING_STARTED.md) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1 to 2.3.0)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
-| **Current version: 2.3.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Built after submission (v1.1 to 2.4.0)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 2.4.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
 | **Why I made each choice** | Every major decision, what I weighed, and what I chose not to build | [`DECISIONS.md`](DECISIONS.md) |
 | **Change log** | Every version, what changed, where the idea came from, and what was tested | [`CHANGELOG.md`](CHANGELOG.md) |
 | **What production would take** | Sign-in with Microsoft and Google, an outside security test, real connections, real invoices, and more | [`PRODUCTION.md`](PRODUCTION.md) |
@@ -112,7 +112,7 @@ For a team, the setup wizard turns on real accounts, where one server checks and
   with owners and evidence, recheck previews, a rule simulator, manual entry with a second-person check, and a
   most-urgent-first queue (v1.5), the version on every screen with required or optional updates (v1.6.0), and user
   management, emailed exports and approvals, and appearance settings (v1.7.0), and a foundation release with browser
-  tests on every pull request, a content security policy and a description on every function (v1.8.0), and then
+  tests on every pull request, a content security policy and a description on every Python function (v1.8.0), and then
   highlighting on the PDF of where each value came from, a history for each import file so nothing is imported
   twice, a watched inbox folder, paging for long lists and an accessibility pass (v1.9.0), and a layout made for
   phones (v1.9.1), and Penny for a real team: one server that checks and saves everyone's work in a database,
@@ -121,7 +121,7 @@ For a team, the setup wizard turns on real accounts, where one server checks and
   a double-click (v2.1.0), the reasons for my decisions written into every page (v2.1.1), and an honest list of what production would
   take (v2.1.2), and a left menu that scrolls on short screens (v2.1.3), and a
   front door for the project: a guided tour in the app, a case study, a getting started guide and screenshots
-  (v2.2.0), and a profile each person manages themselves, with a photo and private activity numbers (v2.3.0, a required update).
+  (v2.2.0), and a profile each person manages themselves, with a photo and private activity numbers (v2.3.0, a required update), and a description on every function in the web app too, with a test that keeps it that way (v2.4.0).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

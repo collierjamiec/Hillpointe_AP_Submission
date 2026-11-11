@@ -12,6 +12,7 @@ const canKey = (d) => d.pennyStatus === "HOLD" && MANUAL_KINDS.has(d.ex.kind) &&
 const keyedByHand = (d) => (d.ex.extraction || {}).method === "manual";
 const checkLimit = () => { const raw = getPath(RULES(), "thresholds.manual_entry_check_over"); const v = Number(raw); return raw !== undefined && raw !== null && Number.isFinite(v) ? Math.round(v * 100) : 0; };
 const normNo = (v) => String(v || "").toUpperCase().replace(/[\s-]+/g, "");
+/** Where a hand-keyed entry stands: waiting for a second check, a check that did not match, ready, or saved for the next run. */
 function manualState(d) {
   const m = S.manual[d.id];
   if (!m) return null;
@@ -25,6 +26,7 @@ const MANUAL_STATE = {
   check: ["Waiting for a second check", "b-waiting", "clock"], mismatch: ["Second check did not match", "b-rejected", "x"],
   ready: ["Manual entry ready", "b-ready", "redo"], saved: ["Manual entry saved for the next run", "b-approved", "check"],
 };
+/** The small badge that shows an invoice was keyed by hand, or is partway through. */
 function manualChip(d) {
   if (keyedByHand(d)) return `<span class="badge b-manual" title="A person keyed this invoice from the original file">${bIcon("check")}Keyed by hand</span>`;
   const m = manualState(d);
@@ -32,6 +34,7 @@ function manualChip(d) {
   const [label, cls, icon] = MANUAL_STATE[m.state];
   return `<span class="badge ${cls}">${bIcon(icon)}${esc(label)}</span>`;
 }
+/** The note on an invoice about manual entry: who keyed it, who checked it, and what happens next. */
 function manualCallout(d) {
   if (keyedByHand(d)) {
     const x = d.ex.extraction;
@@ -57,6 +60,7 @@ function manualCallout(d) {
 
 const MAN = { doc: null, entry: null, files: [], editing: false, error: "", preview: 0 };
 const blankLine = () => ({ desc: "", qty: "", rate: "", amount: "", auto: true });
+/** Begin or reopen the manual entry form for an invoice, filled with anything already known. */
 function startManual(d, fromExisting) {
   const m = S.manual[d.id];
   const seen = String(d.ex.amount_seen || "").replace(/[^0-9.]/g, "");
@@ -69,12 +73,14 @@ function startManual(d, fromExisting) {
   Object.assign(MAN, { doc: d.id, entry: base, files: fromExisting && m ? m.evidence.map((f) => ({ ...f })) : [], editing: true, error: "", preview: 0 });
 }
 const c2s = (c) => (c / 100).toFixed(2);
+/** Whether the keyed lines, tax and total add up, to the cent. */
 function tieOut(e) {
   const lines = e.lines.map((l) => cents(l.amount));
   const sum = lines.reduce((a, b) => a + b, 0);
   const sub = cents(e.subtotal), tax = cents(e.tax_total), tot = cents(e.total);
   return { sum, sub, tax, tot, subOk: e.subtotal !== "" && sum === sub, totOk: e.total !== "" && sub + tax === tot };
 }
+/** Everything still wrong with a manual entry, in plain words. An empty list means it can be saved. */
 function manualProblems(e, files) {
   const p = [];
   if (!files.length) p.push("Attach the screenshot or re-saved file you are keying from");
@@ -98,6 +104,7 @@ function entryForServer(m) {
     evidence: m.evidence.map(fileMeta) };
 }
 
+/** The Enter by hand page: the evidence on one side and the form or summary on the other. */
 function viewManual(d) {
   if (!d) return notFound("That invoice");
   const back = `<nav class="record-nav" aria-label="Record navigation"><a href="#/invoices/${esc(d.id)}" class="back-link">← Back to the invoice</a><span class="crumb-id">${esc(d.id)}</span></nav>`;
@@ -123,6 +130,7 @@ function viewManual(d) {
     </div>
     ${recheckCard(d)}`;
 }
+/** The panel that shows the screenshot or file being keyed from. */
 function evidencePanel(d, m) {
   const files = MAN.editing ? MAN.files : m ? m.evidence : [];
   const cur = files[MAN.preview] || files[0];
@@ -137,6 +145,7 @@ function evidencePanel(d, m) {
       : `<p class="empty">${MAN.editing ? "No evidence yet. A reviewer must be able to see what you keyed from." : "No evidence attached."}</p>`}
     ${d.pdf ? `<p class="hint"><a href="${esc(d.pdf)}" target="_blank" rel="noopener">Open the original file</a> (the one Penny could not read). It stays the source document.</p>` : ""}`;
 }
+/** Draw the chosen evidence file in the preview panel. */
 async function paintEvidencePreview() {
   const box = $("#m-preview");
   if (!box) return;
@@ -150,6 +159,7 @@ async function paintEvidencePreview() {
 }
 const mField = (key, label, opts = {}) => `<div class="field${opts.cls ? " " + opts.cls : ""}"><label for="m-${key}">${esc(label)}${opts.optional ? " (optional)" : ""}</label>
   <input id="m-${key}" class="text-input" data-m="${key}" type="${opts.type || "text"}" value="${esc(MAN.entry[key] ?? "")}" ${opts.list ? `list="${opts.list}"` : ""} ${opts.attrs || ""} autocomplete="off"></div>`;
+/** The checklist that shows whether the lines, tax and total agree. */
 function tieBox() {
   const t = tieOut(MAN.entry);
   const row = (ok, text) => `<li class="${ok ? "ok" : "bad"}">${bIcon(ok ? "check" : "alert")}${esc(text)}</li>`;
@@ -157,6 +167,7 @@ function tieBox() {
     ${row(t.totOk, `Subtotal plus tax is ${money(t.sub + t.tax)}${MAN.entry.total === "" ? "" : t.totOk ? ", same as the total" : `, but the total is ${money(t.tot)}`}`)}
     ${Math.abs(t.tot) > checkLimit() ? `<li class="info">${bIcon("clock")}Over ${esc(money(checkLimit()))}: a second person will key the invoice number and total again.</li>` : ""}</ul>`;
 }
+/** The manual entry form: vendor, invoice number, dates, lines, tax and total. */
 function manualForm() {
   const e = MAN.entry;
   const vendors = [...new Set(X.docs.filter((x) => x.vendorKnown).map((x) => x.vendor))].sort();
@@ -198,6 +209,7 @@ function manualForm() {
     ${MAN.error ? `<div class="auth-error" role="alert">${MAN.error}</div>` : ""}
     <div class="nb-actions"><button class="btn btn-accent btn-lg" type="button" id="m-save">Save entry</button>${S.manual[MAN.doc] ? `<button class="btn" type="button" id="m-cancel">Cancel changes</button>` : ""}</div>`;
 }
+/** A read-only summary of what was keyed. */
 function entrySummary(e) {
   const row = (l, v) => v ? `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>` : "";
   return `<dl class="m-summary">${row("Document type", e.kind === "credit_memo" ? "Credit memo" : "Invoice")}${row("Vendor", e.vendor_name)}${row("Invoice number", e.invoice_no)}
@@ -207,6 +219,7 @@ function entrySummary(e) {
     <tbody>${e.lines.filter((l) => l.desc || l.amount).map((l) => `<tr><td>${esc(l.desc)}</td><td class="num">${esc(l.qty)}</td><td class="num">${esc(l.rate)}</td><td class="num">${esc(money(cents(l.amount)))}</td></tr>`).join("")}</tbody></table>
     ${e.reason ? `<div class="activity"><p class="a-note">${esc(e.reason)}</p></div>` : ""}`;
 }
+/** The right side of the Enter by hand page: the form, the summary, or the second person's check. */
 function manualBody(d, m) {
   if (MAN.editing && can("resolve")) return manualForm();
   if (!m) return `<h2 id="mf-h">Not keyed yet</h2><p>An AP Clerk or Admin can key this invoice. Sign in as Avery Chen or Sam Rivera to try it.</p>`;
@@ -240,6 +253,7 @@ function manualBody(d, m) {
     ${keyedLine}
     ${actions.length ? `<div class="nb-actions">${actions.join("")}</div>` : ""}`;
 }
+/** Redraw the Enter by hand page without losing what has been typed. */
 function paintManual() {
   const d = X.docById[MAN.doc];
   if (!d || !$("#m-body")) return;
@@ -247,6 +261,7 @@ function paintManual() {
   $("#m-evidence").innerHTML = evidencePanel(d, manualState(d));
   paintEvidencePreview();
 }
+/** Attach evidence files to a manual entry, up to five. */
 async function addEvidence(list) {
   const room = 5 - MAN.files.length;
   if (room <= 0) { toast("At most 5 evidence files."); return; }
@@ -262,6 +277,7 @@ async function addEvidence(list) {
   paintEvidencePreview();
 }
 const blobToBase64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+/** Wire the Enter by hand page: the form, the evidence, saving, and the second person's check. */
 function bindManual(id) {
   const d = X.docById[id];
   paintEvidencePreview();

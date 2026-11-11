@@ -6,7 +6,7 @@
 /* Two kinds of sign-in, one interface:
    - The public demo and Penny on a computer without accounts use PennyAuth (penny-auth.js): the four public demo
      accounts plus anyone an Admin invites in this browser. Emails go to a demo Outbox in this browser.
-   - Penny on a computer with accounts (state/users.json) uses ServerAuth: the server checks passwords, keeps the
+   - Penny on a computer with accounts (kept in its database since v2.0) uses ServerAuth: the server checks passwords, keeps the
      session in an HttpOnly cookie, and sends real email (or saves it when no mail server is set up). */
 let ME = null;
 const serverAccounts = () => !!(SERVER && SERVER.accounts);
@@ -39,10 +39,12 @@ const ServerAuth = {
 const AUTH = () => (serverAccounts() ? ServerAuth : PennyAuth);
 const DIRECTORY = () => AUTH().directory;
 const appLink = (route) => `${location.origin}${location.pathname}#/${route}`;
+/** The invitation or reset link in the address, if there is one. */
 function linkRoute() {
   const m = /^#\/(activate|reset)\?token=([A-Za-z0-9_-]{16,})/.exec(location.hash);
   return m ? { purpose: m[1] === "activate" ? "invite" : "reset", token: m[2] } : null;
 }
+/** Fetch the latest audit log from the server after something changed. */
 async function refreshLog() {
   if (!SERVER) return;
   if (teamMode()) { try { await teamPull(); derive(); } catch (e) { /* the next live update catches up */ } return; }
@@ -53,6 +55,7 @@ const msgOf = (e) => (e && (e.userMessage || e.message)) || "Something went wron
 // ---- demo outbox: emails the public demo would send, kept in this browser
 const OUTBOX_KEY = "penny.outbox.v1";
 const demoOutbox = () => { try { return JSON.parse(store.get(OUTBOX_KEY, "[]")); } catch (e) { return []; } };
+/** Put an email in the demo Outbox in this browser. Nothing is really sent. */
 function demoSend(mail) {
   const entry = { id: newId(), at: new Date().toISOString(), status: "demo", attachments: [], ...mail };
   const list = demoOutbox();
@@ -60,6 +63,7 @@ function demoSend(mail) {
   store.set(OUTBOX_KEY, JSON.stringify(list.slice(0, 200)));
   return entry;
 }
+/** The words of an invitation or password reset email, with its link and how long it lasts. */
 function accountMail(purpose, u, token, hours, byName) {
   const link = appLink(`${purpose === "invite" ? "activate" : "reset"}?token=${token}`);
   const first = u.name.split(" ")[0];
@@ -239,11 +243,13 @@ function logEvent(type, who, data) {
 // ---- Users page (Admin)
 const PEOPLE = { list: null, error: "" };
 const STATUS_USER = { active: ["Active", "b-approved"], invited: ["Invited", "b-waiting"], inactive: ["Turned off", "b-skip"] };
+/** Fetch everyone who has an account and redraw the Users table. */
 async function loadPeople() {
   try { PEOPLE.list = await DIRECTORY().list(); PEOPLE.error = ""; } catch (e) { PEOPLE.error = msgOf(e); PEOPLE.list = PEOPLE.list || []; }
   const box = $("#users-body");
   if (box) box.innerHTML = usersTable();
 }
+/** The table of people: name, role, status, last sign-in and the actions for each. */
 function usersTable() {
   if (PEOPLE.error) return `<p class="form-error">${esc(PEOPLE.error)}</p>`;
   if (!PEOPLE.list) return `<p class="hint">Loading people…</p>`;
@@ -264,6 +270,7 @@ function usersTable() {
           ${me ? "" : `<button class="btn btn-sm ${u.status === "inactive" ? "" : "btn-ghost"}" type="button" data-user-toggle="${esc(u.id)}">${u.status === "inactive" ? "Turn on" : "Turn off"}</button>`}</div></td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
+/** The Users page, or a note for people who are not Admins. */
 function viewUsers() {
   if (!can("users")) return `${head("Users", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>Only Admins manage people</h2><p>Sign in as an Admin to invite people, change roles or send password resets.</p></div></section>`;
   if (!PEOPLE.list) loadPeople();
@@ -278,10 +285,12 @@ function viewUsers() {
       <ul class="role-list">${Object.entries(ROLES).map(([k, r]) => `<li><b>${esc(r.name)}</b> ${esc(r.blurb)}</li>`).join("")}</ul></section>`;
 }
 const roleSelect = (cur) => `<select id="dlg-role" name="role">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>`;
+/** Run one change to a person, refresh the page, and say what happened. */
 async function userAction(fn, okMsg) {
   try { const res = await fn(); await loadPeople(); await refreshLog(); toast(okMsg(res)); return ""; }
   catch (e) { toast(msgOf(e)); return msgOf(e); }
 }
+/** Wire the Users page: invite, edit, turn off or on, resend an invitation and send a reset. */
 function bindUsers() {
   const main = $("#main");
   const inv = $("#user-invite");
@@ -361,6 +370,7 @@ function bindUsers() {
 
 // ---- Outbox
 const OB = { list: null };
+/** Fetch the emails Penny has sent or saved, from the server or from this browser's demo Outbox. */
 async function loadOutbox() {
   if (serverAccounts() || SERVER) {
     try { OB.list = (await api("api/outbox")).emails.map((m) => ({ ...m, bodyText: m.body })); } catch (e) { OB.list = []; OB.error = msgOf(e); }
@@ -368,9 +378,11 @@ async function loadOutbox() {
   const box = $("#outbox-body");
   if (box) box.innerHTML = outboxTable();
 }
+/** Turn web addresses in plain text into links, safely. */
 function linkify(text) {
   return esc(text).replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}" target="_self">${u}</a>`);
 }
+/** The table of emails: when, to whom, the subject and whether it was sent, saved or failed. */
 function outboxTable() {
   if (!OB.list) return `<p class="hint">Loading…</p>`;
   if (!OB.list.length) return `<div class="empty-state">${ICON.check}<h2>No emails yet</h2><p>Invitations, password resets, approval requests and exports you email show up here.</p></div>`;
@@ -379,6 +391,7 @@ function outboxTable() {
       <td><a href="#" class="main-link" data-mail-open="${esc(m.id)}">${esc(m.subject)}</a><span class="sub">${esc((m.by || {}).name || "")}${(m.attachments || []).length ? ` · ${plural(m.attachments.length, "attachment")}` : ""}</span></td>
       <td>${mailBadge(m.status)}</td></tr>`).join("")}</tbody></table></div>`;
 }
+/** The Outbox page, or a note for people who may not send email. */
 function viewOutbox() {
   if (!can("email")) return `${head("Outbox", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>Viewers do not send email</h2><p>AP Clerks, Approvers and Admins can email exports and approval requests.</p></div></section>`;
   OB.list = null;
@@ -388,6 +401,7 @@ function viewOutbox() {
     <div class="mode-banner ${SERVER ? (mail && mail.sends ? "mode-ok" : "mode-warn") : "mode-demo"}" role="note">${SERVER ? `<b>Email:</b> ${esc((mail || {}).how || "")}.` : "<b>Demo outbox.</b> This public demo cannot send email, so each message is kept here in your browser instead. Links in it work."}</div>
     <section class="card" id="outbox-body">${outboxTable()}</section>`;
 }
+/** Wire the Outbox: open an email to read it. */
 function bindOutbox() {
   const box = $("#outbox-body");
   if (!box) return;
@@ -406,7 +420,9 @@ function bindOutbox() {
 async function peopleToEmail() {
   try { return serverAccounts() ? (await api("api/people")).people : PennyAuth.directory.list().filter((u) => u.status === "active"); } catch (e) { return []; }
 }
+/** The email domains the rules allow Penny to send to. */
 function allowedDomains() { return ((RULES().email || {}).allowed_domains || []).map((d) => String(d).toLowerCase()); }
+/** The dialog for emailing an export file or an approval request to teammates. */
 async function emailDialog(o) {
   let subject, body, attachLine, suggest;
   const people = await peopleToEmail();

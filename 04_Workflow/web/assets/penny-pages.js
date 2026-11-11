@@ -5,14 +5,18 @@
 // ------------------------------------------------------------------ insights
 const PAGE_NAMES = { overview: "Overview", work: "My work", invoices: "Invoices", invoice: "Invoice review", exceptions: "Exceptions", exports: "Exports",
   runs: "Run history", audit: "Audit trail", rules: "Rules", help: "Help center", insights: "Insights" };
+/** Count the items in a list by a key, skipping empty keys. */
 function countBy(list, f) { const o = {}; list.forEach((x) => { const k = f(x); if (k !== undefined && k !== null && k !== "") o[k] = (o[k] || 0) + 1; }); return Object.entries(o).sort((a, b) => b[1] - a[1]); }
+/** The middle value of a list of numbers, or nothing for an empty list. */
 function median(nums) { if (!nums.length) return null; const s2 = nums.slice().sort((a, b) => a - b); const m = Math.floor(s2.length / 2); return s2.length % 2 ? s2[m] : Math.round((s2[m - 1] + s2[m]) / 2); }
 const dur = (sec) => sec === null ? "Not enough data" : sec < 60 ? plural(sec, "second") : `${Math.round(sec / 6) / 10} minutes`;
+/** A small bar chart of counts, with each number in words beside its bar. */
 function bars(rows, label = (k) => k) {
   if (!rows.length) return `<p class="hint">Nothing recorded yet.</p>`;
   const max = Math.max(...rows.map((r) => r[1]));
   return `<ul class="hbars">${rows.slice(0, 8).map(([k, n]) => `<li class="hbar"><span class="hbar-label">${esc(label(k))}</span><span class="hbar-track" aria-hidden="true"><span class="hbar-fill ins-fill" style="display:block;width:${(n / max) * 100}%"></span></span><span class="hbar-n">${n}</span></li>`).join("")}</ul>`;
 }
+/** The Insights page: usage by role, never by person. Admins only. */
 function viewInsights() {
   if (!can("rules")) return `${head("Insights", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>Admins only</h2><p>Usage insights are for the person who improves Penny. Sign in as Sam Rivera (Admin) to see them.</p></div></section>`;
   const ev = usageEvents();
@@ -68,6 +72,7 @@ function viewInsights() {
       <p><strong>Where it lives:</strong> only in this browser, capped at the latest ${USAGE_MAX.toLocaleString()} events. You can turn it off, clear it, or download it. On a real server the same events would be collected for the whole team with an opt-out.</p>
     </section>`;
 }
+/** Wire the Insights page: download the counts, clear them, and turn counting on or off. */
 function bindInsights() {
   const dl = $("#usage-download");
   if (!dl) return;
@@ -132,6 +137,7 @@ const UPD = { state: "current", version: APP_VERSION, latest: APP_VERSION, minim
 const SKIP_KEY = "penny.update.skip";
 const vparse = (v) => { const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v || "")); return m ? [+m[1], +m[2], +m[3]] : null; };
 const vcmp = (a, b) => { const x = vparse(a), y = vparse(b); if (!x || !y) return 0; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+/** Where this copy of Penny stands against the release list: current, optional, skipped or required. */
 function updateStatus(version, releases, skipped) {
   const valid = releases.filter((r) => vparse(r.version));
   if (!valid.length) return { state: "current", version, latest: version, minimum: null, newer: [] };
@@ -141,6 +147,7 @@ function updateStatus(version, releases, skipped) {
   const state = floor && vcmp(version, floor) < 0 ? "required" : !newer.length ? "current" : skipped && vcmp(skipped, latest) >= 0 ? "skipped" : "optional";
   return { state, version, latest, minimum: floor, newer };
 }
+/** Find out whether a newer version is out, from the server or from the public release list. */
 async function checkUpdates(force) {
   let releases = UPD.releases;
   UPD.note = "";
@@ -163,6 +170,7 @@ async function checkUpdates(force) {
   paintUpdate();
   if (user && parseHash().parts[0] === "whats-new") render();       // the page may have drawn before the notes arrived
 }
+/** Show the version in the footer, and the banner when an update is waiting. */
 function paintUpdate() {
   const tag = $("#app-version");
   if (tag) {
@@ -191,6 +199,7 @@ function paintUpdate() {
     el.hidden = false;
   } else el.hidden = true;
 }
+/** Take the new version on the public site: refresh every file, then reload. */
 async function updateNow() {
   toast("Updating Penny…");
   // Refresh the browser's copy of every file first, so the reload cannot pick up an old cached one.
@@ -200,6 +209,7 @@ async function updateNow() {
   track("update", { from: APP_VERSION, to: UPD.latest });
   location.reload();
 }
+/** Explain how to update Penny on a computer, in the terminal. */
 function showUpdateHelp() {
   if (UPD.where !== "local") return;
   openDialog(`Update to Penny ${UPD.state === "required" ? UPD.minimum : UPD.latest}`, "Penny on this computer updates from GitHub in the terminal. Your register, runs, batches and everything in this browser are kept.",
@@ -208,6 +218,7 @@ function showUpdateHelp() {
       <li>Stop the web app with Ctrl+C, start it again with <code>./penny web --package &lt;package folder&gt;</code>, and reload this page.</li></ol>
      ${UPD.state === "required" ? "" : `<p class="hint">Not now? Choose Skip this version, and Penny will remind you when a newer one is out.</p>`}`, "", () => "", { info: true });
 }
+/** Wire everything that checks for, takes or skips an update. */
 function bindUpdates() {
   document.addEventListener("click", (e) => {
     if (e.target.closest("[data-update-check]")) { e.preventDefault(); openUpdateCheck(); return; }
@@ -234,6 +245,7 @@ const UPD_STATE = {
   current: ["You are up to date", "b-approved", "check"], optional: ["An optional update is ready", "b-ready", "redo"],
   skipped: ["An optional update is ready (you chose to wait)", "b-skip", "clock"], required: ["A required update is waiting", "b-rejected", "alert"],
 };
+/** The body of the Check for updates dialog: your version, the newest one, and what changed. */
 function updateCheckBody() {
   const mine = UPD.where === "local" ? UPD.version : APP_VERSION;
   const newest = (UPD.releases || []).find((r) => r.version === UPD.latest) || UPD.newer[0] || {};
@@ -258,6 +270,7 @@ function updateCheckBody() {
       <button type="button" class="btn btn-ghost" data-update-check>Check again</button>
     </div>`;
 }
+/** Open the Check for updates dialog and look for a newer version. */
 async function openUpdateCheck() {
   const dlg = $("#dialog");
   if (!dlg.open) openDialog("Check for updates", "", `<div id="uc-body" aria-live="polite"><p class="hint">Checking for a newer version…</p></div>`, "", () => "", { info: true });
@@ -268,6 +281,7 @@ async function openUpdateCheck() {
   if (body) body.innerHTML = updateCheckBody();
 }
 
+/** The What's new page: every release, newest first, with which are required. */
 function viewWhatsNew() {
   const rel = (UPD.releases || []).filter((r) => vparse(r.version)).sort((a, b) => vcmp(b.version, a.version));
   const when = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? fmtDate(d) : /^\d{4}-\d{2}$/.test(d || "") ? `${MONTHS[+d.slice(5) - 1]} ${d.slice(0, 4)}` : d || "");

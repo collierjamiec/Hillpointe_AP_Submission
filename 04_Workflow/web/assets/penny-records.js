@@ -1,5 +1,5 @@
-/* Penny web app: The Exceptions guide and the Exports page.
-   Sections: exceptions, exports. */
+/* Penny web app: The Exceptions guide, the Exports page, and the history of each import file.
+   Sections: exceptions, exports, export history (v1.9). */
 "use strict";
 
 // ------------------------------------------------------------------ exceptions
@@ -51,6 +51,7 @@ const FILE_INFO = {
 };
 const FILE_ORDER = Object.keys(FILE_INFO);
 const friendlyName = (run, f) => `Penny - ${run.label} - ${(FILE_INFO[f.name] || { title: f.name }).title}.${f.name.split(".").pop()}`;
+/** How many rows a file holds, in words, like "11 bill lines". */
 function fileCount(f) {
   const info = FILE_INFO[f.name] || {};
   if (f.rows === null || f.rows === undefined || !info.unit) return "";
@@ -63,6 +64,7 @@ function fileCount(f) {
    or pays: every step after Created is a person's statement, recorded with their name and the time. */
 const IMPORT_INTO = { "intacct_bill_import.csv": "Sage Intacct", "entrata_handoff.csv": "Entrata" };
 const exportState = (run, file) => S.exports[`${run}/${file}`] || { downloads: [], imported: null, confirmed: null };
+/** How far an export file has come: created, downloaded, imported or confirmed. */
 function exportStage(r, f) {
   const x = exportState(r.id, f.name);
   return x.confirmed ? "confirmed" : x.imported ? "imported" : x.downloads.length ? "downloaded" : "created";
@@ -74,6 +76,7 @@ function noImportReason(r, f) {
   if (!f.rows) return "This file is empty: the run added nothing new.";
   return "";
 }
+/** The four-step history under an import file, with who did each step and the next action. */
 function exportHistory(r, f) {
   const system = IMPORT_INTO[f.name];
   if (!system) return "";
@@ -110,6 +113,7 @@ function importChip(d) {
   const [label, cls, icon] = EX_BADGE[st];
   return `<span class="badge ${cls}" title="${esc(`${x.imported.by.name} recorded the import into ${IMPORT_INTO[file]}, reference ${x.imported.ref}`)}">${bIcon(icon)}${esc(label)}</span>`;
 }
+/** The dialog for marking a file imported, confirming an import, or marking it not imported. */
 function exportDialog(kind, runId, file) {
   const r = X.runById[runId], f = (r.files || []).find((y) => y.name === file);
   if (!r || !f) return;
@@ -169,6 +173,7 @@ function onDownload(link, e) {
   note();
 }
 
+/** The Exports page: each run's files, what each one is for, and its history. */
 function viewExports() {
   const runs = D.runs.slice().reverse();
   return `${head("Exports", "The files each run created, for people to review, upload and keep. Penny never uploads, posts or pays anything; a person does.")}
@@ -223,6 +228,7 @@ function mdToHtml(md) {
   }
   return out.join("");
 }
+/** Open a run's written summary in a dialog. */
 async function showRunSummary(path, runId) {
   const run = X.runById[runId];
   let body;

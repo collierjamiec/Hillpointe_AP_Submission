@@ -40,6 +40,7 @@ function rememberList(a, b, title) {
   if (!ids.length) return;
   try { sessionStorage.setItem("penny.list", JSON.stringify({ ids, label: title, href: location.hash || "#/" })); } catch (e) { /* fine */ }
 }
+/** Draw the page named in the address, set the title and menu, and put focus and scroll in the right place. */
 function render() {
   listIds = null;
   if (TEAM.stale) { TEAM.stale = false; paintTeamNote(); }
@@ -104,6 +105,7 @@ function render() {
   lastHash = location.hash;
   closeMenu();
 }
+/** Wire a run's page: the status filter, sorting, paging, and rows that open an invoice. */
 function bindRun(id, q) {
   $$(".segmented button").forEach((btn) => btn.addEventListener("click", () => {
     const s = btn.dataset.status;
@@ -138,7 +140,9 @@ function bindInvoice(id, q) {
 
 // ------------------------------------------------------------------ chrome
 function openMenu() { $("#sidebar").classList.add("open"); $("#scrim").hidden = false; $("#menu-btn").setAttribute("aria-expanded", "true"); }
+/** Close the left menu on a small screen. */
 function closeMenu() { $("#sidebar").classList.remove("open"); $("#scrim").hidden = true; $("#menu-btn").setAttribute("aria-expanded", "false"); }
+/** Wire everything around the page: the menu, the theme button, the account menu and sign out. */
 function bindChrome() {
   $("#menu-btn").addEventListener("click", () => ($("#sidebar").classList.contains("open") ? closeMenu() : openMenu()));
   $("#scrim").addEventListener("click", closeMenu);
@@ -211,11 +215,13 @@ const SHORTCUTS = [
   ["j", "Next invoice in your list"], ["k", "Previous invoice in your list"], ["b", "Back to your list"],
   ["r", "Resolve hold (AP Clerk, Admin)"], ["v", "Review approval (Approver, Admin)"], ["n", "Add a note"],
 ];
+/** Open the list of keyboard shortcuts. */
 function showShortcuts() {
   openDialog("Keyboard shortcuts", "Shortcuts work anywhere except while you are typing in a box.",
     `<table class="mini keys"><tbody>${SHORTCUTS.map(([key, what]) => `<tr><td>${key.split(" then ").map((x) => `<kbd>${esc(x)}</kbd>`).join(" then ")}</td><td>${esc(what)}</td></tr>`).join("")}</tbody></table>`,
     "", () => "", { info: true });
 }
+/** Wire the keyboard shortcuts. They are ignored while a person is typing in a box. */
 function bindShortcuts() {
   document.addEventListener("click", (e) => { if (e.target.closest("[data-shortcuts]")) { e.preventDefault(); showShortcuts(); } });
   let g = 0;
@@ -236,7 +242,9 @@ function bindShortcuts() {
     else if (k === "n") click('[data-act="note"]');
   });
 }
+/** Open the menu under your name and move focus into it. */
 function openUserMenu() { $("#user-pop").hidden = false; $("#user-btn").setAttribute("aria-expanded", "true"); const f = $("#user-pop [role=menuitem]"); if (f) f.focus(); }
+/** Close the menu under your name. */
 function closeUserMenu() { $("#user-pop").hidden = true; $("#user-btn").setAttribute("aria-expanded", "false"); }
 
 // ------------------------------------------------------------------ sign-in
@@ -262,6 +270,7 @@ function enterApp(u) {
   render();
   if (teamMode()) { teamLoop(); offerEarlierWork(); }
 }
+/** Sign out: end the tour, forget unsaved drafts, close any dialog and show the sign-in screen. */
 function endSession(reason) {
   endTour();
   AUTH().signOut(reason);
@@ -275,6 +284,7 @@ function endSession(reason) {
   if (dlg.open) dlg.close();
   showLogin(reason);
 }
+/** The sign-in screen for the demo, with the four demo people to choose from. */
 function showLogin(reason) {
   reason = reason || AUTH().takeSignOutReason();
   if (serverAccounts()) return showServerLogin(reason);
@@ -379,6 +389,7 @@ function showLogin(reason) {
    and people who prefer less motion get a short, still version. */
 let realProgress = 0;
 const loaded = (pct) => { realProgress = Math.max(realProgress, pct); };
+/** Play the opening coin flip once per visit, tied to how much has really loaded. */
 function playIntro() {
   const el = $("#splash");
   let seen = false;
@@ -434,6 +445,7 @@ function playIntro() {
 }
 let introResult = null;
 
+/** Fetch the invoice data and find out whether a Penny server is behind this page. With real accounts, sign-in comes first. */
 async function loadData() {
   loaded(10);
   try {
@@ -465,6 +477,7 @@ async function loadData() {
   return true;
 }
 
+/** Start the app: load the data, play the intro, then show sign-in or the page. */
 async function boot() {
   bindChrome();
   const [ok] = await Promise.all([loadData(), playIntro()]);

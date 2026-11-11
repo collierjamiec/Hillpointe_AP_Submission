@@ -25,6 +25,7 @@ function attentionRow(d, kind) {
     <span class="att-why"><span class="att-reason">${esc(c.plain)}</span><span class="sub">Next: ${esc(routesFor(d.codes, d.id)[0] || "AP Manager")}</span></span>
     <span class="att-amt num">${!d.amount && !(d.ex && d.ex.total) ? `<span class="hint">Not read</span>` : esc(money(d.amount))}</span></a></li>`;
 }
+/** The Overview page: what needs this person, the totals, the proof that nothing was entered twice, and recent activity. */
 function viewDashboard() {
   const docs = X.docs;
   const sum = (list) => list.reduce((a, d) => a + d.amount, 0);
@@ -145,6 +146,7 @@ function runStats(res) {
     enteredAmt: res.filter((r) => r.decision.startsWith("ENTER_")).reduce((a, r) => a + r._amount, 0),
   };
 }
+/** The Run history page: every run, newest first. */
 function viewRuns() {
   return `
     ${head("Run history", "Each run reads one batch of invoices and writes files for a person to review. Running the same batch again is safe: documents already processed are skipped, never written to an import file twice.")}
@@ -172,6 +174,7 @@ function viewRuns() {
     <div style="margin-top:16px">${legend()}</div>`;
 }
 
+/** One run's page: its totals, files and the invoices it read. */
 function viewRun(id, q) {
   const r = X.runById[id];
   if (!r) return notFound("That run");
@@ -213,6 +216,7 @@ const SORTS = {
   amount: (a, b) => a.amount - b.amount,
   status: (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || a.id.localeCompare(b.id),
 };
+/** The invoices that match the search and filters in the address, in the chosen order. */
 function filterDocs(q) {
   const text = (q.get("q") || "").trim().toLowerCase();
   const group = STATUS_GROUPS.find((g) => g.key === q.get("status"));
@@ -227,6 +231,7 @@ function filterDocs(q) {
   if (dir === "desc") rows.reverse();
   return { rows, sort: { key, dir } };
 }
+/** The Invoices page: the search box, the filters and a place for the results. */
 function viewInvoices(q) {
   const opts = (vals, cur, label) => `<option value="">${label}</option>` + vals.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
   const vendors = [...new Set(X.docs.map((d) => d.vendor))].sort();
@@ -250,6 +255,7 @@ function viewInvoices(q) {
       <div id="inv-results"></div>
     </section>`;
 }
+/** Draw the matching invoices, the count and total for the whole list, and the page buttons. */
 function renderInvoiceResults(q) {
   const { rows, sort } = filterDocs(q);
   const active = ["q", "status", "code", "category", "vendor", "from", "to"].filter((k) => q.get(k)).length;
@@ -263,6 +269,7 @@ function renderInvoiceResults(q) {
   // Filters and sorting change the list without loading a new page, so keep Previous and Next on an invoice in step.
   try { sessionStorage.setItem("penny.list", JSON.stringify({ ids: listIds, label: "Invoices", href: location.hash || "#/invoices" })); } catch (e) { /* fine */ }
 }
+/** Wire the Invoices page: filters, sorting, paging, and rows that open an invoice. */
 function bindInvoices(q) {
   renderInvoiceResults(q);
   const form = $("#inv-filters");
@@ -356,9 +363,11 @@ function viewInvoice(id, q) {
     </div>`;
 }
 
+/** The body of whichever tab is open on an invoice. */
 function tabContent(tab, d, r) {
   return tab === "checks" ? tabChecks(r) : tab === "read" ? tabRead(d) : tab === "coding" ? tabCoding(r) : tabHistory(d, r);
 }
+/** Which run's result an invoice page shows: the one named in the address, or the latest. */
 function shownResult(d, q) {
   const runId = q.get("run");
   return (runId && d.hist.find((h) => h.run_id === runId)) || d.cur;
@@ -368,6 +377,7 @@ function shownResult(d, q) {
 function listContext() {
   try { return JSON.parse(sessionStorage.getItem("penny.list") || "null"); } catch (e) { return null; }
 }
+/** The back link and Previous and Next buttons at the top of an invoice, following the list you came from. */
 function recordNav(id) {
   const ctx = listContext();
   const i = ctx ? ctx.ids.indexOf(id) : -1;
@@ -380,12 +390,14 @@ function recordNav(id) {
       ${next ? `<a class="btn btn-sm btn-accent" href="#/invoices/${esc(next)}" data-key="next" aria-keyshortcuts="j">Next →</a>` : `<span class="btn btn-sm" aria-disabled="true">Next →</span>`}</span></nav>`;
 }
 
+/** The note on a hold that was closed because a corrected invoice replaced it. */
 function replacedCallout(d) {
   const nd = X.docById[d.replacedBy.doc];
   return `<section class="callout callout-ok" aria-labelledby="closed"><h2 id="closed">This hold is closed</h2>
     <p>A revised invoice, <a href="#/invoices/${esc(nd.id)}">${esc(nd.id)}</a>, passed every check in ${esc(X.runById[d.replacedBy.run].label)} and was written to the import file. This original never was, so it cannot be billed twice. The original hold is shown below for the record.</p></section>`;
 }
 
+/** The main box on an invoice: what Penny found, what to do next and who it goes to. */
 function outcomeCallout(r, closed) {
   const reasons = (r.reasons || []).map(parseReason);
   if (r.decision === "HOLD" || r.decision === "DUP") {

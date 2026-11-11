@@ -51,7 +51,9 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) { /* nothing */ } },
   };
   let memoryDir = null;
+  /** The demo directory saved in this browser: invited people, changes to the demo accounts, and links. */
   function dir() { return ls.get(DIR_KEY) || memoryDir || { extra: [], overrides: {}, tokens: {} }; }
+  /** Save the demo directory in this browser. */
   function saveDir(d) { memoryDir = d; ls.set(DIR_KEY, d); }
   /** Every account: the four public ones (with any Admin changes) plus people invited in this browser. */
   function all() {
@@ -70,27 +72,32 @@
   const hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
   const unhex = (h) => new Uint8Array(h.match(/../g).map((b) => parseInt(b, 16)));
 
+  /** Scramble a password with PBKDF2 and a salt, so the password itself is never kept. */
   async function pbkdf2(password, saltHex) {
     const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
     const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: unhex(saltHex), iterations: ITERATIONS }, key, 256);
     return hex(bits);
   }
+  /** Compare two pieces of text in the same time whether or not they match. */
   function sameText(a, b) {          // constant-time compare, so timing does not reveal how much matched
     if (a.length !== b.length) return false;
     let diff = 0;
     for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
     return diff === 0;
   }
+  /** A random one-time code for an invitation or reset link. */
   function token() {
     const b = new Uint8Array(24);
     crypto.getRandomValues(b);
     return hex(b);
   }
 
+  /** How many wrong tries an email has had, and until when it is locked. */
   function lockState(email) {
     const all = ss.get(TRIES_KEY) || {};
     return all[email] || { fails: 0, lockedUntil: 0, lockouts: 0 };
   }
+  /** Save the wrong-try count for an email. */
   function saveLock(email, st) {
     const all = ss.get(TRIES_KEY) || {};
     all[email] = st;
@@ -133,6 +140,7 @@
     return { ok: false, message: `That email and password do not match. ${left} ${left === 1 ? "try" : "tries"} left before a short lock.` };
   }
 
+  /** What the app may know about a person. Never the password hash. */
   function publicUser(a) {
     return { id: a.id, name: a.name, email: a.email, role: a.role, title: a.title || "", status: a.status || "active", builtIn: !!a.builtIn,
              created_at: a.created_at || "", created_by: a.created_by || null, updated_at: a.updated_at || "", last_sign_in: a.last_sign_in || "",
@@ -153,6 +161,7 @@
     if (!acct || acct.status !== "active") { signOut("expired"); return null; }
     return publicUser(acct);
   }
+  /** Note that the person is still active, so the session does not time out. */
   function touch() {
     const s = ss.get(SESSION_KEY) || memorySession;
     if (!s) return;
@@ -161,11 +170,13 @@
     ss.set(SESSION_KEY, s);
   }
   let lastReason = "";
+  /** End the session in this browser, remembering why. */
   function signOut(reason) {
     lastReason = reason || "";
     memorySession = null;
     ss.del(SESSION_KEY);
   }
+  /** The reason for the last sign-out, read once. */
   function takeSignOutReason() { const r = lastReason; lastReason = ""; return r; }
 
   // ------------------------------------------------------------------ the demo directory (v1.7)
@@ -174,7 +185,9 @@
   const sha = async (text) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
   const cleanEmail = (v) => { const e = String(v || "").trim().toLowerCase(); if (!/^[^@\s]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/.test(e)) err("Enter a valid email address, like name@company.com."); return e; };
   const who = (u) => ({ id: u.id, name: u.name, role: u.role });
+  /** Refuse unless the person acting is an Admin. */
   function needAdmin(actor) { if (!actor || actor.role !== "admin") err("Only an Admin can manage people."); }
+  /** Why a password is not acceptable, in plain words, or nothing when it is fine. */
   function passwordProblem(p, email, name) {
     p = String(p || "");
     if (p.length < 10) return "Use at least 10 characters. A short phrase is easiest to remember.";
@@ -190,6 +203,7 @@
     if (extra) Object.assign(extra, fields);
     else d.overrides[id] = { ...(d.overrides[id] || {}), ...fields };
   }
+  /** Make a one-time invitation or reset link for a person, replacing any earlier one. */
   async function issue(d, id, purpose) {
     const t = token();
     Object.values(d.tokens).forEach((v) => { if (v.user === id && v.purpose === purpose && !v.used) v.used = "replaced"; });

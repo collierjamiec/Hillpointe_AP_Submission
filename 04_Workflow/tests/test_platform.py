@@ -517,6 +517,56 @@ class WatchedFolderTests(unittest.TestCase):
         self.assertTrue(svc.read_log()[-1]["dry_run"])
 
 
+class DescriptionTests(unittest.TestCase):
+    """(added after submission, v2.3.1) Every function says what it does, in the Python code and in the web app, so
+    the claim in the docs stays true. A new function without a description fails here."""
+
+    def test_every_python_function_and_class_has_a_description(self):
+        import ast
+        missing, total = [], 0
+        for path in sorted((ROOT / "ap_workflow").glob("*.py")) + [ROOT / "ap.py"]:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            if not ast.get_docstring(tree):
+                missing.append(f"{path.name} (the file itself)")
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    total += 1
+                    if not ast.get_docstring(node):
+                        missing.append(f"{path.name}:{node.lineno} {node.name}")
+        self.assertEqual(missing, [], "These have no description. Add one line saying what each does.")
+        self.assertGreater(total, 350)
+
+    def test_every_web_app_function_has_a_description(self):
+        import re
+        missing, total = [], 0
+        for path in sorted((ROOT / "web" / "assets").glob("penny-*.js")):
+            lines = path.read_text(encoding="utf-8").split("\n")
+            self.assertTrue(lines[0].startswith(("/*", "//")), f"{path.name} does not open with what it holds.")
+            for i, line in enumerate(lines):
+                m = re.match(r"^ {0,2}(?:async )?function (\w+)\(", line)     # top-level functions, and those one level inside a wrapper
+                if m:
+                    total += 1
+                    above = lines[i - 1].strip() if i else ""
+                    if not (above.startswith(("//", "*")) or above.endswith("*/")):
+                        missing.append(f"{path.name}:{i + 1} {m.group(1)}")
+        self.assertEqual(missing, [], "These have no description. Add a one-line comment above each.")
+        self.assertGreater(total, 300)
+
+    def test_each_web_app_file_header_lists_its_sections(self):
+        import re
+        wrong = []
+        for path in sorted((ROOT / "web" / "assets").glob("penny-*.js")):
+            text = path.read_text(encoding="utf-8")
+            listed = re.search(r"Sections?: (.*?)\*/", text[:1200], re.S)
+            if not listed:
+                continue
+            header = re.sub(r"\s+", " ", listed.group(1))
+            for mark in re.findall(r"^\s*// -{10,} (.+)$", text, re.M):
+                if mark.strip() not in header:
+                    wrong.append(f"{path.name}: the header does not list the section \"{mark.strip()}\"")
+        self.assertEqual(wrong, [], "Update the Sections line at the top of each file.")
+
+
 class EmailTestCommandTests(unittest.TestCase):
     """(added after submission, v1.7) ./penny email test sends one message and says what to fix when it fails."""
 

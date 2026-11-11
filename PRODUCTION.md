@@ -124,7 +124,7 @@ This is the largest gap, and it is on purpose.
 
 ## 7. Testing with real people
 
-Automated tests are strong on rules and weak on people. Penny has 125 code tests and 20 browser suites. None of
+Automated tests are strong on rules and weak on people. Penny has 128 code tests and 20 browser suites. None of
 them is a person.
 
 | | Today | Production needs | Why not here |

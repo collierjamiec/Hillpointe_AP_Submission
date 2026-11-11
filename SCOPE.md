@@ -27,6 +27,7 @@ and what I chose to build on my own.
 | 2.1.2 | November 2026 | **After submission:** an honest list of what production would take, with sign-in through Microsoft and Google named as the next step. | Pull request #15, [`PRODUCTION.md`](PRODUCTION.md) |
 | 2.1.3 | November 2026 | **After submission:** a fix so the left menu scrolls and Help center is never cut off. | Pull request #16 |
 | 2.2.0 | November 2026 | **After submission:** a front door for the project: a guided tour in the app, a case study, a getting started guide and screenshots. | Pull request #17 |
+| 2.4.0 | November 2026 | **After submission:** every function described, in the Python code and the web app, with tests that keep it true. No change to how Penny works. | This pull request |
 | 2.3.0 | November 2026 | **After submission, required:** a profile each person manages themselves, with a photo, a password change and private activity numbers. | Pull requests #18 and #19 |
 
 **The short version of every release** is in [`CHANGELOG.md`](CHANGELOG.md), with where each idea came from and a
@@ -871,6 +872,21 @@ details with it.
 * Three new code tests and a new browser suite (38 checks).
 * **This is a required update.** It shipped as optional and I marked it required the same day, with a new command,
   `./penny require <version>`, so the release lists are never edited by hand.
+
+---
+
+## Version 2.4.0: every function described (November 2026, after submission)
+
+**Why I built this.** I asked for a review of the comments in the code and in the help center. It found the web
+app's code mostly undescribed, and one place where my own docs said more than was true.
+
+* Every function in the web app now has a one-line description: 227 were added, for 316 in all.
+* The last 23 functions and classes in the Python code have one too, for 353 in all.
+* Three tests fail if a description goes missing or a file's opening comment falls out of date.
+* 26 more help articles are marked "added after submission", with the version each arrived in.
+* The README and change log now say that version 1.8.0 described the Python functions only.
+* Comments that still described the pre-2.0 account files were corrected.
+* No change to how Penny works.
 
 ---
 

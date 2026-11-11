@@ -27,6 +27,8 @@ def _rows(ws):
 
 
 class Master:
+    """The company's master data: entities, projects, GL accounts, cost codes, vendors and periods."""
+
     def __init__(self, path: Path):
         """Read the master data workbook: entities, projects, departments, GL accounts, cost codes and types, vendors,
         the allocation table and accounting periods."""
@@ -81,6 +83,8 @@ class Master:
 
 # ----------------------------------------------------------------------------------------------- history
 class History:
+    """The bills already entered before Penny ran, used to catch duplicates."""
+
     def __init__(self, path: Path):
         """Read the bills already entered in the ERP before Penny ran."""
         wb = openpyxl.load_workbook(path, data_only=True)
@@ -169,6 +173,8 @@ def _g(pat, text):
 
 
 class Contracts:
+    """The purchase orders, subcontracts and service agreements that invoices are checked against."""
+
     def __init__(self, folder: Path):
         """Read every PO, subcontract and service agreement PDF in the folder."""
         self.pos, self.subcontracts, self.agreements, self.unparsed = {}, {}, {}, []

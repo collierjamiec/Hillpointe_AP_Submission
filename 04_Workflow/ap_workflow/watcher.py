@@ -33,6 +33,8 @@ DEFAULT_FOLDER = "inbox/_incoming"
 
 
 class Watcher:
+    """Watches the inbox folder for finished PDFs and turns them into batches for a preview."""
+
     def __init__(self, service, folder=None, every=15, clock=time.time):
         """Watch `folder` for `service`. `every` is the seconds between looks; `clock` can be replaced in tests."""
         self.service = service
@@ -141,6 +143,7 @@ class Watcher:
     def start(self):
         """Look every `every` seconds on a background thread until stop() is called."""
         def loop():
+            """Look again every few seconds until told to stop."""
             while not self._stop.wait(self.every):
                 self.scan()
         self.scan()

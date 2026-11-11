@@ -17,6 +17,7 @@ marked **Required** makes older copies read-only until they update.
 
 | Version | Date | In one line |
 |---|---|---|
+| [2.4.0](#240-every-function-described) | Nov 2026 | Every function described, in Python and the web app, with a test that keeps it true |
 | [2.3.0](#230-my-profile) | Nov 2026 | **Required.** A profile each person manages: details, photo, password and private activity |
 | [2.2.0](#220-a-front-door) | Nov 2026 | A guided tour, a case study, a getting started guide and screenshots |
 | [2.1.3](#213-a-menu-that-scrolls) | Nov 2026 | The left menu scrolls, so Help center is never cut off |
@@ -38,6 +39,39 @@ marked **Required** makes older copies read-only until they update.
 | [1.0](#10-the-submitted-assessment) | Oct 2026 | The assessment, as submitted |
 
 Also on this page: [Penny by the numbers](#penny-by-the-numbers) and [Ideas, and where each one went](#ideas-and-where-each-one-went).
+
+---
+
+## 2.4.0: every function described
+
+*November 2026. Optional. No change to how Penny works.*
+
+**Where it started.** "Let's review commenting on code and within the knowledge base." The review found the Python
+code well described and the web app mostly not: 213 of its 298 top-level functions had no description. It also
+found that this change log and the README overstated version 1.8.0, which described the Python functions only.
+
+**Added**
+
+* **A description on every function in the web app:** 227 added, so all 316 have one. Each is one plain line
+  saying what the function does.
+* **The last 23 in the Python code,** mostly classes and small helpers, so all 353 functions and classes have one.
+* **Three tests that keep it true.** They fail when a Python function or class has no description, when a web app
+  function has none, or when a file's opening comment does not list one of its sections.
+* **"Added after submission" marks on 26 more help articles,** each with the version it arrived in. Before this,
+  only articles from 1.9 onward carried one.
+
+**Fixed**
+
+* The README and this change log said 1.8.0 put a description on "every function". That was true of the Python
+  code only. Both now say so.
+* Comments in the account code still said people and links were kept in `users.json` and `tokens.json`. Since 2.0
+  they are in the database. The comments now match.
+* Three web app files had an opening comment that left out a section.
+
+**Tested:** 128 code checks (3 new) and 20 browser suites.
+
+**Not done:** 27 help articles have no "Why it works this way" note. Many are reference pages. I only write
+reasons I have given, so those wait for me.
 
 ---
 
@@ -386,7 +420,7 @@ version 2.0. Review code for comment gaps, optimization opportunities." I chose 
 * **Browser tests in the project.** Ten suites, run on every pull request. Before this they only ran in a build
   session, so GitHub never saw them.
 * **A content security policy** and safer response headers.
-* A short description on every function: 246 of 246.
+* A short description on every Python function: 246 of 246. (The web app's functions were described later, in 2.4.0.)
 
 **Changed**
 
@@ -595,6 +629,7 @@ check of the import file before it is written, every business rule in one file, 
 | 2.1.3 | 122 | 18 | 51 |
 | 2.2.0 | 122 | 19 | 52 |
 | 2.3.0 | 125 | 20 | 53 |
+| 2.4.0 | 128 | 20 | 53 |
 
 A blank means I did not record that number at the time. Before 1.8.0 the browser tests ran in build sessions and
 were not yet kept in the project.
@@ -641,6 +676,8 @@ A lot of ideas came up along the way. This table keeps track of them, including 
 | A getting started guide for people who download the project | Built in 2.2.0. |
 | Profiles people edit themselves: photo, about line, stats | Built in 2.3.0. Stats are private to each person. |
 | Make a release required after it is already out | Built in 2.3.0: `./penny require`. |
+| Review the comments in the code and the help center | Done in 2.4.0, with tests so descriptions cannot go missing again. |
+| A "Why it works this way" note on every help article | Not done. 26 of 53 have one. The rest wait for reasons I have given. |
 | Import profile details from Microsoft or Google | The import is built and tested in 2.3.0. It runs once sign-in with Microsoft and Google exists. |
 | Photos beside past entries in the audit trail | Not built. Past entries keep the initials recorded at the time. |
 | Sign in with Microsoft | **Planned next.** Needs a Microsoft tenant to build and test against. |

@@ -78,7 +78,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 125 checks, uses temp dirs, safe
+./penny test                                   # 128 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
@@ -93,7 +93,8 @@ export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
   `tests/browser/` and run with `python tests/browser/run.py`; add to them when the web app changes. When a screen
   shown in the README changes, retake the screenshots: start `python tests/browser/lab.py`, then
   `node tests/browser/screenshots.js`.
-- Every function gets a one-line description. `ROADMAP.md` was the plan to 2.0 (finished) and now lists what is
+- Every function gets a one-line description, in Python (a docstring) and in the web app (a comment on the line above).
+  `DescriptionTests` in `test_platform.py` fails without one, and when a file's `Sections:` header misses a section. `ROADMAP.md` was the plan to 2.0 (finished) and now lists what is
   intended next: update it in the same change as the work.
 - For decisions: `tests/expected_decisions.json` holds the
   expected outcome per sample document.
