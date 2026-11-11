@@ -2,6 +2,16 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.4.0",
+      "date": "2026-11-11",
+      "required": false,
+      "summary": "Every function described, in Python and the web app, with a test that keeps it true",
+      "notes": [
+        "No change to how Penny works. Every function in the code now says what it does, and tests keep it that way.",
+        "More help articles now say which version they arrived in."
+      ]
+    },
+    {
       "version": "2.3.0",
       "date": "2026-11-11",
       "required": true,

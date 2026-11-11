@@ -130,6 +130,8 @@ def evidence_kind(data):
 
 
 class BatchService:
+    """Everything the web server does for one Penny: batches, runs, rechecks, email, accounts and the audit log."""
+
     def __init__(self, root, package, state_dir, runs_dir, web_dir, cfg_path):
         """One Penny on one computer: where batches, state, runs and the web app live, and which rules file to use."""
         self.root, self.package = Path(root), (Path(package) if package else None)
@@ -1061,6 +1063,7 @@ class QuietServer(http.server.ThreadingHTTPServer):
     """The web server. A connection that drops, or that is not https when https is expected, is not worth a
     stack trace in the terminal; anything else still is."""
     def handle_error(self, request, client_address):
+        """Stay quiet about dropped connections; report anything else as usual."""
         import ssl, sys
         if not isinstance(sys.exc_info()[1], (ssl.SSLError, ConnectionError, TimeoutError)):
             super().handle_error(request, client_address)

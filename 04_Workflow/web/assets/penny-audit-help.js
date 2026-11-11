@@ -6,6 +6,7 @@
 // The browser writes UTC times and Penny's disk log writes local times with an offset, so both are turned into
 // UTC before sorting. Comparing the raw text would put a 9:00 -05:00 entry before a 10:00 UTC one.
 const iso = (t) => { const d = new Date(t); return t && !isNaN(d) ? d.toISOString() : ""; };
+/** Every audit entry in one list, newest first: what people did, what the server recorded, and each run. */
 function auditRows() {
   const serverLog = (D.batch_log || []).map((e) => ({ ...e, type: e.event === "batch.uploaded" ? "batch.upload" : e.event, user: { id: e.by.id, name: e.by.name, role: e.by.role, initials: e.by.name.split(" ").map((w) => w[0]).join("").slice(0, 2) },
     count: e.count, sort: iso(e.at), server: true }));
@@ -20,6 +21,7 @@ function auditRows() {
   const rank = (x) => (x.type in STEP ? STEP[x.type] : 1.5);
   return [...people, ...runs].sort((a, b) => (sec(a) < sec(b) ? 1 : sec(a) > sec(b) ? -1 : rank(b) - rank(a) || (a.sort < b.sort ? 1 : a.sort > b.sort ? -1 : 0)));
 }
+/** What an audit entry was about, as a link: an invoice, a run, a file, a person or the rules. */
 function auditTarget(e) {
   if (e.type === "run") return { html: `<a href="#/runs/${esc(e.run.id)}">${esc(e.run.label)}</a>`, text: e.run.label };
   if (e.doc) { const d = X.docById[e.doc]; const t = d ? `${d.vendor} ${d.billNo}` : e.doc; return { html: `<a href="#/invoices/${esc(e.doc)}">${esc(t)}</a>`, text: t }; }
@@ -28,6 +30,7 @@ function auditTarget(e) {
   if (e.type.startsWith("rules.")) return { html: `<a href="#/rules">Rules</a>`, text: "Rules" };
   return { html: "", text: "" };
 }
+/** The detail column of an audit entry: before and after, the note, and any files. */
 function auditDetail(e) {
   if (e.type === "run") {
     const res = X.byRun[e.run.id] || [];
@@ -54,6 +57,7 @@ function auditDetail(e) {
   if (e.before !== undefined) return `${e.before} → ${e.after}`;
   return "";
 }
+/** The Audit trail page: filters, a count, one page of entries and a CSV download. */
 function viewAudit(q) {
   const all = auditRows();
   const who = q.get("who") || "", type = q.get("type") || "";
@@ -84,6 +88,7 @@ function csvCell(v) {
   if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
   return `"${t.replace(/"/g, '""')}"`;
 }
+/** Wire the Audit trail: the filters, the page buttons and the CSV download of every matching entry. */
 function bindAudit() {
   const f = $("#audit-filters");
   f.addEventListener("change", () => {
@@ -126,11 +131,13 @@ function helpFill(html) {
       <p class="hint">Goes to: ${esc((R.routes || {})[c] || "")}</p></section>`; }).join(""));
 }
 const helpText = (a) => (a.title + " " + a.summary + " " + a.html.replace(/<[^>]+>/g, " ")).toLowerCase();
+/** The help articles grouped by section, in order. */
 function helpSections() {
   const out = [];
   HELP().forEach((a) => { let g = out.find((x) => x[0] === a.section); if (!g) out.push((g = [a.section, []])); g[1].push(a); });
   return out;
 }
+/** The Help center: its home page with search, or one article with the list of all articles beside it. */
 function viewHelp(slug, q) {
   const all = HELP();
   if (!slug) {
@@ -161,6 +168,7 @@ function viewHelp(slug, q) {
       </nav>
     </article></div>`;
 }
+/** The help articles that match a search, or every article by section when the search is empty. */
 function helpResults(term) {
   const t = term.toLowerCase();
   if (t) {
@@ -171,6 +179,7 @@ function helpResults(term) {
   return helpSections().map(([sec, list]) => `<section class="help-sec" id="sec-${esc(sec.toLowerCase().replace(/[^a-z]+/g, "-"))}"><h2>${esc(sec)}</h2><div class="help-grid">${list.map(helpCard).join("")}</div></section>`).join("");
 }
 const helpCard = (a) => `<a class="card help-card" href="#/help/${esc(a.slug)}"><b>${esc(a.title)}</b><span>${esc(a.summary)}</span></a>`;
+/** Wire the Help center: search as you type, and jump to a section named in the address. */
 function bindHelp() {
   const sec = parseHash().q.get("section");
   if (sec) { const t = document.getElementById(`sec-${sec.toLowerCase().replace(/[^a-z]+/g, "-")}`); if (t) { t.scrollIntoView(); t.classList.add("flash"); } }
@@ -184,6 +193,7 @@ function bindHelp() {
   });
 }
 
+/** A page that says something could not be found, with a way back. */
 function notFound(what) {
   return `${head("Not found", `${esc(what)} is not in this data. It may come from a run that has not been exported yet.`)}<p><a href="#/">Back to the dashboard</a></p>`;
 }
@@ -194,6 +204,7 @@ function searchMatches(text) {
   if (!terms.length) return [];
   return X.docs.filter((d) => terms.every((t) => d.hay.includes(t) || d.hay.includes(t.replace(/[$,]/g, "")))).slice(0, 8);
 }
+/** Wire the search box in the top bar: results as you type, arrow keys, and Enter to open. */
 function bindSearch() {
   const input = $("#search"), list = $("#search-results");
   let items = [], sel = -1;

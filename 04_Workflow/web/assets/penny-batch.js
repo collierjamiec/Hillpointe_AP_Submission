@@ -14,6 +14,7 @@ const fmtBytes = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 10
 const knownHashes = () => Object.fromEntries(Object.values(D.documents).map((d) => [(d.extracted || {}).sha256, d.id]).filter(([h]) => h));
 const maxBytes = () => ((SERVER && SERVER.max_mb) || 25) * 1048576;
 
+/** Add chosen PDFs to a new batch, checking each one and skipping any already in this batch or a past one. */
 async function addFiles(fileList) {
   const known = knownHashes();
   for (const file of Array.from(fileList)) {
@@ -37,6 +38,7 @@ async function addFiles(fileList) {
 }
 const readyFiles = () => NB.files.filter((f) => f.state === "ok" || f.state === "warn");
 
+/** The New batch page, or a note for people who may not add batches. */
 function viewBatch() {
   if (!can("upload")) {
     return `${head("New batch", "")}<section class="card"><div class="empty-state">${ICON.shield}<h2>AP Clerks and Admins add batches</h2>
@@ -71,6 +73,7 @@ function watchCard() {
     ${(w.ignored || []).length ? `<div class="watch-ignored"><b>Left in the folder (${w.ignored.length}):</b><ul class="notes">${w.ignored.map((i) => `<li><code>${esc(i.name)}</code>: ${esc(i.why)}</li>`).join("")}</ul></div>` : ""}
   </section>`;
 }
+/** Ask the server to look in the watched folder now. */
 async function watchScan(btn) {
   btn.disabled = true; btn.textContent = "Checking…";
   try {
@@ -84,6 +87,7 @@ async function watchScan(btn) {
     openDialog("Penny could not check the folder", esc(e.message), "", "", () => "", { info: true });
   }
 }
+/** List the batches the watched folder has picked up and that are waiting to be run. */
 async function loadWaiting() {
   const box = $("#nb-waiting-body");
   if (!box) return;
@@ -100,6 +104,7 @@ async function loadWaiting() {
     }).join("")}</ul>${can("run") ? "" : `<p class="hint">Only an Admin runs a batch for real. You can preview.</p>`}` : `<p class="empty">Nothing is waiting. Every batch in inbox/ has been run.</p>`;
   } catch (e) { box.innerHTML = `<p class="form-error">${esc(e.message)}</p>`; }
 }
+/** Run a waiting batch: a preview for anyone who may upload, a real run only for an Admin. */
 async function runWaiting(btn) {
   const batch = btn.dataset.waitRun, real = btn.dataset.real === "1" && can("run");
   $$("[data-wait-run]").forEach((b) => (b.disabled = true));
@@ -117,6 +122,7 @@ async function runWaiting(btn) {
     loadWaiting();
   }
 }
+/** The steps of a new batch: name it, add files, choose preview or real, and run. */
 function batchBody() {
   if (NB.result || NB.busy) return batchProgress();
   const name = slug(NB.name);
@@ -161,6 +167,7 @@ function batchBody() {
       ${go ? "" : `<p class="hint">${!nameOk ? "Name the batch to continue." : !ready.length ? "Add at least one PDF to continue." : "Checking files…"}</p>`}
     </div></section>`;
 }
+/** What a running batch is doing, then its result with links to each invoice. */
 function batchProgress() {
   const r = NB.result;
   if (r && r.done) {
@@ -178,6 +185,7 @@ function batchProgress() {
     ${NB.upPct !== undefined ? `<div class="splash-bar nb-bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${NB.upPct}"><span style="width:${NB.upPct}%"></span></div>` : ""}
     ${NB.error ? `<p class="auth-error" role="alert">${esc(NB.error)}</p><div class="nb-actions"><button class="btn" type="button" data-nb-back>Back to the batch</button></div>` : ""}</section>`;
 }
+/** Redraw the New batch steps. */
 function paintBatch() {
   const el = $("#batch-flow");
   if (!el) return;
@@ -185,6 +193,7 @@ function paintBatch() {
   el.innerHTML = batchBody();
   if (focusId && $(`#${focusId}`)) { const f = $(`#${focusId}`); f.focus(); if (f.setSelectionRange && f.value) f.setSelectionRange(f.value.length, f.value.length); }
 }
+/** Call Penny's server and return its answer, or raise its message in plain words. */
 async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers: { "X-Penny": "1", ...(opts.headers || {}) } });
   let body = {};
@@ -193,6 +202,7 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(body.error || `The Penny server answered ${res.status}.`);
   return body;
 }
+/** Upload the files and run the batch, showing each step as it happens. */
 async function runBatch() {
   const real = NB.mode === "real" && can("run");
   const files = readyFiles();
@@ -241,6 +251,7 @@ async function runBatch() {
     paintBatch();
   }
 }
+/** Fetch the latest data after a run, so the new invoices show without a reload. */
 async function reloadData() {
   const res = await fetch("data/penny-data.json", { cache: "no-cache" });
   D = await res.json();
@@ -250,6 +261,7 @@ async function reloadData() {
   derive();
   $("#generated").textContent = `Data exported ${fmtDateTime(D.generated_at)}`;
 }
+/** Wire the New batch page: the name, the file drop area, the mode and the Run button. */
 function bindBatch() {
   const scan = $("#watch-scan");
   if (scan) scan.addEventListener("click", () => watchScan(scan));

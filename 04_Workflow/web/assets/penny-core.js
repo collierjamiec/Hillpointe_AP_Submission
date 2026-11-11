@@ -2,7 +2,7 @@
    Penny's web app is plain scripts with no build step. These files load in order (see index.html) and share their
    top-level names, so a function defined in one file can be used in the files after it. Nothing here re-decides an
    invoice: Penny's results are shown as Penny made them, and what people do is recorded as events.
-   Sections: vocabulary, helpers, data, state: who is signed in, and the sandbox, usage insights (local, privacy-safe), shared pieces. */
+   Sections: vocabulary, helpers, data, state: who is signed in, and the sandbox, long lists (v1.9), usage insights (local, privacy-safe), shared pieces. */
 "use strict";
 
 // ------------------------------------------------------------------ vocabulary
@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.4.0";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -128,6 +128,7 @@ const USD0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD"
 const money = (c) => USD.format(c / 100);
 /** A total that stays honest when some amounts could not be read: never shows an unread amount as $0.00. */
 const amountKnown = (d) => !!d.amount || !!(d.ex && d.ex.total !== null && d.ex.total !== undefined && d.ex.total !== "");
+/** A total for a list of invoices, in words, saying how many amounts could not be read. */
 function amountLabel(list) {
   const known = list.filter(amountKnown), unknown = list.length - known.length;
   const total = money(known.reduce((a, d) => a + d.amount, 0));
@@ -137,6 +138,7 @@ function amountLabel(list) {
 }
 const moneyShort = (c) => (Math.abs(c) >= 1000000 ? USD0.format(c / 100) : USD.format(c / 100));
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** A date like 2026-09-30 as "Sep 30, 2026". Reads the text directly, so the day never shifts with the time zone. */
 function fmtDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
   return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}, ${m[1]}` : "";
@@ -145,11 +147,14 @@ function fmtDate(iso) {
 // name, so a reviewer in another city reads the same clock as the AP team. Stored times never change.
 const DEFAULT_TZ = "America/New_York";
 const TZ_COMMON = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "UTC"];
+/** Whether a time zone name is one this browser knows. */
 function validTz(z) {
   if (!z || typeof z !== "string") return false;
   try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch (e) { return false; }
 }
+/** The company time zone from the rules, or the default when it is missing or wrong. */
 function tz() { const z = getPath(RULES(), "display.time_zone"); return validTz(z) ? z : DEFAULT_TZ; }
+/** A time zone's full name for a person to read, with its short code. */
 function tzLabel(z) {
   if (!validTz(z)) return String(z || "");
   if (z === "UTC") return "Coordinated Universal Time (UTC)";
@@ -161,6 +166,7 @@ function todayIn(z, when = new Date()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: z, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(when).map((x) => [x.type, x.value]));
   return `${p.year}-${p.month}-${p.day}`;
 }
+/** A moment in time, shown in the company time zone. */
 function fmtDateTime(iso) {
   const d = new Date(iso);
   return !iso || isNaN(d) ? "" : d.toLocaleString("en-US", { timeZone: tz(), month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
@@ -195,10 +201,12 @@ const ICON = {
   lock: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4.5" y="9" width="11" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/></svg>',
 };
 
+/** Split a reason like "[COI] Insurance expired" into its code and its text. */
 function parseReason(r) {
   const m = /^\[([A-Z]+)\]\s*(.*)$/s.exec(r || "");
   return m ? { code: m[1], text: m[2] } : { code: "", text: r };
 }
+/** Split one line of a decision trail into pass or fail, its code and its text. */
 function parseTrail(t) {
   const m = /^(PASS|FAIL)\s+(?:\[([A-Z]+)\]\s*)?(.*)$/s.exec(t || "");
   return m ? { ok: m[1] === "PASS", code: m[2] || "", text: m[3] } : { ok: true, code: "", text: t };
@@ -210,6 +218,7 @@ let X = null; // indexes
 
 /** The rules in effect: Penny's rules.json plus any saved changes from the rules editor. */
 const RULES = () => S.rules || D.rules || {};
+/** The most important exception code on an invoice, by the order set in the rules. */
 function primaryCode(codes) {
   const pr = RULES().code_priority || [];
   return pr.find((c) => codes.includes(c)) || codes[0] || "";
@@ -228,6 +237,7 @@ function routesFor(codes, docId) {
   return out;
 }
 
+/** Turn the exported data into lookups by run and by invoice, with each invoice's latest result. */
 function buildIndex(data) {
   const runById = Object.fromEntries(data.runs.map((r) => [r.id, r]));
   const byRun = {}, byDoc = {};
@@ -274,29 +284,34 @@ const SANDBOX_KEY = "penny.sandbox.v1";
 let EV = [];                  // the audit log: every human action, oldest first, never edited
 let S = { holds: {}, approvals: {}, notes: {}, rules: null, revoked: new Set(), blockers: {}, manual: {}, exports: {} };
 
+/** Read this browser's saved demo actions. Anything damaged is dropped. */
 function loadSandbox() {
   try {
     const j = JSON.parse(store.get(SANDBOX_KEY, "null"));
     EV = j && Array.isArray(j.events) ? j.events.filter((e) => e && e.type && e.user) : [];
   } catch (e) { EV = []; }
 }
+/** Save this browser's demo actions. In team mode the server keeps them, so this does nothing. */
 function saveSandbox() {
   if (teamMode()) return;                 // the server keeps the team's work; this browser keeps nothing of its own
   if (!store.set(SANDBOX_KEY, JSON.stringify({ version: 1, events: EV }))) {
     toast("This browser blocked saving, so your changes last only until you reload.");
   }
 }
+/** A random id for a new audit entry. */
 function newId() {
   const b = new Uint8Array(8);
   crypto.getRandomValues(b);
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 }
+/** Set a value deep inside an object by a dotted path, like "thresholds.po_tolerance". */
 function setPath(obj, path, value) {
   const keys = path.split(".");
   let o = obj;
   keys.slice(0, -1).forEach((k) => (o = o[k] = o[k] || {}));
   o[keys[keys.length - 1]] = value;
 }
+/** Read a value deep inside an object by a dotted path, or undefined when it is not there. */
 function getPath(obj, path) { return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj); }
 
 /** Record one action. The role is checked here again, not just by hiding buttons. */
@@ -367,6 +382,7 @@ function derive() {
   if (X) X.docs.forEach((d) => (d.status = humanStatus(d)));
   updateWorkCount();
 }
+/** An invoice's status after people have acted on it: a cleared or rejected hold replaces Penny's "hold". */
 function humanStatus(d) {
   const h = S.holds[d.id];
   if (d.pennyStatus === "HOLD" && h && h.outcome) return h.outcome === "cleared" ? "CLEARED" : "REJECTED";
@@ -381,6 +397,7 @@ function approvalSteps(d) {
   const got = S.approvals[d.id] || {};
   return labels.map((label) => ({ label, ...(got[label] || { status: "waiting" }) }));
 }
+/** Where a bill's approvals stand: how many steps are done, and whether it is approved, sent back or waiting. */
 function approvalSummary(d) {
   const steps = approvalSteps(d);
   if (!steps.length) return null;
@@ -388,6 +405,7 @@ function approvalSummary(d) {
   const back = steps.some((s) => s.status === "sent back");
   return { steps, done, total: steps.length, state: back ? "sent back" : done === steps.length ? "approved" : "waiting" };
 }
+/** The small badge that shows a bill's approval state in a list. */
 function approvalChip(d) {
   const a = approvalSummary(d);
   if (!a) return "";
@@ -396,6 +414,7 @@ function approvalChip(d) {
   return `<span class="badge b-waiting">${bIcon("clock")}${a.done} of ${a.total} approvals</span>`;
 }
 const openHold = (d) => d.pennyStatus === "HOLD" && !(S.holds[d.id] || {}).outcome;
+/** What is waiting on the signed-in person: open holds they may resolve and bills they may approve. */
 function myWork() {
   if (!user) return { holds: [], approvals: [] };
   return {
@@ -403,6 +422,7 @@ function myWork() {
     approvals: can("approve") ? X.docs.filter((d) => { const a = approvalSummary(d); return a && a.state === "waiting"; }) : [],
   };
 }
+/** Refresh the number beside My work in the menu. */
 function updateWorkCount() {
   const el = $("#work-count");
   if (!el || !X) return;
@@ -434,6 +454,7 @@ function toast(msg, action) {
    live in the address (?page=2&per=50), so a link or the Back button returns to the same place. Totals and counts
    always describe the whole list, not just the page on screen. */
 const PAGE_SIZES = [25, 50, 100];
+/** Cut a long list to one page, using the page and page size in the address. */
 function paged(rows, q) {
   const per = PAGE_SIZES.includes(+q.get("per")) ? +q.get("per") : PAGE_SIZES[0];
   const pages = Math.max(1, Math.ceil(rows.length / per));
@@ -441,6 +462,7 @@ function paged(rows, q) {
   const from = (page - 1) * per;
   return { per, page, pages, total: rows.length, from: rows.length ? from + 1 : 0, to: Math.min(from + per, rows.length), slice: rows.slice(from, from + per) };
 }
+/** The First, Previous, Next and Last buttons under a long table, with a page size choice. */
 function pagerHtml(pg, noun) {
   if (pg.total <= PAGE_SIZES[0]) return "";
   const btn = (to, label, off, aria) => `<button type="button" class="btn btn-sm" data-page="${to}" ${off ? "disabled" : ""} aria-label="${esc(aria)}">${label}</button>`;
@@ -464,6 +486,7 @@ function goToPage(change) {
 }
 /** For pages that stack several tables: the first rows of a long one, and a line saying where the rest are. */
 const TOP_ROWS = 50;
+/** The first rows of a long group, with a note saying how many more there are. */
 function topRows(rows, rest) {
   if (rows.length <= TOP_ROWS) return { rows, note: "" };
   return { rows: rows.slice(0, TOP_ROWS), note: `<p class="hint list-more">Showing the first ${TOP_ROWS} of ${rows.length.toLocaleString()}. ${rest}</p>` };
@@ -478,9 +501,11 @@ let listIds = null;           // every row of the list on screen (all pages), so
    same events later. */
 const USAGE_KEY = "penny.usage.v1", USAGE_OFF = "penny.usage.off", USAGE_MAX = 3000;
 const usageOn = () => store.get(USAGE_OFF, "") !== "1";
+/** The usage counts saved in this browser for Insights. */
 function usageEvents() {
   try { const j = JSON.parse(store.get(USAGE_KEY, "null")); return j && Array.isArray(j.events) ? j.events : []; } catch (e) { return []; }
 }
+/** Count one thing for Insights: what happened and the person's role, never who they are or which invoice. */
 function track(type, props = {}) {
   if (!usageOn()) return;
   const ev = { t: new Date().toISOString(), type, role: user ? user.role : "signed-out", ...props };
@@ -493,9 +518,11 @@ const openedAt = {};          // invoice id -> when it was opened, for time-to-d
 // ------------------------------------------------------------------ shared pieces
 /** The "Take the tour" button, shown on the Overview and the help center (v2.2). Any control with data-tour starts the tour. */
 const TOUR_BUTTON = '<button class="btn tour-start" type="button" data-tour><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M12.8 7.2l-1.6 4-4 1.6 1.6-4z"/></svg>Take the tour</button>';
+/** The top of a page: its title, one line of explanation, and anything that sits to the right. */
 function head(title, lede, right = "", crumbs = "") {
   return `<div class="page-head"><div>${crumbs}<h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div>${right}</div>`;
 }
+/** A bar showing how one run's invoices split by decision, with the same split in words. */
 function stackbar(results) {
   const n = results.length || 1;
   const segs = STATUS_ORDER.map((s) => [s, results.filter((r) => r.decision === s).length]).filter(([, c]) => c);
@@ -506,6 +533,7 @@ function stackbar(results) {
 const legend = () => `<div class="legend">${STATUS_ORDER.filter((s) => s !== "REPLACED").map((s) =>
   `<span><i class="s-${s}"></i>${esc(STATUS[s].label)}</span>`).join("")}</div>`;
 
+/** How many bills were entered in more than one run. This should always be zero. */
 function enteredTwiceCount() {
   const seen = {};
   D.results.filter((r) => r.decision.startsWith("ENTER_")).forEach((r) => {

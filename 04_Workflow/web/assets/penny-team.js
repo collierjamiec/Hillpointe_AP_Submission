@@ -133,6 +133,7 @@ async function teamLoop() {
   }
   TEAM.running = false;
 }
+/** Stop listening for teammates' work, when signing out. */
 function teamStop() {
   if (TEAM.stop) TEAM.stop();
   TEAM.stale = false;
@@ -144,9 +145,11 @@ function teamStop() {
 /* Before 2.0, what people did was saved in each browser. An Admin can move that history into the team's audit log
    once. Each action keeps its original time and person and is marked as moved. Nothing is removed from the browser. */
 const MOVED_KEY = "penny.sandbox.moved";
+/** The demo actions saved in this browser from before the team had real accounts. */
 function earlierWork() {
   try { const j = JSON.parse(store.get(SANDBOX_KEY, "null")); return j && Array.isArray(j.events) ? j.events.filter((e) => e && e.id && e.type && e.user) : []; } catch (e) { return []; }
 }
+/** Offer an Admin the choice to move this browser's earlier work into the team's audit trail, once. */
 function offerEarlierWork() {
   if (!TEAM.on || !user || user.role !== "admin" || store.get(MOVED_KEY, "")) return;
   let asked = false;

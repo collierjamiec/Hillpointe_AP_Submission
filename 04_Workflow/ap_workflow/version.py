@@ -158,7 +158,7 @@ def gate(info, action):
 
 
 class UpdateRequired(RuntimeError):
-    pass
+    """Raised when a real run or a change is asked for while a required update is waiting."""
 
 
 # ------------------------------------------------------------------------------------------- publishing a release

@@ -31,7 +31,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 125 automated checks
+./penny test                                  # run the 128 automated checks
 python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view

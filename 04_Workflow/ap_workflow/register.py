@@ -27,6 +27,8 @@ def make_key(vendor_id, bill_no, doc_type):
 
 
 class Register:
+    """The register of every invoice Penny has processed, so nothing is entered twice."""
+
     def __init__(self, state_dir: Path):
         """Load the register from state_dir (an empty one if this is the first run)."""
         self.dir = Path(state_dir)

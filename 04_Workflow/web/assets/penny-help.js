@@ -68,6 +68,7 @@ window.PENNY_HELP = [
   { slug: "roles-demo", section: "Getting started", title: "Try each role",
     summary: "The four demo accounts and what each one can do.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>This site has four demo accounts, one for each role. Sign out from the menu under your name, then sign in as someone else to see how Penny changes.</p>
 {{accounts}}
 <p>As Sam (Admin), you can also invite new people from <a href="#/users">Users</a>. Their invitation lands in the <a href="#/outbox">Outbox</a>; open its link to set up the account, then sign in as them.</p>
@@ -76,6 +77,7 @@ window.PENNY_HELP = [
   { slug: "shortcuts", section: "Getting started", title: "Keyboard shortcuts",
     summary: "Move through your work without the mouse.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>Shortcuts work anywhere except while you are typing in a box. Press <kbd>?</kbd> at any time to see this list.</p>
 {{shortcuts}}
 <p>A good review rhythm: open the first item in <a href="#/work">My work</a>, read the reason, act, then press <kbd>j</kbd> for the next one.</p>` },
@@ -84,6 +86,7 @@ window.PENNY_HELP = [
   { slug: "overview", section: "Using the web app", title: "Overview and My work",
     summary: "Where to start each day, and how your queue is built.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>The <a href="#/">Overview</a> answers four questions: what needs my attention, why, what should I do next, and what happened after people acted.</p>
 <h2>The attention list</h2>
 <p>The top card is built for your role. AP Clerks and Admins see invoices that need review, largest first. Approvers see bills waiting for their sign-off. Viewers see what is waiting on the AP team. Each line shows the reason in plain words and who acts next.</p>
@@ -101,6 +104,7 @@ window.PENNY_HELP = [
   { slug: "review", section: "Using the web app", title: "Reviewing an invoice",
     summary: "How to read an invoice page from top to bottom.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>Each invoice page puts the original PDF beside Penny's reasoning, so you never have to take Penny's word for it.</p>
 <h2>The header</h2>
 <p>The vendor, invoice number, date and amount. Below them are three different kinds of labels:</p>
@@ -131,6 +135,7 @@ window.PENNY_HELP = [
   { slug: "resolve", section: "Using the web app", title: "Resolving a hold",
     summary: "Clear, reject, reassign or reopen a held invoice.",
     html: `
+<p><em>Added after submission, in version 1.3.</em></p>
 <p>AP Clerks and Admins can act on held invoices. Every action asks for a short note, which is saved to the audit trail with your name and the time.</p>
 <h2>Your choices</h2>
 <ul>
@@ -149,6 +154,7 @@ window.PENNY_HELP = [
   { slug: "approve", section: "Using the web app", title: "Approving a bill",
     summary: "Record sign-offs for bills that are ready to import.",
     html: `
+<p><em>Added after submission, in version 1.3.</em></p>
 <p>Some bills need one or more approvals before they are paid, based on the approval matrix in the rules. Penny lists who is required. A required approver is not the same as a recorded approval, so Penny shows both.</p>
 <ol>
   <li>Open a bill marked <em>0 of 2 approvals</em> (or similar), or find it in <a href="#/work?tab=approvals">My work</a>.</li>
@@ -162,6 +168,7 @@ window.PENNY_HELP = [
   { slug: "new-batch", section: "Using the web app", title: "Adding a new batch of invoices",
     summary: "Name it, add the PDFs, preview or run. Every step is recorded.",
     html: `
+<p><em>Added after submission, in version 1.4.</em></p>
 <p>AP Clerks and Admins can add a batch from <a href="#/batch">New batch</a>.</p>
 <ol>
   <li><strong>Name the batch.</strong> Type a short name or pick one: weekly-ap, month-end, vendor-resends, corrections. Penny puts today's date in the company time zone in front, so the folder is <code>inbox/2026-11-10_weekly-ap</code>. Dates first means folders sort in order. If the name is already used that day, Penny adds -2, -3 and so on.</li>
@@ -186,6 +193,7 @@ window.PENNY_HELP = [
   { slug: "blockers", section: "Using the web app", title: "Blockers: tracking each reason for a hold",
     summary: "Give every reason its own owner, target date, notes and proof.",
     html: `
+<p><em>Added after submission, in version 1.5.</em></p>
 <p>A held invoice can be waiting on more than one thing, for example a missing insurance certificate and a missing lien waiver. Each reason is a <strong>blocker</strong>, so each one can be worked and tracked on its own. The invoice shows how far along it is, like <em>1 of 2 blockers cleared</em>.</p>
 <h2>What each blocker has</h2>
 <ul>
@@ -209,6 +217,7 @@ window.PENNY_HELP = [
   { slug: "recheck", section: "Using the web app", title: "Recheck and testing rule changes",
     summary: "Preview what Penny would decide now, without saving anything.",
     html: `
+<p><em>Added after submission, in version 1.5.</em></p>
 <p><strong>Recheck</strong> asks Penny to decide one held invoice again, the way its next run would. It is a preview: nothing is saved, no import file is written, and Penny's register does not change.</p>
 <h2>What you can recheck</h2>
 <ul>
@@ -232,6 +241,7 @@ window.PENNY_HELP = [
   { slug: "manual-entry", section: "Using the web app", title: "Entering an invoice by hand",
     summary: "When Penny cannot read a file but a person can.",
     html: `
+<p><em>Added after submission, in version 1.5.</em></p>
 <p>Sometimes Penny cannot read a file: it is a scanned picture, or a bill in a layout Penny does not know. If a person can open it in another program, they can key it by hand in a way an auditor can follow.</p>
 <h2>The steps</h2>
 <ol>
@@ -281,6 +291,7 @@ window.PENNY_HELP = [
   { slug: "users", section: "Using the web app", title: "Managing people (Admin)",
     summary: "Invite people, set roles, turn accounts off, and send password resets.",
     html: `
+<p><em>Added after submission, in version 1.7.0.</em></p>
 <p>Admins manage everyone who uses Penny on the <a href="#/users">Users</a> page.</p>
 <h2>Invite someone</h2>
 <ol>
@@ -307,6 +318,7 @@ window.PENNY_HELP = [
   { slug: "email", section: "Using the web app", title: "Emailing exports and approval requests",
     summary: "Send a file or a bill to the right people, with the file attached.",
     html: `
+<p><em>Added after submission, in version 1.7.0.</em></p>
 <ul>
   <li><strong>Exports:</strong> on the <a href="#/exports">Exports</a> page, choose <strong>Email</strong> next to any file. The file is attached, with a short note saying what it is and who uses it.</li>
   <li><strong>Approvals:</strong> on a bill that is waiting for sign-off, choose <strong>Email for approval</strong>. The email lists the approvals needed, links to the bill in Penny, and attaches the original invoice.</li>
@@ -339,6 +351,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "appearance", section: "Using the web app", title: "Appearance: themes, colors and comfort",
     summary: "Choose a preset or any color, light or dark, text size and density.",
     html: `
+<p><em>Added after submission, in version 1.7.0.</em></p>
 <p>Open <a href="#/appearance">Appearance</a> in the menu. Changes show right away and are saved to your account, so they follow you when you sign in again.</p>
 <h2>Colors</h2>
 <ul>
@@ -356,6 +369,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "updates", section: "Using the web app", title: "Versions and updates",
     summary: "Which version you are on, and what required and optional updates mean.",
     html: `
+<p><em>Added after submission, in version 1.6.0.</em></p>
 <p>The version of Penny you are using is at the bottom of every screen, like <strong>Penny v1.6.0</strong>. Select it to see <a href="#/whats-new">What's new</a>: every version, when it came out, and whether it is required.</p>
 <h2>Check for updates</h2>
 <p>Open the menu with your name at the top right and choose <strong>Check for updates</strong> (it is also on the What's new page). Penny checks right away and shows your version beside the newest one, whether the update is required or optional, and what changed. From there you can update, skip an optional version, or check again.</p>
@@ -503,6 +517,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
     summary: "One click to resolve a hold the way it was resolved before.",
     html: `
+<p><em>Added after submission, in version 1.4.</em></p>
 <p>On a held invoice, AP Clerks and Admins see <strong>Suggested fix</strong>: up to three ready-made resolutions. Choose <strong>Apply</strong> and the hold is resolved with that note in one click. An <strong>Undo</strong> button appears right away.</p>
 <h2>Where suggestions come from</h2>
 <ul>
@@ -519,6 +534,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "insights", section: "Using the web app", title: "Usage insights (Admin)",
     summary: "How Penny is used, and signals for improving it.",
     html: `
+<p><em>Added after submission, in version 1.4.</em></p>
 <p><a href="#/insights">Insights</a> shows how Penny is being used, so it can be improved over time.</p>
 <ul>
   <li><strong>Totals:</strong> sessions, screen views, actions taken, how often suggested fixes are accepted, and the typical time from opening a held invoice to resolving it.</li>
@@ -532,12 +548,14 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "exceptions-page", section: "Using the web app", title: "The Exceptions guide",
     summary: "Every hold reason, explained, with the invoices it applies to.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>The <a href="#/exceptions">Exceptions</a> page groups open holds by reason. For each reason it explains why it happens, what to do next, and which team acts. An invoice held for two reasons appears under both.</p>
 <p>The full list of reasons is in <a href="#/help/codes">Exception codes</a>.</p>` },
 
   { slug: "exports", section: "Using the web app", title: "Exports: what each file is",
     summary: "The files each run writes, and what they are not.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>Each run writes files for people to review. Download them from <a href="#/exports">Exports</a>.</p>
 <table class="mini"><thead><tr><th>Name</th><th>What is inside</th><th>For</th></tr></thead><tbody>
 <tr><td><strong>Intacct bill import file</strong><br><code>intacct_bill_import.csv</code></td><td>Bills that passed every check, in Sage Intacct's import format, one row per bill line.</td><td>AP team, to upload to Intacct</td></tr>
@@ -557,6 +575,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "runs", section: "Using the web app", title: "Run history",
     summary: "Each batch Penny read, and why reruns are safe.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>A run is one pass over a folder of invoices. <a href="#/runs">Run history</a> shows every run with its results.</p>
 <ul>
   <li><strong>Rerun:</strong> the same folder read again. Files already processed are skipped, so nothing is written to an import file twice.</li>
@@ -567,6 +586,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "audit", section: "Using the web app", title: "The audit trail",
     summary: "Who did what, when and why.",
     html: `
+<p><em>Added after submission, in version 1.3.</em></p>
 <p>The <a href="#/audit">Audit trail</a> lists every Penny run and every action a person took, newest first. Filter by person or action, or download it as a CSV file.</p>
 <p>When Penny runs for a team, this is one trail for everyone, kept in a database that only allows new entries. See <a href="#/help/team">Working as a team</a>.</p>
 <p>It brings together three sources:</p>
@@ -587,6 +607,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "rules-edit", section: "Using the web app", title: "Changing rules (Admin)",
     summary: "Edit thresholds and routes with a preview, then undo if needed.",
     html: `
+<p><em>Added after submission, in version 1.3. Every rule became editable in version 1.4.</em></p>
 <p>Admins can change every rule on the <a href="#/rules">Rules</a> page: dollar thresholds and tolerances, the team for each exception code, the order codes are ranked in, payment terms, the words Penny looks for (payment-change wording, duplicate stamps, approved bill-to names), the keyword-to-GL rules, one-time and subscription words, posting entities and accounts, whether the AI reader is on, and the company time zone.</p>
 <ol>
   <li>Change anything. Changed items turn copper. Lists have Add and remove buttons; the code order has up and down arrows.</li>
@@ -602,6 +623,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "search", section: "Using the web app", title: "Search and filters",
     summary: "Find any invoice fast.",
     html: `
+<p><em>Part of the web app, which was added after submission (versions 1.2 and 1.3).</em></p>
 <p>Press <kbd>/</kbd> to jump to search. You can search by vendor, invoice number, PO, file name or amount (with or without the dollar sign and commas).</p>
 <p>On <a href="#/invoices">Invoices</a>, filter by status, reason, category, vendor and bill date. Click a column title to sort. Filters live in the web address, so you can bookmark or share a filtered list.</p>
 <h2>Long lists</h2>
@@ -744,6 +766,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "publish", section: "Using Penny in the terminal", title: "Publishing this web view",
     summary: "From terminal runs to a shareable site.",
     html: `
+<p><em>Added after submission, in version 1.2.</em></p>
 <pre><code>./penny web-export --package ~/Downloads/Hillpointe_AP_Technical_Screen
 ./penny web               # preview on your computer</code></pre>
 <p>The export writes <code>web/data/penny-data.json</code>, copies each invoice PDF, and copies each run's files for the Exports page. If a PDF is missing, the export names it and says where to put it.</p>
@@ -818,6 +841,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "unreadable", section: "How Penny decides", title: "Unreadable files and unfamiliar layouts",
     summary: "What happens when Penny cannot read a document.",
     html: `
+<p><em>Added after submission, in version 1.1. The honest reason for unfamiliar layouts came in version 1.3.</em></p>
 <p>One bad file never stops a run. Penny holds just that file, names it, and says what is wrong:</p>
 <ul>
   <li>The file is empty, or not really a PDF.</li>
@@ -867,7 +891,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 
   { slug: "roles", section: "Reference", title: "Roles and permissions",
     summary: "Who can see and do what.",
-    html: `{{roles}}
+    html: `<p><em>Added after submission, in version 1.3.</em></p>
+{{roles}}
 <p>Every action checks the signed-in role twice: once to show the button, and again when the action is saved. When Penny runs for a team, that second check happens on the server, which decides who you are from your sign-in. See <a href="#/help/team">Working as a team</a>.</p>` },
 
   { slug: "glossary", section: "Reference", title: "Glossary",
@@ -938,6 +963,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   { slug: "security", section: "Reference", title: "Security and this demo",
     summary: "What is real, what is demo, and what production would add.",
     html: `
+<p><em>Part of the web app, which was added after submission. The security review came in version 2.0.1.</em></p>
 <p>This public site is a demo. It runs entirely in your browser, so it cannot keep secrets from you. It was still built with the habits a real system needs.</p>
 <h2>What the demo does</h2>
 <ul>
@@ -1020,7 +1046,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>Can people sign in with a Microsoft or Google account?</h2>
 <p>Not yet. It is the next thing Jamie intends to build: Microsoft work accounts first, then Google. Today each person has their own Penny password. See <a href="#/help/users">Managing people</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 125 automated checks of Penny's decisions, accounts, email and server, and 20 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 128 automated checks of Penny's decisions, accounts, email and server, and 20 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 

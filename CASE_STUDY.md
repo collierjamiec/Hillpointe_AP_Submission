@@ -84,7 +84,7 @@ out options with a recommendation. I chose, reviewed every change, and own the r
 follows.
 
 * **One version, one pull request,** each with its own notes and automated checks.
-* **A change is proven by a test.** Penny has 125 code tests and 20 browser suites that use the app the way a person
+* **A change is proven by a test.** Penny has 128 code tests and 20 browser suites that use the app the way a person
   does, on every change.
 * **The record is kept current by the project itself.** A test fails if a release is missing from the change log.
 * **Limits are written down** next to the features, in every release.

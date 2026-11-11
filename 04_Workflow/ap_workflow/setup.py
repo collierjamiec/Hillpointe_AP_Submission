@@ -74,6 +74,7 @@ def system_check(root, state_dir, web_dir):
     rows = []
 
     def add(name, ok, detail, need=True, fix=""):
+        """Add one line to the check: what was looked at, whether it is fine, and how to fix it if not."""
         rows.append({"name": name, "ok": bool(ok), "detail": detail, "need": need, "fix": "" if ok else fix})
     v = sys.version_info
     add("Python", v >= (3, 9), f"Version {v.major}.{v.minor}.{v.micro}", fix="Penny needs Python 3.9 or newer. Get it at python.org/downloads, then run the installer again.")

@@ -14,6 +14,7 @@ const THRESHOLDS = {
   coi_grace_days: ["Insurance grace period", "Days after a certificate expires before bills are held.", "days"],
   manual_entry_check_over: ["Manual entry second check", "Invoices keyed by hand with a total over this are keyed again by a different person before Penny uses them.", "money"],
 };
+/** A rule's value as a person reads it: money, a percentage, days or plain text. */
 function fmtSetting(v, kind) {
   if (kind === "money") return money(cents(v));
   if (kind === "pct") return `${+(Number(v) * 100).toFixed(2)}%`;
@@ -57,8 +58,10 @@ function parseSetting(kind, raw) {
 }
 let ruleDraft = {};           // { rules: draft copy while editing, raw: typed number text by path }
 const draftRules = () => ruleDraft.rules || RULES();
+/** Begin editing the rules on a copy, so nothing changes until it is saved. */
 function startDraft() { if (!ruleDraft.rules) ruleDraft = { rules: JSON.parse(JSON.stringify(RULES())), raw: {} }; return ruleDraft.rules; }
 
+/** What is wrong with one edited rule, in plain words, or nothing when it is fine. */
 function fieldErrors(f, v, raw) {
   if (["money", "pct", "days"].includes(f.type)) {
     if (raw === undefined) return "";
@@ -88,6 +91,7 @@ function fieldErrors(f, v, raw) {
   }
   return "";
 }
+/** Every difference between the edited rules and the saved ones, with any errors. */
 function draftChanges() {
   if (!ruleDraft.rules) return { changes: [], errors: [] };
   const changes = [], errors = [];
@@ -184,6 +188,7 @@ function impactOf(changes) {
   }
   return items;
 }
+/** The preview of what a rule change would do to the invoices on file. */
 function impactHtml(changes) {
   if (!changes.length) return "";
   return `<ul class="impact">${impactOf(changes).map((i) => `<li><b>${esc(i.title)}</b>${i.lines.map((l) => `<div>${esc(l)}</div>`).join("")}</li>`).join("")}</ul>`;
@@ -192,6 +197,7 @@ function impactHtml(changes) {
 // editors -----------------------------------------------------------------------------------------------
 const isChanged = (path) => ruleDraft.rules && JSON.stringify(getPath(RULES(), path)) !== JSON.stringify(getPath(ruleDraft.rules, path));
 const fid = (path) => "rf-" + path.replace(/[^a-z0-9]+/gi, "-");
+/** The box for editing a number: a dollar amount, a percentage or a count of days. */
 function numEditor(f, v) {
   const raw = (ruleDraft.raw || {})[f.path];
   const shown = raw !== undefined ? raw : f.type === "pct" ? +(Number(v) * 100).toFixed(4) : v;
@@ -202,6 +208,7 @@ function numEditor(f, v) {
     data-num="${esc(f.path)}" data-kind="${esc(f.type)}" value="${esc(shown)}" aria-label="${esc(f.label)}">${unitR}</span>`;
 }
 const textEditor = (f, v) => `<input id="${esc(fid(f.path))}" class="text-input${f.type === "code" ? " code-input" : ""}${isChanged(f.path) ? " changed" : ""}" data-text="${esc(f.path)}" maxlength="${f.type === "code" ? 20 : f.max || 140}" value="${esc(v ?? "")}" aria-label="${esc(f.label)}">`;
+/** The list for choosing the company time zone, with common zones first. */
 function tzEditor(f, v) {
   const cur = validTz(v) ? v : DEFAULT_TZ;
   const all = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone").filter((z) => !TZ_COMMON.includes(z)) : [];
@@ -213,12 +220,14 @@ function tzEditor(f, v) {
     <span class="s-help">Now there: ${esc(new Date().toLocaleString("en-US", { timeZone: cur, weekday: "short", hour: "numeric", minute: "2-digit", timeZoneName: "short" }))}</span></span>`;
 }
 const boolEditor = (f, v) => `<label class="switch"><input type="checkbox" data-bool="${esc(f.path)}" ${v ? "checked" : ""}><span class="switch-ui" aria-hidden="true"></span><span>${v ? "On" : "Off"}</span></label>`;
+/** The editor for a list of words, with Add and remove. */
 function wordsEditor(f, list) {
   return `<div class="words-edit${isChanged(f.path) ? " changed-box" : ""}">
     <ul class="chips word-chips" aria-label="${esc(f.label)}">${(list || []).map((w, i) => `<li class="chip word-chip">${esc(w)}<button type="button" class="chip-x" data-word-del="${esc(f.path)}" data-i="${i}" aria-label="Remove ${esc(w)}">×</button></li>`).join("")}</ul>
     <div class="word-add"><input class="text-input" data-word-input="${esc(f.path)}" maxlength="80" placeholder="Add a word or phrase" aria-label="Add to ${esc(f.label)}">
       <button type="button" class="btn btn-sm" data-word-add="${esc(f.path)}">Add</button></div></div>`;
 }
+/** The editor for the rules that map words in a description to a GL account. */
 function glmapEditor(f, rows) {
   return `<div class="map-edit${isChanged(f.path) ? " changed-box" : ""}">
     <div class="map-head" aria-hidden="true"><span>Description words (comma separated)</span><span>GL</span><span></span></div>
@@ -228,6 +237,7 @@ function glmapEditor(f, rows) {
       <button type="button" class="icon-btn" data-gl-del="${esc(f.path)}" data-i="${i}" aria-label="Remove rule ${i + 1}">×</button></div>`).join("")}
     <button type="button" class="btn btn-sm" data-gl-add="${esc(f.path)}">Add a keyword rule</button></div>`;
 }
+/** The editor for payment terms and how many days each one means. */
 function termsEditor(f, obj) {
   return `<div class="map-edit${isChanged(f.path) ? " changed-box" : ""}">
     <div class="map-head" aria-hidden="true"><span>Term name</span><span>Days</span><span></span></div>
@@ -237,12 +247,14 @@ function termsEditor(f, obj) {
       <button type="button" class="icon-btn" data-term-del="${i}" aria-label="Remove term ${esc(n)}">×</button></div>`).join("")}
     <button type="button" class="btn btn-sm" data-term-add>Add a payment term</button></div>`;
 }
+/** The editor for the order exception codes are ranked in, with up and down arrows. */
 function orderEditor(list) {
   return `<ol class="order-edit${isChanged("code_priority") ? " changed-box" : ""}">${list.map((c, i) => `<li>
     <span class="rank">${i + 1}</span><span>${codeChip(c)} <span class="order-name">${esc((CODES[c] || {}).plain || c)}</span></span>
     <span class="order-btns"><button type="button" class="icon-btn" data-move="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Move ${esc(c)} up">↑</button>
     <button type="button" class="icon-btn" data-move="${i}" data-dir="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="Move ${esc(c)} down">↓</button></span></li>`).join("")}</ol>`;
 }
+/** A rule's value shown without controls, for people who may not edit rules. */
 function readOnlyValue(f, v) {
   if (f.type === "words") return `<div class="chips">${(v || []).map((w) => `<span class="chip">${esc(w)}</span>`).join("") || '<span class="hint">None</span>'}</div>`;
   if (f.type === "glmap") return (v || []).map(([pat, gl]) => `<div class="kw-row"><span class="chips">${String(pat).split("|").map((p) => `<span class="chip">${esc(p)}</span>`).join("")}</span><code>${esc(gl)}</code></div>`).join("");
@@ -250,6 +262,7 @@ function readOnlyValue(f, v) {
   return `<div class="s-val">${esc(fmtRuleValue(f.path, v))}</div>`;
 }
 
+/** The Rules page: every rule by area, editable for an Admin and read-only for everyone else. */
 function viewRules() {
   const R = draftRules();
   const editing = can("rules");
@@ -304,6 +317,7 @@ function viewRules() {
 }
 
 let rulesBound = false;
+/** Wire the Rules page: the download button, and the editor when the person may edit. */
 function bindRules() {
   const dl = $("#download-rules");
   if (dl) dl.addEventListener("click", () => download("rules.json", JSON.stringify(RULES(), null, 2) + "\n", "application/json"));
@@ -313,6 +327,7 @@ function bindRules() {
   rulesBound = true;
   bindRulesEditor();
 }
+/** Redraw the bar at the bottom of Rules: what changed, the preview, and Save or Discard. */
 function paintRulesBar() {
     const bar = $("#edit-bar");
     if (!bar) return;
@@ -365,6 +380,7 @@ async function simulateRules(btn) {
     btn.disabled = false; btn.textContent = "Test on saved invoices";
   }
 }
+/** Wire every control in the rules editor, and Test, Discard and Save. */
 function bindRulesEditor() {
   const main = $("#main");
   const onRules = () => !!$("#edit-bar");
@@ -430,6 +446,7 @@ function bindRulesEditor() {
     }
   });
 }
+/** Undo a saved rule change, after asking for a reason. */
 function undoRule(id) {
   const e = EV.find((x) => x.id === id && x.type === "rules.update");
   if (!e || S.revoked.has(id)) return;
@@ -441,6 +458,7 @@ function undoRule(id) {
       return "";
     }, { danger: true });
 }
+/** Hand the person a file to save, made in the browser. */
 function download(name, text, type) {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement("a");

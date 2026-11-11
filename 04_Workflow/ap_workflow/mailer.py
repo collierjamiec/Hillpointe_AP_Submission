@@ -74,6 +74,8 @@ def describe():
 
 
 class Outbox:
+    """Every email Penny sends, or saves when no mail server is set up, with a record of each."""
+
     def __init__(self, state_dir):
         """Emails are kept under state_dir/outbox, with one index file."""
         self.dir = Path(state_dir) / "outbox"

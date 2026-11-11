@@ -14,10 +14,12 @@ VENV = HERE / ".venv"
 
 
 def venv_python():
+    """The Python inside Penny's private environment, on Windows or anywhere else."""
     return VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
 def install():
+    """Make Penny's private environment, install its libraries, and check that everything is ready."""
     print("Penny setup\n")
     if sys.version_info < (3, 9):
         sys.exit(f"Python 3.9 or newer is needed. This is {sys.version.split()[0]}. Get it at python.org/downloads, then run install again.")

@@ -23,6 +23,8 @@ CONSTRUCTION_VENDOR_TYPES = ("Subcontractor", "Supplier: Material", "Supplier: E
 
 
 class Decision:
+    """What Penny decided about one document: enter, hold or duplicate, with the reasons and the trail of checks."""
+
     def __init__(self, doc):
         """Start an undecided result for one document, with the fields every output file needs."""
         self.doc = doc
@@ -105,6 +107,8 @@ def allocate_tax(amounts, tax):
 
 
 class Engine:
+    """The rules engine: runs every check on a document, in order, and returns a decision."""
+
     def __init__(self, master, history, contracts, register, cfg, run_id):
         """Keep the reference data, the register and the rules, and read the tolerances once."""
         self.m, self.h, self.c, self.reg, self.cfg, self.run_id = master, history, contracts, register, cfg, run_id

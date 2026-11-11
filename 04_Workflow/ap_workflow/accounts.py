@@ -1,16 +1,17 @@
 """User accounts for Penny on a computer. (Added after submission, v1.7.)
 
-Turned on when there is at least one person. Since v2.0 people and links live in the database (state/penny.db,
-see store.py); the files named below are where they lived before, and are moved in the first time 2.0 starts.
-Turned on when state/users.json (now the database) has at least one user. Create the first Admin from the terminal:
+Turned on when there is at least one person. Create the first Admin from the terminal:
   ./penny users invite --email you@company.com --name "Your Name" --role admin
-Without that file, ./penny web keeps the four public demo accounts (browser-only), exactly as before.
+Until then, ./penny web keeps the four public demo accounts (browser-only), exactly as before.
 
-What is stored, and how
-  state/users.json    each person: id, email, name, title, role, status (invited, active, inactive), who created and
-                      changed them, appearance preferences, and a password as a random salt plus a PBKDF2-SHA256 hash
-                      (200,000 rounds). Never the password itself.
-  state/tokens.json   invite and reset links, stored only as SHA-256 hashes of the token, each with its purpose, user,
+What is stored, and how. Since v2.0 people and links live in the database (state/penny.db, see store.py). Before
+2.0 they were two files, state/users.json and state/tokens.json; those are moved into the database the first time
+2.0 starts, and are still read when Penny is given no database (some tests do this).
+  People              each person: id, email, name, title, role, status (invited, active, inactive), who created and
+                      changed them, appearance preferences, their profile (v2.3: about line, backup person, photo),
+                      and a password as a random salt plus a PBKDF2-SHA256 hash (200,000 rounds). Never the password
+                      itself.
+  Links               invite and reset links, stored only as SHA-256 hashes of the token, each with its purpose, user,
                       expiry (invite 72 hours, reset 1 hour) and whether it was used. A link works once.
   Sessions            a random token in an HttpOnly, SameSite=Strict cookie. The server keeps only its hash, in memory,
                       and ends it after 30 idle minutes, on sign out, or when the person is turned off or their role
@@ -20,7 +21,7 @@ Rules that protect the team
   * Passwords: at least 10 characters, not the email or name, not a common password.
   * Five wrong passwords lock that email for a minute, doubling each time. Errors never say whether an email exists.
   * Only an Admin manages people. Nobody can turn off or demote themselves, and the last active Admin stays an Admin.
-  * Every change is appended to state/batch_log.jsonl and shown in the audit trail.
+  * Every change is added to the audit log (the events table in the database) and shown in the audit trail.
 """
 import base64
 import binascii
@@ -153,6 +154,8 @@ def clean_email(v):
 
 
 class Accounts:
+    """Everyone who can sign in to this Penny: their accounts, one-time links, sessions and profiles."""
+
     def __init__(self, state_dir, log=None, clock=time.time, store=None):
         """Accounts for one Penny. With `store` (the database, v2.0) people and links live there; without it they
         are the JSON files under state_dir, as before 2.0. `log` receives audit events; `clock` can be replaced in tests."""
@@ -174,8 +177,9 @@ class Accounts:
         return bool(self._users())
 
     def _users(self):
-        """Everyone, read from users.json. The parsed file is reused until the file changes on disk, because every
-        request looks up the signed-in person. Callers get their own copy and may change it before saving."""
+        """Everyone, read from the database (or users.json when there is no database). The parsed list is reused
+        until it changes, because every request looks up the signed-in person. Callers get their own copy and may
+        change it before saving."""
         if self.store:
             key = ("db", self.store.doc_rev("users"))
             if self._cache[0] != key:
@@ -213,7 +217,8 @@ class Accounts:
             return {}
 
     def _save_tokens(self, tokens):
-        """Write tokens.json, dropping links that expired more than a week ago."""
+        """Save the links (to the database, or tokens.json when there is none), dropping any that expired more than
+        a week ago."""
         self.dir.mkdir(parents=True, exist_ok=True)
         now = self.clock()
         keep = {k: v for k, v in tokens.items() if v["expires"] > now - 7 * 86400}   # forget old links after a week

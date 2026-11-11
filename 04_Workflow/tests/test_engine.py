@@ -8,6 +8,8 @@ from common import *        # noqa: F401,F403  (paths, PKG, needs_package, EXPEC
 
 
 class UnitTests(unittest.TestCase):
+    """Small pieces on their own: matching invoice numbers, and splitting tax across lines to the cent."""
+
     def test_invoice_number_normalization(self):
         self.assertEqual(norm_invoice_no("INV-20417"), norm_invoice_no("20417"))
         self.assertEqual(norm_invoice_no("inv 020417"), norm_invoice_no("20417"))
@@ -23,6 +25,8 @@ class UnitTests(unittest.TestCase):
 
 @needs_package
 class AssessmentBatches(unittest.TestCase):
+    """The sample batches from the assessment package, checked against the answer key written before the code."""
+
     @classmethod
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp())
@@ -80,6 +84,8 @@ class AssessmentBatches(unittest.TestCase):
 
 @needs_package
 class EdgeCases(unittest.TestCase):
+    """Invoices built by the tests to reach cases the sample documents do not cover."""
+
     def run_docs(self, builders):
         tmp = Path(tempfile.mkdtemp())
         try:

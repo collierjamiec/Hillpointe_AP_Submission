@@ -29,6 +29,7 @@ const KEY = (() => {
   if (m) history.replaceState(null, "", location.pathname);      // keep the key out of the address bar and history
   return key;
 })();
+/** Call the setup wizard's server with this run's one-time key. */
 async function ask(path, body) {
   const opts = { headers: { "X-Penny": "1", "X-Penny-Setup": KEY } };
   if (body) Object.assign(opts, { method: "POST", body: JSON.stringify(body) }, { headers: { ...opts.headers, "Content-Type": "application/json" } });
@@ -52,6 +53,7 @@ const STEPS = [
 ];
 const hasPeople = () => W.state.people > 0;
 
+/** Screen 1, This computer: what is ready and what is missing. */
 function viewCheck() {
   const c = W.state.check;
   const rows = c.rows.map((r) => `<li class="${r.ok ? "ok" : r.need ? "bad" : "note"}">${r.ok ? ICON.ok : r.need ? ICON.bad : ICON.note}
@@ -67,6 +69,7 @@ function viewCheck() {
       <button class="btn btn-accent" type="button" data-go="next" ${c.ready ? "" : "disabled"}>Continue</button></div>`;
 }
 
+/** Screen 2, Your invoices: find the invoice package, or skip it. */
 function viewPackage() {
   const found = W.pkg && W.pkg.ok ? `<div class="setup-found" role="status">${ICON.ok}<div><b>This is the invoice package.</b>
       <span>${esc(plural(W.pkg.reference_files.length, "reference file"))} and ${esc(plural(W.pkg.pdfs, "invoice PDF"))} in ${esc(plural(W.pkg.batches.length, "folder"))}.</span>
@@ -89,6 +92,7 @@ function viewPackage() {
     <p class="hint">Skipping is fine. You can look around with the example data, and run setup again later to add the folder.</p>`;
 }
 
+/** Screen 3, Who uses Penny: just me, or a team with a first Admin. */
 function viewPeople() {
   const already = hasPeople();
   const form = W.mode === "team" && !already ? `<fieldset class="setup-admin"><legend>You will be the first Admin</legend>
@@ -116,6 +120,7 @@ function viewPeople() {
     </form>`;
 }
 
+/** Screen 4, Settings: the time zone, the watched folder and the network choice. */
 function viewSettings() {
   const s = W.state, cert = s.certificate;
   const zones = ZONES.some(([z]) => z === W.zone) ? ZONES : [[W.zone, W.zone], ...ZONES];
@@ -152,6 +157,7 @@ function viewSettings() {
     </form>`;
 }
 
+/** Screen 5, All set: what was chosen and how to start Penny. */
 function viewDone() {
   const c = W.done.choices;
   const lines = [
@@ -176,6 +182,7 @@ function viewDone() {
 
 // ------------------------------------------------------------------ drawing
 const VIEWS = { check: viewCheck, package: viewPackage, people: viewPeople, settings: viewSettings, done: viewDone };
+/** Draw the current screen and the step list above it. */
 function draw(focus) {
   const step = STEPS[W.step];
   $("#steps").innerHTML = STEPS.map((s, i) => `<li class="${i < W.step ? "done" : i === W.step ? "now" : ""}" ${i === W.step ? 'aria-current="step"' : ""}>
@@ -186,6 +193,7 @@ function draw(focus) {
   if (focus) { main.focus(); window.scrollTo(0, 0); }
   bind();
 }
+/** Move to another screen. */
 function go(n) { W.step = Math.max(0, Math.min(STEPS.length - 1, n)); W.error = ""; draw(true); }
 /** Run one request with the button showing it is busy, and any refusal shown on the page. */
 async function busy(work) {
@@ -195,6 +203,7 @@ async function busy(work) {
   const err = $("#wizard [role=alert]");
   if (err) err.scrollIntoView({ block: "nearest" });
 }
+/** Wire the controls on the current screen. */
 function bind() {
   const main = $("#wizard");
   $$("[data-go]", main).forEach((b) => b.addEventListener("click", async () => {
@@ -240,13 +249,16 @@ function bind() {
 }
 /* What is typed stays typed when a screen is redrawn. A password is never kept: it is read once, when sent. */
 function keepAdmin() { const n = $("#ad-name"); if (n) W.draft = { name: n.value.trim(), email: $("#ad-email").value.trim() }; }
+/** Put back the name and email typed for the first Admin after a redraw. */
 function restoreAdmin() { const n = $("#ad-name"); if (n && W.draft) { n.value = W.draft.name; $("#ad-email").value = W.draft.email; } }
+/** Remember what is on the Settings screen before it is redrawn. */
 function keepSettings() {
   const f = $("#settings-form");
   if (!f) return;
   W.zone = $("#zone").value; W.watch = f.elements.watch.checked;
   const h = $("#host"); if (h) W.host = h.value.trim();
 }
+/** Ask the server whether a folder is the invoice package. */
 function checkPackage() { busy(async () => { W.pkg = null; const r = await ask("api/setup/package", { path: W.path }); if (!r.ok) throw new Error(r.problem); W.pkg = r; W.path = r.path; W.skipPkg = false; }); }
 
 // ------------------------------------------------------------------ start

@@ -9,6 +9,7 @@
 const EVIDENCE_MAX = 10 * 1048576;
 const MEMFILES = new Map();
 let idbPromise = null;
+/** Open this browser's file store, where attached evidence is kept. */
 function idb() {
   if (!idbPromise) idbPromise = new Promise((res, rej) => {
     try {
@@ -20,6 +21,7 @@ function idb() {
   });
   return idbPromise;
 }
+/** Keep an attached file in this browser. Returns false when the browser will not save it. */
 async function putFile(meta, blob) {
   MEMFILES.set(meta.sha256, { ...meta, blob });
   try {
@@ -28,6 +30,7 @@ async function putFile(meta, blob) {
     return true;
   } catch (e) { return false; }
 }
+/** Fetch an attached file kept in this browser, or nothing when it is not here. */
 async function getFile(sha) {
   if (MEMFILES.has(sha)) return MEMFILES.get(sha);
   try {
@@ -49,6 +52,7 @@ async function readEvidence(file) {
 }
 const fileMeta = (f) => ({ name: f.name, type: f.type, bytes: f.bytes, sha256: f.sha256 });
 const fileLink = (f) => `<button type="button" class="link-btn file-link" data-open-file="${esc(f.sha256)}" title="SHA-256 ${esc(f.sha256)}">${esc(f.name)}</button><span class="sub-inline">${esc(fmtBytes(f.bytes))} · ${esc(f.sha256.slice(0, 10))}</span>`;
+/** Open an attached file in a new tab, or say why it cannot be opened. */
 async function openFile(sha) {
   const f = await getFile(sha);
   if (!f || !f.blob) { toast("That file is not in this browser. It was attached in another browser, or the browser storage was cleared."); return; }
@@ -64,6 +68,7 @@ function evidenceField(label, hint) {
     <span class="hint">${esc(hint || "Screenshots (PNG or JPEG) or PDFs, up to 10 MB each. Each file is fingerprinted and named in the audit trail.")}</span>
     <ul class="dlg-files" id="dlg-file-list" aria-live="polite"></ul></div>`;
 }
+/** Check files as they are chosen in a dialog: their kind, size and fingerprint. */
 function watchEvidence(state) {
   const inp = $("#dlg-files");
   if (!inp) return;
@@ -77,11 +82,13 @@ function watchEvidence(state) {
       + (inp.files.length > 5 ? `<li class="form-error">Only the first 5 files are kept.</li>` : "");
   });
 }
+/** Why the chosen files cannot be attached yet, in plain words, or nothing when they are fine. */
 function evidenceProblem(state) {
   if (state.busy) return "Still checking the files. Try again in a moment.";
   const bad = (state.files || []).find((f) => f.error);
   return bad ? `${bad.name}: ${bad.error}. Remove it or pick another file.` : "";
 }
+/** Keep a set of attached files, and say so if the browser blocked it. */
 async function keepFiles(files) {
   const ok = await Promise.all(files.map((f) => putFile(fileMeta(f), f.blob)));
   if (ok.includes(false)) toast("This browser blocked saving files, so attachments last only until you close this tab.");
@@ -98,22 +105,26 @@ const BLOCKER_STATUS = {
   cleared: { label: "Cleared", cls: "b-approved", icon: "check" },
 };
 const blockerBadge = (st) => { const b = BLOCKER_STATUS[st] || BLOCKER_STATUS.open; return `<span class="badge ${b.cls}">${bIcon(b.icon)}${esc(b.label)}</span>`; };
+/** Each reason an invoice is held, with its owner, target date and whether it has been cleared. */
 function blockersOf(d) {
   if (d.pennyStatus !== "HOLD") return [];
   const got = S.blockers[d.id] || {};
   const routed = (S.holds[d.id] || {}).route;
   return (d.codes.length ? d.codes : ["OTHER"]).map((code) => ({ code, status: "open", owner: routed || (RULES().routes || {})[code] || "", due: "", notes: [], files: [], ...(got[code] || {}) }));
 }
+/** How many of an invoice's blockers are cleared, or nothing when it has none. */
 function blockerSummary(d) {
   const list = blockersOf(d);
   return list.length ? { list, done: list.filter((b) => b.status === "cleared").length, total: list.length } : null;
 }
 const blockerChip = (d) => { const s2 = blockerSummary(d); return s2 && s2.done ? `<span class="badge ${s2.done === s2.total ? "b-approved" : "b-waiting"}">${bIcon(s2.done === s2.total ? "check" : "clock")}${s2.done} of ${s2.total} blockers cleared</span>` : ""; };
+/** A small tag for a blocker's target date: overdue, due today, or how many days are left. */
 function dueTag(due) {
   if (!due) return "";
   const n = daysBetween(today(), due);
   return n < 0 ? `<span class="due-tag late">${plural(-n, "day")} overdue</span>` : n === 0 ? `<span class="due-tag soon">due today</span>` : n <= 2 ? `<span class="due-tag soon">in ${plural(n, "day")}</span>` : "";
 }
+/** The Blockers card on a held invoice, with one row and its actions for each reason. */
 function blockersCard(d) {
   const sum = blockerSummary(d);
   if (!sum) return "";
@@ -142,6 +153,7 @@ function blockersCard(d) {
       ${!closed && sum.done === sum.total ? `<p class="bl-done">${bIcon("check")}All blockers are cleared. Recheck the invoice, then resolve the hold.</p>` : ""}
     </div></section>`;
 }
+/** The dialog for updating, clearing or reopening one blocker. */
 function blockerDialog(id, code, mode) {
   const d = X.docById[id];
   const b = blockersOf(d).find((x) => x.code === code);
@@ -201,6 +213,7 @@ function blockerDialog(id, code, mode) {
 const RC = {};                 // invoice id -> the latest recheck preview shown on this page
 const RC_SOURCE = { saved: "Same reading, today's rules and data", file: "Corrected PDF", keyed: "Manual entry" };
 const engineReady = () => !!(SERVER && SERVER.engine);
+/** Explain that an action needs Penny running on a computer, with the steps to start it. */
 function needsEngine(what) {
   openDialog(`${what} needs Penny on your computer`, "This public demo has no server, so it cannot run Penny's engine. Nothing was sent anywhere.",
     `<ol class="notes"><li>Open Terminal in the project folder, then <code>cd 04_Workflow</code>.</li>
@@ -209,6 +222,7 @@ function needsEngine(what) {
     "", () => "", { info: true });
   track("engine_demo_attempt", { what });
 }
+/** Ask the server what Penny would decide about an invoice now, and keep the answer as a preview. */
 async function runRecheck(id, source, extra = {}) {
   const d = X.docById[id];
   const who = { id: user.id, name: user.name, role: user.role };
@@ -232,6 +246,7 @@ async function runRecheck(id, source, extra = {}) {
     openDialog("Penny could not recheck this invoice", esc(e.message), "", "", () => "", { info: true });
   }
 }
+/** The dialog that starts a recheck and says what a preview does and does not change. */
 function recheckDialog(id) {
   if (!engineReady()) return needsEngine("Rechecking");
   const d = X.docById[id];
@@ -252,6 +267,7 @@ function recheckDialog(id) {
     });
   $$('#dialog input[name="source"]').forEach((r) => r.addEventListener("change", () => ($("#rc-file-field").hidden = r.value !== "file" || !r.checked)));
 }
+/** One side of a recheck comparison: a decision, its badges and its reasons. */
 function briefCol(title, b) {
   const reasons = (b.reasons || []).map(parseReason);
   return `<div class="rc-col"><h3>${esc(title)}</h3><div class="status-strip">${badge(b.decision)}${destTag(b.decision)}</div>
@@ -260,6 +276,7 @@ function briefCol(title, b) {
       : b.decision && b.decision.startsWith("ENTER_") ? `<p>Every check passed.</p>` : ""}
     ${(b.approvers || []).length ? `<p class="hint">Approvals needed: ${esc(b.approvers.join("; "))}</p>` : ""}</div>`;
 }
+/** The card that compares Penny's saved decision with what a recheck found. */
 function recheckCard(d) {
   const r = RC[d.id];
   if (!r) return "";

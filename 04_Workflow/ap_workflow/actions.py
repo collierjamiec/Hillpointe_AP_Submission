@@ -64,6 +64,7 @@ RESERVED = ("id", "type", "at", "user", "seq", "origin", "pending", "repeat")
 class ActionError(Exception):
     """An action the server refuses. `status` is the HTTP status to answer with."""
     def __init__(self, message, status=409):
+        """Keep the message and the HTTP status to answer with."""
         super().__init__(message)
         self.status = status
 
@@ -79,6 +80,7 @@ def subject_of(event):
 
 
 def _name(e):
+    """The name of the person behind an audit entry, or "Someone" when it has none."""
     return (e.get("user") or {}).get("name") or "Someone"
 
 
@@ -111,6 +113,7 @@ def set_path(obj, path, value):
 
 
 def _kind(v):
+    """What kind of value this is (true or false, a number, text, a list), for comparing an old rule with a new one."""
     return "bool" if isinstance(v, bool) else "number" if isinstance(v, (int, float)) else type(v).__name__
 
 
@@ -128,6 +131,7 @@ def check_rule_value(path, old, new):
         raise ActionError(f"The new value for {path} is not the same kind of value as the old one.", 422)
 
     def numbers(v):
+        """Refuse a number that is negative or not finite, anywhere inside the value."""
         if isinstance(v, bool):
             return
         if isinstance(v, (int, float)) and (not math.isfinite(v) or v < 0):
@@ -217,6 +221,7 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 def check_shape(kind, body):
     """Refuse (422) an action whose fields are the wrong kind of value, too long or too deeply nested."""
     def walk(v, depth=0):
+        """Check one value and everything nested inside it."""
         if depth > 8:
             raise ActionError("That action is nested too deeply.", 422)
         if isinstance(v, str) and len(v) > 20000:
@@ -331,6 +336,7 @@ def record(service, actor, event):
     new_rules = {}
 
     def check(db):
+        """Check the action against what teammates have already done, inside the same database step that saves it."""
         # Work moved in from a browser is history only: it was never checked by the server, so it does not count
         # as a sign-off, an import or a second check.
         about = [e for e in service.store.about(subject, db=db) if not (e["origin"] == "import" and MOVED_IS_HISTORY.match(e.get("type", "")))] if subject else []
