@@ -122,7 +122,7 @@ This is the largest gap, and it is on purpose.
 
 ## 7. Testing with real people
 
-Automated tests are strong on rules and weak on people. Penny has 122 code tests and 18 browser suites. None of
+Automated tests are strong on rules and weak on people. Penny has 122 code tests and 19 browser suites. None of
 them is a person.
 
 | | Today | Production needs | Why not here |
@@ -140,7 +140,7 @@ them is a person.
 | | Today | Production needs | Why not here |
 |---|---|---|---|
 | **Support** | Me. | Someone to call, hours they answer, and a promise about how fast. | A business, not a project. |
-| **Training** | A help center with about 50 articles and a setup wizard. | Training for each role, and a plan for moving a team from how they work today. | Depends on the team. |
+| **Training** | A help center with about 50 articles, a guided tour, a getting started guide and a setup wizard. | Training for each role, and a plan for moving a team from how they work today. | Depends on the team. |
 | **A written accessibility statement** | The help center says what was checked and what was not. | A formal report against the standard, which buyers often require. | Follows from testing with real people. |
 | **Legal terms** | None. | A license, terms of use, and an agreement about the data Penny holds. | Needs a lawyer. |
 

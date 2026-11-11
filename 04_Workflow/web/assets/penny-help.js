@@ -5,7 +5,7 @@
 window.PENNY_HELP = [
   // ------------------------------------------------------------------ getting started
   { slug: "welcome", section: "Getting started", title: "Welcome to Penny",
-    summary: "What Penny is, what it does, and a two-minute tour.",
+    summary: "What Penny is, what it does, and two quick ways to see it.",
     html: `
 <p>Penny is an accounts payable assistant. It reads vendor invoices, checks each one against your company's AP rules, and tells your team three things: what is ready to import, what needs a person to review, and why.</p>
 <div class="help-note"><strong>AI reads. Code decides. People approve.</strong> Reading a PDF is the only fuzzy step, so that is the only place AI may help (and it is off by default). Every decision is made by plain, tested rules that give the same answer every time. People make the final call on anything unusual.</div>
@@ -21,7 +21,9 @@ window.PENNY_HELP = [
   <li>It does not pay anything, post anything, or connect to Intacct or Entrata. It writes files that a person reviews and uploads.</li>
   <li>It does not guess. If something is missing or does not match, the invoice is held with a reason.</li>
 </ul>
-<h2>A two-minute tour</h2>
+<h2>See it in two minutes</h2>
+<p>The quickest way is the <a href="#/help/tour">guided tour</a>: choose <strong>Take the tour</strong> at the top of the Overview. It walks you through the real pages and changes nothing.</p>
+<p>Or try a real task yourself:</p>
 <ol>
   <li>Sign in as <strong>Avery Chen (AP Clerk)</strong>.</li>
   <li>On the <a href="#/">Overview</a>, choose <strong>Start reviewing</strong>.</li>
@@ -29,6 +31,39 @@ window.PENNY_HELP = [
   <li>Press <kbd>j</kbd> to move to the next invoice.</li>
   <li>Open the <a href="#/audit">Audit trail</a> to see your action recorded with your name and the time.</li>
 </ol>` },
+
+  { slug: "tour", section: "Getting started", title: "Take the guided tour",
+    summary: "A two-minute walk through Penny, on the real pages.",
+    html: `
+<p><em>Added after submission, in version 2.2.0.</em></p>
+<p>The tour is the quickest way to see what Penny does. It takes about two minutes and changes nothing, so it is safe in every role.</p>
+<p><button class="btn btn-accent" type="button" data-tour>Start the tour</button></p>
+<h2>Where to find it</h2>
+<ul>
+  <li><strong>Take the tour</strong> at the top of the <a href="#/">Overview</a> and of the Help center.</li>
+  <li><strong>Take the tour</strong> in the menu under your name, from any page.</li>
+</ul>
+<h2>How it works</h2>
+<ul>
+  <li>A small card appears in the corner. It opens a real page, outlines the part it is describing, and explains it in a few sentences.</li>
+  <li><strong>Next</strong> and <strong>Back</strong> move between stops. The card shows which stop you are on.</li>
+  <li>The page behind the card still works. Click around at any stop, then choose <strong>Next</strong> to carry on.</li>
+  <li>To leave, choose the <strong>X</strong> on the card or press <kbd>Esc</kbd>. You stay on the page you were looking at.</li>
+</ul>
+<h2>The stops</h2>
+<ol>
+  <li><strong>Overview:</strong> what needs a person, largest first.</li>
+  <li><strong>A held invoice:</strong> why it was held, who it goes to, and what clears it.</li>
+  <li><strong>What Penny read:</strong> each value, and where on the page it came from.</li>
+  <li><strong>A bill that is ready:</strong> the honest label, "Ready for Intacct import".</li>
+  <li><strong>Exceptions:</strong> every kind of hold and its route.</li>
+  <li><strong>Exports:</strong> the files for Sage Intacct and Entrata, and their history.</li>
+  <li><strong>Rules:</strong> the thresholds and routes, in plain view.</li>
+  <li><strong>Audit trail:</strong> who did what, and when.</li>
+  <li><strong>Decisions and why:</strong> the reason behind each choice.</li>
+</ol>
+<p>If there is no held invoice or no ready bill at the moment, the tour leaves those stops out.</p>
+<div class="help-note"><strong>With a keyboard or a screen reader.</strong> Each stop moves focus to its heading, so it is read out. <kbd>Tab</kbd> reaches Back, Next and the close button. <kbd>Esc</kbd> ends the tour.</div>` },
 
   { slug: "roles-demo", section: "Getting started", title: "Try each role",
     summary: "The four demo accounts and what each one can do.",
@@ -551,6 +586,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
     html: `
 <div class="help-note"><strong>The easy way.</strong> Double-click <strong>Install Penny</strong> in the Penny folder. It installs Penny and opens a setup wizard in your browser. See <a href="#/help/setup">The setup wizard</a>. The steps below do the same by hand.</div>
 <p>Penny runs on Python 3.9 or newer. It sets up its own private environment, so it does not touch anything else on your computer.</p>
+<p>New to the project? The <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/GETTING_STARTED.md" target="_blank" rel="noopener">getting started guide on GitHub</a> walks through download, install and first look, with fixes for common problems.</p>
 <pre><code>cd 04_Workflow
 ./penny install          # one time: creates .venv and installs the libraries
 ./penny check            # confirms Python, libraries, package and register
@@ -955,7 +991,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>Can people sign in with a Microsoft or Google account?</h2>
 <p>Not yet. It is the next thing Jamie intends to build: Microsoft work accounts first, then Google. Today each person has their own Penny password. See <a href="#/help/users">Managing people</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 122 automated checks of Penny's decisions, accounts, email and server, and 18 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 122 automated checks of Penny's decisions, accounts, email and server, and 19 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 

@@ -57,7 +57,7 @@ function viewDashboard() {
   const first = user.name.split(" ")[0];
 
   return `
-    ${head(`${greeting()}, ${esc(first)}`, "Here is what needs attention, why, and what to do next.")}
+    ${head(`${greeting()}, ${esc(first)}`, "Here is what needs attention, why, and what to do next.", TOUR_BUTTON)}
     <section class="card attention" aria-labelledby="att-title">
       <div class="att-head">
         <div><h2 id="att-title">${esc(focus.title)}</h2><p>${esc(focus.sub)}</p></div>

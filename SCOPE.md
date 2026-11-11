@@ -25,7 +25,8 @@ and what I chose to build on my own.
 | 2.1.0 | November 2026 | **After submission:** a setup wizard that installs Penny and gets it ready from a double-click. | Pull request #13 |
 | 2.1.1 | November 2026 | **After submission:** the reasons for my decisions, written into every page. | Pull request #14 |
 | 2.1.2 | November 2026 | **After submission:** an honest list of what production would take, with sign-in through Microsoft and Google named as the next step. | Pull request #15, [`PRODUCTION.md`](PRODUCTION.md) |
-| 2.1.3 | November 2026 | **After submission:** a fix so the left menu scrolls and Help center is never cut off. | This pull request |
+| 2.1.3 | November 2026 | **After submission:** a fix so the left menu scrolls and Help center is never cut off. | Pull request #16 |
+| 2.2.0 | November 2026 | **After submission:** a front door for the project: a guided tour in the app, a case study, a getting started guide and screenshots. | This pull request |
 
 **The short version of every release** is in [`CHANGELOG.md`](CHANGELOG.md), with where each idea came from and a
 list of every idea and where it went. **Why I made each choice** is in [`DECISIONS.md`](DECISIONS.md), and in a short "Why I built this" line under each
@@ -828,6 +829,26 @@ down, and the menu would not scroll.
 * The left menu scrolls by itself when the window is too short to show every link.
 * On phones it uses the height of the visible screen, so the browser's own bars do not hide the last link.
 * Six new checks in the phone test suite: a short desktop window and a phone held sideways.
+
+---
+
+## Version 2.2.0: a front door (November 2026, after submission)
+
+**Why I built this.** Penny is a portfolio piece, and the first minute on the project page was mostly text. I
+wanted someone new to see the product quickly, and I wanted a getting started guide for when folks download the
+project.
+
+* **A guided tour in the web app.** Nine stops on the real pages, each outlining the part it describes. It starts
+  from **Take the tour** on the Overview, in the Help center, and in the menu under your name. It changes nothing,
+  works with a keyboard and a screen reader, and fits a phone.
+* **[`GETTING_STARTED.md`](GETTING_STARTED.md):** download, install, start and look around, step by step. It says
+  what works without the invoice package and what to do when something goes wrong.
+* **[`CASE_STUDY.md`](CASE_STUDY.md):** the problem, my approach, what I built, the hard calls and what I would do
+  next, in about four minutes.
+* **Screenshots of the real app** in `docs/screenshots/`, taken by a script (`04_Workflow/tests/browser/screenshots.js`)
+  so they can be retaken.
+* **A README that leads with the product:** a screenshot, three ways in, and a look inside.
+* A new browser suite for the tour (34 checks), and accessibility checks with the tour open.
 
 ---
 

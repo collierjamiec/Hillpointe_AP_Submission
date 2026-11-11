@@ -9,7 +9,9 @@ where each rule lives, assumptions). Read it before changing behavior.
 
 ## Layout
 
-- `README.md` (GitHub landing page), `SCOPE.md` (original assignment vs. everything added after submission, by version)
+- `README.md` (GitHub landing page; leads with screenshots from `docs/screenshots/`), `GETTING_STARTED.md` (for
+  people who download the project; keep its steps true by running them on a fresh clone), `CASE_STUDY.md` (the
+  short story of the project), `SCOPE.md` (original assignment vs. everything added after submission, by version)
   `DECISIONS.md` (every major decision, what Jamie weighed, and why; all credited as Jamie's decisions) and
   `PRODUCTION.md` (Penny is a portfolio project, not production software: what production would take, where Penny
   stands on each item, and why it is not done here; sign-in with Microsoft then Google is the intended next build).
@@ -53,7 +55,9 @@ where each rule lives, assumptions). Read it before changing behavior.
   release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
   `web/data/releases.json` and `APP_VERSION` in `web/assets/penny-core.js`; a test checks all four agree.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
-- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (14 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
+- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (15 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
+  `assets/penny-tour.js` (v2.2: the guided tour; it only moves between pages and must never record an action; when a
+  page it stops on changes, update its stops and `tests/browser/tour.spec.js`),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
   (design tokens at the top). It never re-decides an invoice: human actions are events in an audit log (in the browser for the demo, on the server in team mode).
   Labels must stay honest: ENTER_INTACCT is "Ready for Intacct import", never "entered" or "paid".
@@ -80,7 +84,9 @@ export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
 - Money is `Decimal`, never float.
 - Every decision change should come with a test in `tests/test_engine.py` (web and server tests go in `test_web.py`,
   accounts, email, versions and security in `test_platform.py`; shared setup is `tests/common.py`). Browser suites live in
-  `tests/browser/` and run with `python tests/browser/run.py`; add to them when the web app changes.
+  `tests/browser/` and run with `python tests/browser/run.py`; add to them when the web app changes. When a screen
+  shown in the README changes, retake the screenshots: start `python tests/browser/lab.py`, then
+  `node tests/browser/screenshots.js`.
 - Every function gets a one-line description. `ROADMAP.md` was the plan to 2.0 (finished) and now lists what is
   intended next: update it in the same change as the work.
 - For decisions: `tests/expected_decisions.json` holds the
