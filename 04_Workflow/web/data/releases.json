@@ -2,6 +2,16 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.1.3",
+      "date": "2026-11-11",
+      "required": false,
+      "summary": "The left menu scrolls, so Help center is never cut off",
+      "notes": [
+        "The left menu now scrolls by itself when the window is too short to show every link. Before, Help center could sit below the bottom of the screen.",
+        "On phones the menu uses the height of the visible screen, so the browser's bars no longer hide the last link."
+      ]
+    },
+    {
       "version": "2.1.2",
       "date": "2026-11-11",
       "required": false,

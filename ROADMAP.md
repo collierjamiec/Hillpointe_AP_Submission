@@ -8,7 +8,7 @@ plans I changed, is in [`DECISIONS.md`](DECISIONS.md).
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.1.2 was finished.
+Last updated: November 2026, when 2.1.3 was finished.
 
 ---
 
@@ -106,6 +106,13 @@ Penny is a portfolio project. This release writes down, in one place, what stand
 | Sign-in with Microsoft and Google named as the next thing to build | Done (the plan, not the feature) |
 | The same list, shorter, in the help center of the live demo | Done |
 | [`CHANGELOG.md`](CHANGELOG.md): every version, with a test that fails if a release is ever missing from it | Done |
+
+## 2.1.3: a menu that scrolls (Done)
+
+| Item | Status |
+|---|---|
+| The left menu scrolls when the window is short, so Help center can always be reached | Done |
+| Checks for a short desktop window and a phone held sideways | Done |
 
 ## After 2.0 (intended, not scheduled)
 
