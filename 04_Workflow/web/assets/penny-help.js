@@ -921,7 +921,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <div class="help-note"><strong>This was a review by the project's own author.</strong> Someone checking their own work misses things. An outside review is still on the list below, and it matters before a real team relies on Penny over a network.</div>
 <h2>What is still to come</h2>
 <ul>
-  <li>Single sign-on with the company's identity provider.</li>
+  <li>Sign in with a Microsoft work account, and after that a Google Workspace account, instead of a Penny password. This is the next thing Jamie intends to build.</li>
   <li>Argon2id password hashing, in place of PBKDF2.</li>
   <li>Sign-ins that survive a restart of Penny. Today a restart signs everyone out.</li>
   <li>An outside security review. The checks here are tested on every change, but nobody outside the project has tried to break them.</li>
@@ -950,8 +950,12 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>Yes. Open <a href="#/appearance">Appearance</a> to pick light or dark, a larger text size, a theme or your own color, compact density, or less motion. It is saved to your account.</p>
 <h2>What if Penny cannot read an invoice?</h2>
 <p>If you can open it in another program, key it by hand beside a screenshot. Penny checks what you keyed like any other invoice. See <a href="#/help/manual-entry">Entering an invoice by hand</a>.</p>
+<h2>Is Penny ready to run a real company's accounts payable?</h2>
+<p>No. Penny is a portfolio project. It works and it is tested, but production needs things this project cannot do, such as an outside security test, connections to the real accounting systems, and real invoices at real volume. See <a href="#/help/production">Is Penny ready for production?</a></p>
+<h2>Can people sign in with a Microsoft or Google account?</h2>
+<p>Not yet. It is the next thing Jamie intends to build: Microsoft work accounts first, then Google. Today each person has their own Penny password. See <a href="#/help/users">Managing people</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 121 automated checks of Penny's decisions, accounts, email and server, and 18 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 122 automated checks of Penny's decisions, accounts, email and server, and 18 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 
@@ -999,19 +1003,67 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>What Jamie chose not to build</h2>
 <ul>
   <li><strong>Penny posting or paying.</strong> On purpose. Software that can move money needs controls this project does not claim to have.</li>
-  <li><strong>Single sign-on.</strong> It needs a real company identity provider to test against. Building it against a pretend one would prove nothing.</li>
+  <li><strong>Sign in with Microsoft or Google, yet.</strong> It is the next thing Jamie intends to build. It needs a Microsoft tenant and a Google Cloud project to test against. Building it against a pretend one would prove nothing.</li>
   <li><strong>A way to skip the security rules.</strong> The safe setup should be the only one that works.</li>
   <li><strong>Automatic fixes, and a percentage for confidence.</strong> For the reasons above.</li>
 </ul>
 <h2>What still needs a person</h2>
 <p>These are listed so nobody assumes they were done: an outside security review, a session with someone who uses a screen reader every day, and a try on real phones and on a real Mac and Windows computer.</p>
+<p>Penny is a portfolio project, not production software. What a real company would need is in <a href="#/help/production">Is Penny ready for production?</a></p>
 <div class="help-note"><strong>The full list.</strong> Every decision, with what was weighed each time, is in <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/DECISIONS.md" target="_blank" rel="noopener">DECISIONS.md on GitHub</a>.</div>` },
+
+  { slug: "production", section: "About this project", title: "Is Penny ready for production?",
+    summary: "No. It is a portfolio project. Here is what production would take.",
+    html: `
+<p><em>Added after submission, in version 2.1.2.</em></p>
+<p><strong>Penny is a portfolio project. It is not production software.</strong> It works, it is tested, and a small team could try it. But running accounts payable for a real company is a higher bar than a working demo. Jamie Collier wrote this page so anyone looking at Penny can see that difference is understood.</p>
+<p>Some of these could be built with more time. Others cannot be done inside this project at all, because they need things it does not have: a company's real systems and data, an outside auditor, or real people and devices to test with.</p>
+<h2>Signing in</h2>
+<table class="mini"><thead><tr><th>Today</th><th>Production needs</th></tr></thead><tbody>
+<tr><td>People sign in with an email and a password that Penny checks itself.</td><td><strong>Sign in with a Microsoft work account, and after that a Google Workspace account.</strong> This is the next thing Jamie intends to build. Both use the same open standard, so one piece of work covers both. It needs a Microsoft tenant and a Google Cloud project to build and test against.</td></tr>
+<tr><td>An Admin sets each person's role and turns accounts off.</td><td>Roles that follow the company directory, and accounts that turn off when someone leaves.</td></tr>
+<tr><td>No second step at sign-in.</td><td>Two-step sign-in, which comes with Microsoft and Google sign-in.</td></tr>
+</tbody></table>
+<h2>Security</h2>
+<table class="mini"><thead><tr><th>Today</th><th>Production needs</th></tr></thead><tbody>
+<tr><td>Reviewed by Jamie with an AI assistant. One serious problem was found and fixed. See <a href="#/help/security">Security and this demo</a>.</td><td>A test by security professionals who did not write the code, and a second experienced engineer reading it.</td></tr>
+<tr><td>The database and invoice files are normal files on disk.</td><td>Encrypted storage, and secrets kept in a managed store.</td></tr>
+<tr><td>The database refuses to change or delete an audit entry.</td><td>Proof that nobody with direct access to the server changed it, with a copy kept elsewhere.</td></tr>
+</tbody></table>
+<h2>Connections to other systems</h2>
+<table class="mini"><thead><tr><th>Today</th><th>Production needs</th></tr></thead><tbody>
+<tr><td>Penny writes files for Sage Intacct and Entrata. A person uploads them.</td><td>A direct, tested connection, or a decision to keep a person in the loop. There was no Intacct or Entrata system to build against.</td></tr>
+<tr><td>The vendor list, purchase orders and bill history are read from files.</td><td>Kept current from the company's real systems.</td></tr>
+<tr><td>Penny never posts or pays.</td><td>On purpose. Software that can move money needs controls this project does not claim to have.</td></tr>
+</tbody></table>
+<h2>Accuracy on real invoices</h2>
+<table class="mini"><thead><tr><th>Today</th><th>Production needs</th></tr></thead><tbody>
+<tr><td>20 sample documents, 6 written to test edge cases, and 17 more built by the tests.</td><td>Thousands of real invoices from real vendors, with the results checked by the AP team.</td></tr>
+<tr><td>Scanned invoices and unfamiliar layouts are held for a person, with an honest reason.</td><td>Reading scans, and an AI reader tested on real documents with its error rate measured. See <a href="#/help/ai">The optional AI reader</a>.</td></tr>
+</tbody></table>
+<h2>Keeping it running, and the people side</h2>
+<table class="mini"><thead><tr><th>Today</th><th>Production needs</th></tr></thead><tbody>
+<tr><td>One copy on one computer. The help center says which folder to back up.</td><td>Automatic backups with a practiced restore, monitoring that alerts a person, and a plan for a failure.</td></tr>
+<tr><td>Roles, second-person checks and an audit trail, each tested.</td><td>An auditor's review that the controls work and were followed over months of real use.</td></tr>
+<tr><td>Automated checks of every screen, on an emulated phone.</td><td>People who do the job using it for real, a person who uses a screen reader every day, and real devices. See <a href="#/help/accessibility">Accessibility</a>.</td></tr>
+<tr><td>Jamie is the support.</td><td>Support, training for each role, and legal terms.</td></tr>
+</tbody></table>
+<h2>The order Jamie would work in</h2>
+<ol>
+  <li>An outside security test and a second engineer's review.</li>
+  <li>Sign in with Microsoft, then Google.</li>
+  <li>A pilot on real invoices beside the current process, in preview only.</li>
+  <li>Backups, monitoring and a restore drill.</li>
+  <li>Connections to Intacct and Entrata, once the pilot shows the files are right.</li>
+  <li>An audit of the controls, once there are months of real use to audit.</li>
+</ol>
+<div class="help-note"><strong>The full list.</strong> Every item, with where Penny stands and why it is not done here, is in <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/PRODUCTION.md" target="_blank" rel="noopener">PRODUCTION.md on GitHub</a>. The reasons behind what was built are in <a href="#/help/decisions">Decisions and why</a>.</div>` },
 
   { slug: "about", section: "About this project", title: "Where Penny came from",
     summary: "The assignment, and what was built beyond it.",
     html: `
 <p>Penny began as Jamie Collier's answer to an accounts payable technical screen. The assignment asked for an Intacct import file, an Entrata handoff, an exception log, the required approvers, and proof that a rerun is safe. That version was submitted in October 2026 and is kept exactly as it was handed in.</p>
-<p>The reasons behind the choices are in <a href="#/help/decisions">Decisions and why</a>.</p>
+<p>The reasons behind the choices are in <a href="#/help/decisions">Decisions and why</a>. Penny is a portfolio project, not production software: see <a href="#/help/production">Is Penny ready for production?</a></p>
 <p>Everything since then is Jamie's own work beyond the assignment:</p>
 <ul>
   <li>Bad or unreadable files are held with a clear reason instead of stopping a run.</li>
@@ -1028,7 +1080,9 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>A security review that found and fixed a way around sign-in (2.0.1).</li>
   <li>A setup wizard that installs Penny and gets it ready from a double-click (2.1.0).</li>
   <li>The reasons for each decision, written into this help center (2.1.1).</li>
+  <li>An honest list of what production would take (2.1.2).</li>
 </ul>
 <p>The plan to 2.0 is finished. What is intended next, and what still needs a person, is on the roadmap. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/ROADMAP.md" target="_blank" rel="noopener">Read the roadmap.</a></p>
+<p>Every version, with where the idea came from and what was tested, is in the <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/CHANGELOG.md" target="_blank" rel="noopener">change log on GitHub</a>. The short notes for each release are on <a href="#/whats-new">What's new</a>.</p>
 <p>Each version is documented on its own, so it is always clear what was asked for and what was chosen. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/SCOPE.md" target="_blank" rel="noopener">Read the full scope and version history on GitHub.</a></p>` },
 ];

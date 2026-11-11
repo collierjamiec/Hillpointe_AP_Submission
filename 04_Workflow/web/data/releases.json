@@ -2,6 +2,17 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.1.2",
+      "date": "2026-11-11",
+      "required": false,
+      "summary": "Penny is a portfolio project, not production software. The help center now says what production would take, and names sign-in with Microsoft and Google as the next step.",
+      "notes": [
+        "New help article: Is Penny ready for production?",
+        "Sign-in with Microsoft and Google is the next thing planned.",
+        "No change to how Penny works."
+      ]
+    },
+    {
       "version": "2.1.1",
       "date": "2026-11-10",
       "required": false,

@@ -515,6 +515,7 @@ def publish_release(version, summary, notes, required):
           "web/data/releases.json and the web app's version.")
     print("Next: run ./penny test, commit, and merge to main. GitHub then tags the release, and every copy of Penny "
           + ("must update before real runs or changes." if entry["required"] else "is told it is ready and may skip it."))
+    print("Also add this version to CHANGELOG.md (what changed, where it started, what was tested) and to SCOPE.md. A test fails until the change log has it.")
 
 
 def status(state_dir):
@@ -544,7 +545,7 @@ def main(argv=None):
     e.add_argument("doc", help="file name or just the number, like 6"); e.add_argument("--run-id", "-r", help="default: the most recent run"); e.add_argument("--out", default=str(ROOT / "runs"))
     c = sub.add_parser("check", help="confirm Penny is ready to run")
     c.add_argument("--state", default=str(ROOT / "state"))
-    t = sub.add_parser("test", help="run the 121 automated checks")
+    t = sub.add_parser("test", help="run the 122 automated checks")
     t.add_argument("--package")
     z = sub.add_parser("reset", help="clear the register and old runs")
     z.add_argument("--state", default=str(ROOT / "state")); z.add_argument("--out", default=str(ROOT / "runs"))

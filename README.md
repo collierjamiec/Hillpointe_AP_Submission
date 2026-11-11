@@ -10,13 +10,19 @@ bill twice.
 Penny began as my answer to the Hillpointe AP technical screen. I have kept building it since, to show how I think
 about a real product.
 
+> **This is a portfolio project, not production software.** It works and it is tested, and I know what stands
+> between it and running a real company's accounts payable. That list, with where Penny stands on each item, is in
+> [`PRODUCTION.md`](PRODUCTION.md).
+
 | | What it is | Start here |
 |---|---|---|
 | **Live demo** | The web app with the example invoices, in your browser. Pick a demo role to sign in. | [collierjamiec.github.io/Hillpointe_AP_Submission](https://collierjamiec.github.io/Hillpointe_AP_Submission/) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1 to 2.1.1)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
-| **Current version: 2.1.1** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Built after submission (v1.1 to 2.1.2)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 2.1.2** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
 | **Why I made each choice** | Every major decision, what I weighed, and what I chose not to build | [`DECISIONS.md`](DECISIONS.md) |
+| **Change log** | Every version, what changed, where the idea came from, and what was tested | [`CHANGELOG.md`](CHANGELOG.md) |
+| **What production would take** | Sign-in with Microsoft and Google, an outside security test, real connections, real invoices, and more | [`PRODUCTION.md`](PRODUCTION.md) |
 | **Where it is going** | The plan that led to 2.0, and what is intended next | [`ROADMAP.md`](ROADMAP.md) |
 | **How it works** | Every check, rule and assumption | [`04_Workflow/README.md`](04_Workflow/README.md) |
 
@@ -34,6 +40,7 @@ in [`DECISIONS.md`](DECISIONS.md).
 | **Some steps need a second person, and the audit trail can only grow.** | One person checking their own work finds fewer mistakes, and a record that can be edited is not evidence. |
 | **Fix the foundation and review security before adding more.** | I did not want to build a shared server on tests that ran only on my machine. The security review then found a real problem, which I fixed and published. |
 | **List what is not done.** | A reviewer will find the gaps anyway. I would rather they hear them from me, with the reason. |
+| **Call it a portfolio project, not production software.** | Some of what production needs I cannot do here: a company's real systems, an outside auditor, real people to test with. Saying so shows I know the difference. |
 
 ## Try it
 
@@ -80,7 +87,8 @@ For a team, the setup wizard turns on real accounts, where one server checks and
   phones (v1.9.1), and Penny for a real team: one server that checks and saves everyone's work in a database,
   live updates between teammates, and https for use over a network (v2.0.0), followed by a security review that
   found and fixed a way around sign-in (v2.0.1), and a setup wizard that installs Penny and gets it ready from
-  a double-click (v2.1.0), and the reasons for my decisions written into every page (v2.1.1).
+  a double-click (v2.1.0), the reasons for my decisions written into every page (v2.1.1), and an honest list of what production would
+  take (v2.1.2).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

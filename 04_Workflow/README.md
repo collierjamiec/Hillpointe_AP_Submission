@@ -31,7 +31,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 121 automated checks
+./penny test                                  # run the 122 automated checks
 python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
@@ -80,6 +80,8 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **What production would take (v2.1.2):** `../PRODUCTION.md` lists what stands between this portfolio project and
+  production, and names sign-in with Microsoft and Google as the next build. The help center has the short version.
 * **Decisions and why (v2.1.1):** the reason behind each choice is in `../DECISIONS.md`, in the help center article
   "Decisions and why", and in a "Why it works this way" note on the feature help articles. No behavior changed.
 * **Setup wizard (v2.1.0):** `Install Penny.command` / `.bat` install Penny and open a five-screen wizard in the

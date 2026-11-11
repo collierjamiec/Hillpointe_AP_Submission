@@ -31,6 +31,25 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(len(set(c.values())), 1, c)
         self.assertEqual(json.loads((ROOT / "releases.json").read_text()), json.loads((ROOT / "web" / "data" / "releases.json").read_text()))
 
+    def test_every_release_is_in_the_change_log(self):
+        """(added after submission, v2.1.2) CHANGELOG.md has a section for every version ever released, the newest
+        is at the top, and a required release says so. A release cannot ship without its change log entry."""
+        import re
+        log = (ROOT.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+        heads = re.findall(r"^## (\d+(?:\.\d+){1,2}):", log, re.M)
+        short = lambda v: v[:-2] if v.endswith(".0") and v.count(".") == 2 and v not in heads else v     # 1.5.0 is written as 1.5
+        releases = json.loads((ROOT / "releases.json").read_text())["releases"]
+        missing = [r["version"] for r in releases if short(r["version"]) not in heads]
+        self.assertEqual(missing, [], "CHANGELOG.md has no section for these versions. Add one for each: what changed, where it started, what was tested.")
+        self.assertEqual(heads[0], short(self.v.current()), "The newest section in CHANGELOG.md is not the current version.")
+        self.assertEqual(len(heads), len(set(heads)), "A version appears twice in CHANGELOG.md.")
+        for r in releases:
+            if r.get("required"):
+                i = log.index(f"## {short(r['version'])}:")
+                self.assertIn("**Required.**", log[i:i + 400], f"{r['version']} is a required release, and its change log section does not say so.")
+        for section in ("## Penny by the numbers", "## Ideas, and where each one went"):
+            self.assertIn(section, log)
+
     def test_status_optional_skipped_required(self):
         st = lambda rel, skipped=None: self.v.status("1.6.0", rel, skipped)["state"]
         self.assertEqual(st(self.rel), "current")

@@ -32,6 +32,12 @@ const BASE = DEMO;
   await p.goto(BASE + '#/help/updates'); await p.waitForSelector('#main .help-why');
   const noteOk = /Why it works this way/.test(await p.textContent('#main .help-why')) && !!(await p.$('#main .help-why a[href="#/help/decisions"]'));
   await p.locator('#main .help-why').scrollIntoViewIfNeeded(); await p.screenshot({ path: S + 'help-why-note.png' });
+  // (v2.1.2) The demo says plainly that it is a portfolio project, and what production would take.
+  await p.goto(BASE + '#/help/production'); await p.waitForSelector('#main table');
+  const prod = (await p.textContent('#main')).replace(/\s+/g, ' ');
+  const prodOk = /It is not production software/.test(prod) && /Microsoft work account/.test(prod) && /Google Workspace/.test(prod) && /outside security test/.test(prod) && /Penny never posts or pays/.test(prod);
+  if (!prodOk) errors.push('the production article is missing parts');
+  console.log(`production article ${prodOk ? 'ok' : 'MISSING PARTS'}`);
   console.log(`decisions article ${decisionsOk ? 'ok' : 'MISSING PARTS'}; articles with a "Why it works this way" note: ${why}${noteOk ? '' : ' (note on Updates is wrong)'}`);
   if (!decisionsOk || !noteOk || why < 20) errors.push('the decisions article or the why notes are missing');
   console.log(`articles opened: ${slugs.length}; short or empty: ${empty.join(', ') || 'none'}; unfilled placeholders: ${leftover.join(', ') || 'none'}`);

@@ -23,9 +23,11 @@ and what I chose to build on my own.
 | 2.0.0 | November 2026 | **After submission, required:** Penny for a real team. One server checks and saves everyone's work in a database, teammates see it live, and Penny can run over a network with https. | Pull request #11 |
 | 2.0.1 | November 2026 | **After submission, required:** a security review, including a fix for a way around sign-in. | Pull request #12 |
 | 2.1.0 | November 2026 | **After submission:** a setup wizard that installs Penny and gets it ready from a double-click. | Pull request #13 |
-| 2.1.1 | November 2026 | **After submission:** the reasons for my decisions, written into every page. | This pull request |
+| 2.1.1 | November 2026 | **After submission:** the reasons for my decisions, written into every page. | Pull request #14 |
+| 2.1.2 | November 2026 | **After submission:** an honest list of what production would take, with sign-in through Microsoft and Google named as the next step. | This pull request, [`PRODUCTION.md`](PRODUCTION.md) |
 
-**Why I made each choice** is in [`DECISIONS.md`](DECISIONS.md), and in a short "Why I built this" line under each
+**The short version of every release** is in [`CHANGELOG.md`](CHANGELOG.md), with where each idea came from and a
+list of every idea and where it went. **Why I made each choice** is in [`DECISIONS.md`](DECISIONS.md), and in a short "Why I built this" line under each
 version below. The plan that led to 2.0, and what is intended next, is in [`ROADMAP.md`](ROADMAP.md).
 
 ---
@@ -663,7 +665,7 @@ Nothing here changes how Penny decides an invoice.
 * The browser loads the whole audit log at sign-in. Fine for thousands of entries, not built for millions.
 * Changing a rule in the web app rewrites `config/rules.json` in plain two-space JSON, so its layout changes.
 * Not yet done by a person: an outside security review, a session with a screen reader user, and a try on real
-  phones and tablets. Single sign-on is intended for a later release.
+  phones and tablets. Sign-in with Microsoft and Google is intended next.
 
 ### Documentation and testing
 
@@ -793,13 +795,37 @@ including the ones that cost something.
 
 ---
 
+## Version 2.1.2: what production would take (November 2026, after submission)
+
+**Why I built this.** I want Penny to be a strong portfolio piece, and I do not want it mistaken for production
+software. Some of what production needs I cannot do inside this project. I do not need to do those things here, but
+I do need to show I have thought about them.
+
+* [`PRODUCTION.md`](PRODUCTION.md): eight areas (signing in, security, controls, connections to other systems,
+  accuracy on real invoices, keeping it running, testing with real people, and the business side). Each item says
+  where Penny stands today, what production needs, and why it is not done here.
+* **Sign-in with Microsoft and Google** is named as the next thing I intend to build. Both use the same open
+  standard, so one piece of work covers both. It is a plan in this release, not a feature.
+* The order I would work in if a company wanted to run Penny for real, starting with an outside security test.
+* A plain statement at the top of the README: this is a portfolio project, not production software.
+* A new help center article, "Is Penny ready for production?", so the same honesty is in the live demo.
+* **[`CHANGELOG.md`](CHANGELOG.md):** every version from 1.0 to now. Each says where the idea started (often in my
+  own words), what was added, changed, fixed or made safer, and what was tested. It ends with Penny by the numbers
+  and a table of every idea and where it went, including the ones not built.
+* **The change log now keeps itself complete.** A test fails if any released version has no section in it, if the
+  newest section is not the current version, or if a required release does not say it is required. The release
+  command reminds me too. I asked for this so the record never falls behind again.
+* No change to how Penny works.
+
+---
+
 ## What comes next (intended, not scheduled)
 
 The plan to 2.0 is finished. What is intended next is in [`ROADMAP.md`](ROADMAP.md). In short:
 
 | Next step | What it adds |
 |---|---|
-| Single sign-on | Sign in with the company's identity provider. It needs a real identity provider to build and test against. |
+| Sign in with Microsoft, then Google | Sign in with a work account instead of a Penny password. It needs a Microsoft tenant and a Google Cloud project to build and test against. |
 | Checks that need a person | An outside security review, a screen reader session, and a try on real phones and tablets. |
 | Smaller items | Sign-ins that survive a restart, paging by the database, Argon2id password hashing. |
 

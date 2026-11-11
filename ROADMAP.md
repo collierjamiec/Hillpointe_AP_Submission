@@ -8,7 +8,7 @@ plans I changed, is in [`DECISIONS.md`](DECISIONS.md).
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.1.1 was finished.
+Last updated: November 2026, when 2.1.2 was finished.
 
 ---
 
@@ -96,11 +96,26 @@ double-click and five screens.
 | `./penny start` and a Start Penny file that use what the wizard saved | Done |
 | The wizard is closed unless Penny opens it with a one-time key | Done |
 
+## 2.1.2: what production would take (Done)
+
+Penny is a portfolio project. This release writes down, in one place, what stands between it and production.
+
+| Item | Status |
+|---|---|
+| [`PRODUCTION.md`](PRODUCTION.md): eight areas, with where Penny stands today, what production needs, and why it is not done here | Done |
+| Sign-in with Microsoft and Google named as the next thing to build | Done (the plan, not the feature) |
+| The same list, shorter, in the help center of the live demo | Done |
+| [`CHANGELOG.md`](CHANGELOG.md): every version, with a test that fails if a release is ever missing from it | Done |
+
 ## After 2.0 (intended, not scheduled)
+
+The full list of what a real company would need is in [`PRODUCTION.md`](PRODUCTION.md). These are the items I intend
+to do or arrange myself.
+
 
 | Item | Note |
 |---|---|
-| **Single sign-on** | Sign in with the company's identity provider (OpenID Connect or SAML) instead of a Penny password. It needs a real identity provider to build and test against, so it waits for one. Until then, Penny's own accounts stay: invitations, password rules, lockouts and resets. |
+| **Sign in with Microsoft, then Google** | Sign in with a Microsoft work account (Microsoft Entra ID), and after that a Google Workspace account, instead of a Penny password. Both use the same open standard (OpenID Connect), so one piece of work covers both. This is the next thing I intend to build. It needs a Microsoft tenant and a Google Cloud project to build and test against, which I have to set up myself. Penny's own accounts stay for teams that use neither, and one local Admin stays as a way in if the company's sign-in is down. |
 | The installers on real computers | Carried from 2.1.0: the double-click files are tried on a real Mac and a real Windows computer. Needs those computers. |
 | Real phones and tablets | Carried from 1.9.1: the phone layout is tried on real devices, and what is found is fixed. Needs a person with the devices. |
 | Screen reader session | Carried from 1.9.0: a person who uses a screen reader every day tries the main tasks, and what they find is fixed. Needs that person. |
