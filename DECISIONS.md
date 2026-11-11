@@ -60,6 +60,15 @@ Each entry says what I decided, what I weighed, and why. Where a decision has a 
 * **Why:** A partly entered bill is harder to find and fix than one that is clearly waiting. Holding the whole
   document keeps the picture simple: it is in, or it is waiting on a person.
 
+### Call it a portfolio project, not production software
+
+* **Decision:** I describe Penny as a portfolio project. I do not call it production ready, and I keep a full list
+  of what production would take in [`PRODUCTION.md`](PRODUCTION.md).
+* **What I weighed:** "Production ready" sounds better, and much of Penny is built to that standard.
+* **Why:** There are things production needs that I cannot do inside this project: a company's real systems and
+  data, an identity provider, an outside auditor, real people and devices to test with. I do not need to do all of
+  them here. I do need to show that I have thought about them, and to be exact about where Penny stops.
+
 ### Say what is not done
 
 * **Decision:** Every release lists its limits in plain words, in the same place as its features.
@@ -401,6 +410,13 @@ Each entry says what I decided, what I weighed, and why. Where a decision has a 
   three people at once and on a phone.
 * **Why:** Code tests prove the rules. They do not prove a person can find the button.
 
+### Keep a change log, and make the project enforce it
+
+* **Decision:** [`CHANGELOG.md`](CHANGELOG.md) records every version: where the idea started, what changed and what
+  was tested. A test fails if a release is ever missing from it.
+* **Why:** We did a lot and had a lot of ideas after the first scope. I did not want that history to live only in
+  my memory. A rule that depends on remembering gets forgotten, so the project checks it for me.
+
 ### Keep a roadmap, and keep it current
 
 * **Decision:** [`ROADMAP.md`](ROADMAP.md) is updated in the same change as the work, including when I changed my
@@ -414,7 +430,7 @@ Each entry says what I decided, what I weighed, and why. Where a decision has a 
 
 | Not built | Why not, or why not yet |
 |---|---|
-| **Single sign-on** | It needs a real company identity provider to build and test against. Building it against a pretend one would prove nothing. Penny's own accounts stay until then. |
+| **Sign in with Microsoft or Google (yet)** | I intend to build this next: Microsoft work accounts first, then Google. It needs a Microsoft tenant and a Google Cloud project to build and test against. Building it against a pretend one would prove nothing. Penny's own accounts stay until then. |
 | **Penny posting or paying** | On purpose. Penny prepares files and a person uploads them. Software that can move money needs controls this project does not claim to have. |
 | **A percentage for confidence** | There is no honest way to calculate one. |
 | **Automatic fixes** | A person chooses every fix. |
@@ -422,6 +438,11 @@ Each entry says what I decided, what I weighed, and why. Where a decision has a 
 | **The register in the database** | It stays a file an auditor can open. See above. |
 | **A paid API run for the assessment** | Not worth the cost to prove an optional feature. It is described as untested against the live service. |
 | **Several servers sharing one database** | Penny is one copy on one computer. That fits an AP team and keeps setup simple. |
+
+## What production would take
+
+Penny is a portfolio project. The full list of what a real company would need before relying on it, with where
+Penny stands on each item and why it is not done here, is in [`PRODUCTION.md`](PRODUCTION.md).
 
 ## What still needs a person
 

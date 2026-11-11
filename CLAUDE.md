@@ -10,7 +10,14 @@ where each rule lives, assumptions). Read it before changing behavior.
 ## Layout
 
 - `README.md` (GitHub landing page), `SCOPE.md` (original assignment vs. everything added after submission, by version)
-  and `DECISIONS.md` (every major decision, what Jamie weighed, and why; all credited as Jamie's decisions). A new
+  `DECISIONS.md` (every major decision, what Jamie weighed, and why; all credited as Jamie's decisions) and
+  `PRODUCTION.md` (Penny is a portfolio project, not production software: what production would take, where Penny
+  stands on each item, and why it is not done here; sign-in with Microsoft then Google is the intended next build).
+  Never describe Penny as production ready. When a feature closes a gap listed in `PRODUCTION.md`, update that row.
+- `CHANGELOG.md`: every version, newest first. **Every release adds a section here** (where it started, in Jamie's
+  words when there are any; Added / Changed / Fixed / Security; Tested; Not done), a row in the table at the top, a
+  row in "Penny by the numbers", and any new ideas in "Ideas, and where each one went". A required release says
+  `**Required.**`. `test_every_release_is_in_the_change_log` fails until this is done. A new
   feature also gets a "Why I built this" line in `SCOPE.md`, an entry in `DECISIONS.md` when it involved a real choice,
   and a "Why it works this way" note on its help article. Only write reasons Jamie has stated or confirmed.
   Any new feature gets a version entry in `SCOPE.md` and an "(added after submission)" mark in the docs it touches.
@@ -61,7 +68,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 121 checks, uses temp dirs, safe
+./penny test                                   # 122 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 
