@@ -145,7 +145,8 @@ window.PENNY_HELP = [
 <p>Penny can also pick up PDFs dropped into a folder and preview them by itself. It never runs a batch for real. See <a href="#/help/watched-folder">The watched folder</a>.</p>
 <h2>What is recorded</h2>
 <p>Every step is written to the audit log in Penny's database on the Penny computer, and shown in the <a href="#/audit">Audit trail</a> marked "On disk": who created the batch, who uploaded which files (name, size and a SHA-256 fingerprint that proves the exact file), who ran it, when, the folder, the run ID, preview or real, the results and the pre-flight check. A run that fails is recorded too.</p>
-<div class="help-note"><strong>Where this works.</strong> Reading invoices needs Penny's engine, so batches run only when the web app is started on your computer with <code>./penny web --package &lt;package folder&gt;</code>. On the public demo site you can try every step, and the last one explains what would happen. Nothing is uploaded from the demo.</div>` },
+<div class="help-note"><strong>Where this works.</strong> Reading invoices needs Penny's engine, so batches run only when the web app is started on your computer with <code>./penny web --package &lt;package folder&gt;</code>. On the public demo site you can try every step, and the last one explains what would happen. Nothing is uploaded from the demo.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> An AP Clerk can preview and only an Admin can run for real, so the person who prepares a batch is not the only one who can make it final. A preview leaves the register alone, so looking never changes anything. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "blockers", section: "Using the web app", title: "Blockers: tracking each reason for a hold",
     summary: "Give every reason its own owner, target date, notes and proof.",
@@ -167,7 +168,8 @@ window.PENNY_HELP = [
   <li>When every blocker is cleared, <a href="#/help/recheck">recheck the invoice</a>, then resolve the hold.</li>
 </ol>
 <div class="help-note">Blockers organize the people work. They never change Penny's decision: a cleared invoice is still checked from scratch on its next run.</div>
-<p>In this demo, notes and files stay in your browser. Files are kept in the browser's own storage; if it is cleared, the file name and fingerprint stay on record.</p>` },
+<p>In this demo, notes and files stay in your browser. Files are kept in the browser's own storage; if it is cleared, the file name and fingerprint stay on record.</p>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A hold often waits on two or three things owned by different teams. Each one is tracked by itself, with an owner and a date, so nothing waits on "someone". <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "recheck", section: "Using the web app", title: "Recheck and testing rule changes",
     summary: "Preview what Penny would decide now, without saving anything.",
@@ -189,7 +191,8 @@ window.PENNY_HELP = [
 </ul>
 <h2>Testing a rule change (Admin)</h2>
 <p>On the <a href="#/rules">Rules</a> page, after you change something, choose <strong>Test on saved invoices</strong>. Penny decides every saved invoice twice, with the current rules and with your draft, using the same readings and reference data. It lists each invoice that would change and how. Nothing is saved until you choose Save changes.</p>
-<div class="help-note">Recheck and testing need Penny's engine, so they work when Penny runs on your computer (<code>./penny web --package &lt;package folder&gt;</code>). The public demo explains this instead of inventing a result. Every recheck is recorded in the audit trail with the fingerprints it used.</div>` },
+<div class="help-note">Recheck and testing need Penny's engine, so they work when Penny runs on your computer (<code>./penny web --package &lt;package folder&gt;</code>). The public demo explains this instead of inventing a result. Every recheck is recorded in the audit trail with the fingerprints it used.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A recheck is a preview against a copy of the register. It never changes the real one, so anyone can ask "what would Penny say now?" without risk. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "manual-entry", section: "Using the web app", title: "Entering an invoice by hand",
     summary: "When Penny cannot read a file but a person can.",
@@ -209,7 +212,8 @@ window.PENNY_HELP = [
   <li>Who keyed it, why, who checked it, and when are all recorded, and the invoice is marked <strong>Keyed by hand</strong> everywhere it appears.</li>
   <li>Pay applications cannot be keyed by hand. Their tied-out lines and continuation sheet need the vendor's real PDF.</li>
 </ul>
-<div class="help-note">In this public demo you can key and check entries. Checking with Penny and saving for the next run need Penny on your computer.</div>` },
+<div class="help-note">In this public demo you can key and check entries. Checking with Penny and saving for the next run need Penny on your computer.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Typing is where mistakes and fraud get in, so an entry over a set amount is keyed again by a different person. The amount is a setting, so a team can match it to their own policy. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "users", section: "Using the web app", title: "Managing people (Admin)",
     summary: "Invite people, set roles, turn accounts off, and send password resets.",
@@ -234,7 +238,8 @@ window.PENNY_HELP = [
   <li>Passwords are stored only as salted hashes, never as text. Five wrong passwords lock that email for a minute, and the message never says whether an email has an account.</li>
   <li>Every invitation, change, reset and sign-in is in the <a href="#/audit">audit trail</a>.</li>
 </ul>
-<div class="help-note">In this public demo, people you invite are kept in your browser, and their emails go to the <a href="#/outbox">Outbox</a> with a working link. The four demo accounts keep their published passwords. On your own computer, accounts are real: run <code>./penny users invite --email you@company.com --name "Your Name" --role admin</code> to create the first Admin, then everyone signs in with their own password.</div>` },
+<div class="help-note">In this public demo, people you invite are kept in your browser, and their emails go to the <a href="#/outbox">Outbox</a> with a working link. The four demo accounts keep their published passwords. On your own computer, accounts are real: run <code>./penny users invite --email you@company.com --name "Your Name" --role admin</code> to create the first Admin, then everyone signs in with their own password.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> People get their own accounts, so the audit trail names a real person. Invitation and reset links work once and expire, because a link in an old email should not open an account. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "email", section: "Using the web app", title: "Emailing exports and approval requests",
     summary: "Send a file or a bill to the right people, with the file attached.",
@@ -265,7 +270,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Start <code>./penny web</code> and invite someone from <a href="#/users">Users</a>. Open the invitation in Mailtrap and follow its link to set up the account.</li>
 </ol>
 <p>To deliver to real inboxes instead, use a sending service with SMTP (for example Brevo, Mailjet or Resend, which have free plans; check their current limits) or your company mail account.</p>
-<div class="help-note">In this public demo there is no email at all. Messages go to the Outbox in your browser, and their links work there.</div>` },
+<div class="help-note">In this public demo there is no email at all. Messages go to the Outbox in your browser, and their links work there.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Penny says "saved" when a message was only saved and "sent" only when it left. The file is attached because approvers need it in front of them, and Penny only emails its own users and the company's allowed domains, so a financial file cannot go to a mistyped outside address. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "appearance", section: "Using the web app", title: "Appearance: themes, colors and comfort",
     summary: "Choose a preset or any color, light or dark, text size and density.",
@@ -281,7 +287,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>Comfort</h2>
 <p>Always your own: light, dark or match your device; text size from Small to Larger; Comfortable or Compact density; and Reduce motion. The sun and moon button at the top switches light and dark too.</p>
 <h2>The company look (Admin)</h2>
-<p>An Admin chooses their own colors, then <strong>Make my colors the company look</strong>, with a reason. It is saved as the rule <code>display.theme</code>, so it shows in the Rules change history and the audit trail, and can be undone there.</p>` },
+<p>An Admin chooses their own colors, then <strong>Make my colors the company look</strong>, with a reason. It is saved as the rule <code>display.theme</code>, so it shows in the Rules change history and the audit trail, and can be undone there.</p>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A company wants its tool to look like its own. A person with low vision needs larger text no matter what the company picked. So there is a company look and a personal one. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "updates", section: "Using the web app", title: "Versions and updates",
     summary: "Which version you are on, and what required and optional updates mean.",
@@ -306,7 +313,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Every run records which version of Penny made its decisions, so an auditor can tell later.</li>
   <li>Version numbers have three parts: major, minor, and small fixes. For example, 1.6.1 is a small fix to 1.6.0.</li>
 </ul>
-<div class="help-note">For the maintainer: <code>./penny release 1.7.0 --summary "..." --note "..."</code> publishes a version, and <code>--required</code> makes it the minimum. Merging it to main tags the release on GitHub.</div>` },
+<div class="help-note">For the maintainer: <code>./penny release 1.7.0 --summary "..." --note "..."</code> publishes a version, and <code>--required</code> makes it the minimum. Merging it to main tags the release on GitHub.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A required update makes Penny read-only, not locked. Stopping changes protects the data. Locking people out of reading during a close would only punish them. Optional updates can be skipped, because not every release matters to every team. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "source-highlighting", section: "Using the web app", title: "Seeing where a value came from",
     summary: "Highlight the invoice number, dates, totals and lines on the PDF itself.",
@@ -325,7 +333,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Penny finds each value by searching the PDF's own text for what it read. When the same number appears more than once, it picks the one beside the right label, like "Total" or "Invoice #".</li>
   <li>If a value is not on the page as text, Penny says so instead of guessing. That happens with scanned pages and with invoices <a href="#/help/manual-entry">keyed by hand</a>.</li>
   <li>A highlight shows where a value is. It does not prove the value is right. The <strong>Checks</strong> tab does that work.</li>
-</ul>` },
+</ul>
+<div class="help-note help-why"><strong>Why it works this way.</strong> You should never have to take Penny's word for a number. When a value is not on the page as text, Penny says "not found" instead of pointing at a guess. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "export-history", section: "Using the web app", title: "Export history: has this file been imported?",
     summary: "Created, downloaded, imported, confirmed. So nobody imports a file twice.",
@@ -348,7 +357,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 </ul>
 <p>Preview runs and empty files cannot be marked as imported, and the page says why.</p>
 <p>On an invoice, a bill in an imported file shows <strong>Import recorded</strong> beside its status.</p>
-<div class="help-note"><strong>Penny still never uploads, posts or pays.</strong> This history is what people told Penny they did in the other system. "Import recorded" does not mean a bill is approved or paid.</div>` },
+<div class="help-note"><strong>Penny still never uploads, posts or pays.</strong> This history is what people told Penny they did in the other system. "Import recorded" does not mean a bill is approved or paid.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Importing a file twice creates duplicate bills, and the row count check and the second person are there to stop it. The history records what people told Penny they did. It never claims Penny did the import. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "watched-folder", section: "Using the web app", title: "The watched folder",
     summary: "Drop PDFs into one folder and Penny previews them by itself.",
@@ -369,7 +379,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 </ul>
 <h2>What is recorded</h2>
 <p>Each pickup is in the <a href="#/audit">Audit trail</a> as "Picked up files from the watched folder", with every file's name, size and fingerprint, followed by the usual batch and preview entries. The pickup is recorded under the name <strong>Watched folder</strong>, which can only preview.</p>
-<div class="help-note"><strong>Where this works.</strong> The watched folder needs Penny running on a computer, so it is not part of the public demo site.</div>` },
+<div class="help-note"><strong>Where this works.</strong> The watched folder needs Penny running on a computer, so it is not part of the public demo site.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> The folder only ever previews, and never deletes. Nothing should be entered just because a file appeared in a folder: a scanner, an email rule or a mistake could put it there. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "phone", section: "Using the web app", title: "Using Penny on a phone",
     summary: "What changes on a small screen, and what is easier on a computer.",
@@ -393,7 +404,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li><strong>Editing rules</strong> works, but it is a long page on a phone.</li>
   <li><strong>Keyboard shortcuts</strong> need a keyboard.</li>
 </ul>
-<div class="help-note"><strong>How it is checked.</strong> An automated suite uses the app on an emulated iPhone on every change. An emulator is not a hand: it has not yet been tried on a range of real phones and tablets.</div>` },
+<div class="help-note"><strong>How it is checked.</strong> An automated suite uses the app on an emulated iPhone on every change. An emulator is not a hand: it has not yet been tried on a range of real phones and tablets.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> The pages already fit a phone, but the amount was off screen and the filters filled the first screen. Fitting is not the same as working, so the lists were rebuilt as cards. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "team", section: "Using the web app", title: "Working as a team",
     summary: "One Penny for everyone: shared work, live updates, and checks on the server.",
@@ -422,7 +434,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>Moving earlier work in</h2>
 <p>Before 2.0, what people did was saved in each browser. The first time an Admin signs in with a browser that still holds earlier work, Penny offers to move it into the team's audit trail. Each action keeps its original time and person and is marked as moved, with who moved it. Nothing is removed from the browser.</p>
 <p>Moved work was never checked by the server, so the parts that are controls stay <strong>history only</strong>: approvals, import history, second checks of manual entries and rule changes show in the audit trail but do not count. A bill approved before the move needs its sign-off again. Resolved holds, blockers and notes carry over as they were.</p>
-<div class="help-note"><strong>Where this works.</strong> Team mode needs Penny running on a computer with real accounts. See <a href="#/help/network">Running Penny for your team</a>. The public demo site is still a single-person showcase: there, what you do stays in your own browser.</div>` },
+<div class="help-note"><strong>Where this works.</strong> Team mode needs Penny running on a computer with real accounts. See <a href="#/help/network">Running Penny for your team</a>. The public demo site is still a single-person showcase: there, what you do stays in your own browser.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A team cannot share work that lives in separate browsers, and a check that runs in the browser is only a suggestion. So the server decides who you are and what you may do. Live updates wait while you are typing, because losing a half-written note makes people stop trusting a tool. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "suggestions", section: "Using the web app", title: "Suggested fixes",
     summary: "One click to resolve a hold the way it was resolved before.",
@@ -437,7 +450,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 </ul>
 <p>The most likely fix also appears in <a href="#/work">My work</a>, so you can clear a queue without opening each invoice.</p>
 <div class="help-note"><strong>Guardrail.</strong> A change to payment instructions is how most invoice fraud starts, so it is never cleared in one click. You must confirm that Treasury called the vendor at the number already on file.</div>
-<p>Suggestions only make a person's decision faster. Penny's own decision never changes, and a cleared invoice is still checked from scratch on the next run.</p>` },
+<p>Suggestions only make a person's decision faster. Penny's own decision never changes, and a cleared invoice is still checked from scratch on the next run.</p>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A suggestion saves time, but a person still chooses it and can undo it. A fix applied by itself would move the decision from a person to the software. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "insights", section: "Using the web app", title: "Usage insights (Admin)",
     summary: "How Penny is used, and signals for improving it.",
@@ -449,7 +463,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li><strong>Breakdowns:</strong> screens used, actions by kind and role, fixes applied by reason, searches with no results, help articles read, and errors.</li>
 </ul>
 <h2>Privacy</h2>
-<p>Collected: screens opened, actions taken and how long they took, suggestions shown, applied or undone, searches that found nothing, shortcuts, the intro, and errors. Each event has a time and a role, not a person. Never collected: note text, passwords, or anything that identifies a real person. It stays in this browser, and you can turn it off, clear it or download it.</p>` },
+<p>Collected: screens opened, actions taken and how long they took, suggestions shown, applied or undone, searches that found nothing, shortcuts, the intro, and errors. Each event has a time and a role, not a person. Never collected: note text, passwords, or anything that identifies a real person. It stays in this browser, and you can turn it off, clear it or download it.</p>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Usage is counted by role, never by person, and it stays in the browser. The point is to find confusing screens, not to watch people work. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "exceptions-page", section: "Using the web app", title: "The Exceptions guide",
     summary: "Every hold reason, explained, with the invoices it applies to.",
@@ -473,7 +488,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>Choose <strong>Email</strong> next to any file to send it with the file attached and a note saying what it is. Penny only emails its users and the company's allowed domains. See <a href="#/help/email">Emailing exports and approval requests</a>.</p>
 <h2>Has it been imported?</h2>
 <p>The Intacct bill import file and the Entrata handoff list each show a history: Created, Downloaded, Imported and Confirmed, with who and when. It stops a file from being imported twice. See <a href="#/help/export-history">Export history</a>.</p>
-<div class="help-note"><strong>Generated is not imported.</strong> A bill in an import file still has to be uploaded and approved before it is paid.</div>` },
+<div class="help-note"><strong>Generated is not imported.</strong> A bill in an import file still has to be uploaded and approved before it is paid.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Every file is labeled for what it is. "Generated" is not "imported", and Penny never uploads anything itself, because software that moves money needs controls this project does not claim to have. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "runs", section: "Using the web app", title: "Run history",
     summary: "Each batch Penny read, and why reruns are safe.",
@@ -502,7 +518,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Each entry shows the before and after, and the note the person wrote.</li>
   <li>The CSV download protects against spreadsheet formula tricks, so it is safe to open in Excel. It always holds every entry that matches your filters, not just the page on screen.</li>
   <li>A long trail shows 25 entries at a time. Use the page buttons under the table.</li>
-</ul>` },
+</ul>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Entries are never edited or deleted, and an undo is a new entry. A record that can be changed is not evidence, and that holds for an Admin too. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "rules-edit", section: "Using the web app", title: "Changing rules (Admin)",
     summary: "Edit thresholds and routes with a preview, then undo if needed.",
@@ -516,7 +533,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>To reverse it, choose <strong>Undo</strong> in Change history.</li>
 </ol>
 <p><strong>Time zone:</strong> every time in Penny, from the audit trail to run history, is shown in the company time zone, with its short name such as EST. New batch folders are dated by it too. Changing it changes how times read right away; the saved times themselves never change.</p>
-<div class="help-note">Saved rules apply to Penny's <strong>next run</strong>. Past decisions stay exactly as Penny made them. Use <strong>Download rules.json</strong> to take the new settings back to the terminal version.</div>` },
+<div class="help-note">Saved rules apply to Penny's <strong>next run</strong>. Past decisions stay exactly as Penny made them. Use <strong>Download rules.json</strong> to take the new settings back to the terminal version.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A rule change is powerful, so you see which invoices it would affect before saving, you give a reason, and you can undo it. Past decisions never change, because history should show what Penny knew at the time. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "search", section: "Using the web app", title: "Search and filters",
     summary: "Find any invoice fast.",
@@ -576,7 +594,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>It will not open Penny to a network without real accounts and a certificate, the same two rules as everywhere else.</li>
   <li>Your password is checked, scrambled and stored by Penny. The wizard never keeps it or shows it back.</li>
 </ul>
-<div class="help-note"><strong>What the wizard does not do.</strong> It does not install Python, and it does not set up a mail account: those are done outside Penny. The double-click files have been tested for what they run, but not yet on a real Mac and a real Windows computer.</div>` },
+<div class="help-note"><strong>What the wizard does not do.</strong> It does not install Python, and it does not set up a mail account: those are done outside Penny. The double-click files have been tested for what they run, but not yet on a real Mac and a real Windows computer.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Setting Penny up for a team used to take six commands in the right order. The wizard is in the browser so it reads like the rest of Penny, and it stays closed unless Penny opens it, because it can create an Admin. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "commands", section: "Using Penny in the terminal", title: "Command reference",
     summary: "Every terminal command and what it does.",
@@ -643,7 +662,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li><strong>Restarting Penny signs everyone out.</strong> Sign-ins are kept in memory. Nothing else is lost.</li>
   <li><strong>One Penny, one computer.</strong> Run a single copy for the team. Two copies pointed at the same folder is not supported.</li>
   <li><strong>Behind a proxy,</strong> every sign-in appears to come from the proxy, so the per-computer limit counts everyone together.</li>
-</ul>` },
+</ul>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Penny refuses the network without real accounts and encryption, with no setting to skip it. The safe setup should be the only setup that works. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "register", section: "Using Penny in the terminal", title: "Dry runs and the register",
     summary: "How Penny remembers, and how to preview safely.",
@@ -709,7 +729,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li><strong>Held bills are not duplicates.</strong> A corrected version is checked again from scratch, and the old hold is closed out.</li>
   <li><strong>Same vendor and amount, different number:</strong> not a duplicate. Monthly bills repeat.</li>
   <li><strong>Credits go first</strong>, so PO balances are right when invoices are checked.</li>
-</ul>` },
+</ul>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Paying a bill twice is the most common and most costly mistake in accounts payable. So a rerun being safe is something Penny proves with a register, not something anyone has to promise. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "approvals-matrix", section: "How Penny decides", title: "Approvals and thresholds",
     summary: "Who must approve what, and the amounts that trigger it.",
@@ -726,7 +747,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li><strong>Medium:</strong> a rule needed an interpretation. Examples: an inactive vendor name mapped to its surviving record, a possible duplicate under a different number, or no service agreement on file to check a fee.</li>
   <li><strong>Low:</strong> Penny could not read the document's numbers at all, such as an unreadable file or an unfamiliar layout.</li>
 </ul>
-<p>Confidence is never turned into a percentage. Penny does not have a basis for one, so it does not invent one.</p>` },
+<p>Confidence is never turned into a percentage. Penny does not have a basis for one, so it does not invent one.</p>
+<div class="help-note help-why"><strong>Why it works this way.</strong> Confidence is a word, never a percentage. Penny has no honest way to produce a percentage, and a made-up number invites trust it has not earned. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "unreadable", section: "How Penny decides", title: "Unreadable files and unfamiliar layouts",
     summary: "What happens when Penny cannot read a document.",
@@ -748,7 +770,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <pre><code>./penny run &lt;folder&gt; --extractor hybrid   # rules first, AI only if the numbers do not tie
 ./penny run &lt;folder&gt; --extractor llm      # AI reads everything; the rules parser cross-checks</code></pre>
 <p>The AI only reads. Every number it returns goes through the same validation, and every decision is still made by Penny's rules.</p>
-<div class="help-note"><strong>Honest status:</strong> this mode was written and tested offline, but it has not been run against the live AI service. Every result on this site comes from the rules parser.</div>` },
+<div class="help-note"><strong>Honest status:</strong> this mode was written and tested offline, but it has not been run against the live AI service. Every result on this site comes from the rules parser.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> The AI reader is off by default and only reads. It never decides. The same document should always get the same answer, and a run should never fail because a connection dropped. <a href="#/help/decisions">More decisions</a></div>` },
 
   // ------------------------------------------------------------------ reference
   { slug: "codes", section: "Reference", title: "Exception codes",
@@ -844,7 +867,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>An automated suite runs on every change. It checks every main screen with the axe-core engine in light and dark, on a desktop and a phone, and then tests keyboard order, focus in dialogs, target sizes, reduced motion and reflow.</p>
 <h2>What is still to check</h2>
 <div class="help-note"><strong>Automated tools find only part of the picture.</strong> They cannot tell whether a page makes sense when read aloud. Before Penny is used by a real team, a person who uses a screen reader every day should try the main tasks. The invoice PDF itself is shown as an image of the page; the values Penny read from it are in the <strong>What Penny read</strong> tab as real text.</div>
-<p>If something gets in your way, that is a bug. Please report it on the project's GitHub page.</p>` },
+<p>If something gets in your way, that is a bug. Please report it on the project's GitHub page.</p>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A tool some people on the team cannot use is not finished. This page also says what is still unproven, because "an automated check passed" is not the same as "a person who relies on a screen reader could do the job". <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "security", section: "Reference", title: "Security and this demo",
     summary: "What is real, what is demo, and what production would add.",
@@ -902,7 +926,8 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>Sign-ins that survive a restart of Penny. Today a restart signs everyone out.</li>
   <li>An outside security review. The checks here are tested on every change, but nobody outside the project has tried to break them.</li>
 </ul>
-<div class="help-note">The demo accounts and passwords are public. Never type a real password into this site.</div>` },
+<div class="help-note">The demo accounts and passwords are public. Never type a real password into this site.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> The findings are published here because anyone running an older copy needs to know to update, and because how a problem is handled says more than a claim that there are none. <a href="#/help/decisions">More decisions</a></div>` },
 
   { slug: "faq", section: "Reference", title: "Frequently asked questions",
     summary: "Quick answers to common questions.",
@@ -912,7 +937,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>If I clear a hold, is the bill entered right away?</h2>
 <p>No. Clearing marks it ready for Penny's next run. Penny reads the corrected document from scratch and only writes it to an import file if every check passes.</p>
 <h2>Can I break anything?</h2>
-<p>No. Your actions are saved only in your browser. Choose <strong>Reset demo data</strong> from the menu under your name to start over.</p>
+<p>In this public demo, no. Your actions are saved only in your browser. Choose <strong>Reset demo data</strong> from the menu under your name to start over. When Penny runs for a team with real accounts, everyone's work is saved on the team's own server. See <a href="#/help/team">Working as a team</a>.</p>
 <h2>Can I upload new invoices on the public site?</h2>
 <p>You can try every step, but nothing is uploaded. Reading invoices needs Penny's engine, which runs on your computer with <code>./penny web --package &lt;folder&gt;</code>.</p>
 <h2>Does Penny learn from what I do?</h2>
@@ -931,10 +956,62 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 
   // ------------------------------------------------------------------ about
+  { slug: "decisions", section: "About this project", title: "Decisions and why",
+    summary: "The choices Jamie made while building Penny, and the reason for each one.",
+    html: `
+<p><em>Added after submission, in version 2.1.1.</em></p>
+<p>A feature list tells you what a product does. This page tells you how the person who built it thinks. Jamie Collier made every decision here. An AI assistant wrote the code and often laid out options with a recommendation. Jamie chose, reviewed every change, and owns the result. That is the same rule Penny follows: AI reads, code decides, people approve.</p>
+<h2>What Jamie believes</h2>
+<table class="mini"><thead><tr><th>Decision</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>AI may read a document. It never decides what happens to a bill.</strong></td><td>In accounts payable a wrong answer is money leaving the company. A rule in code gives the same answer every time and can be tested.</td></tr>
+<tr><td><strong>Work out the right answer before writing the code.</strong></td><td>So the code could never grade its own work.</td></tr>
+<tr><td><strong>No AI and no internet while Penny runs.</strong></td><td>The same document should always get the same answer, and a run should never fail because a connection dropped.</td></tr>
+<tr><td><strong>Business rules live in one file a person can read.</strong></td><td>A rule like the $500 PO tolerance is a business decision. The AP team should be able to change it, see what it would do, and undo it.</td></tr>
+<tr><td><strong>A held bill is not entered at all.</strong></td><td>A partly entered bill is harder to find and fix than one that is clearly waiting.</td></tr>
+<tr><td><strong>Say what is not done.</strong></td><td>A reviewer will find the gaps anyway. Better they hear them from Jamie, with the reason.</td></tr>
+</tbody></table>
+<h2>People and trust</h2>
+<table class="mini"><thead><tr><th>Decision</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>An AP Clerk can preview. Only an Admin can run for real.</strong></td><td>The person who prepares the work should not be the only one who can make it final.</td></tr>
+<tr><td><strong>Some steps need a second person.</strong> Confirming an import, and re-keying a manual entry over a set amount.</td><td>One person checking their own work finds fewer mistakes, and it is how fraud happens.</td></tr>
+<tr><td><strong>The audit trail can only grow.</strong> An undo is a new entry.</td><td>A record that can be edited is not evidence.</td></tr>
+<tr><td><strong>Every action needs a short reason.</strong></td><td>The next person, or an auditor a year later, needs to know why.</td></tr>
+<tr><td><strong>Suggested fixes are offered, never applied by themselves.</strong></td><td>An automatic fix would move the decision from a person to the software.</td></tr>
+<tr><td><strong>The watched folder only previews.</strong></td><td>Nothing should be entered just because a file appeared in a folder.</td></tr>
+</tbody></table>
+<h2>Honesty in the product</h2>
+<table class="mini"><thead><tr><th>Decision</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>"Ready for Intacct import", never "entered" or "paid".</strong></td><td>Penny writes files. It does not post or pay. A label that overstates is how a team comes to believe a bill was paid.</td></tr>
+<tr><td><strong>Confidence is High, Medium or Low. Never a percentage.</strong></td><td>Penny has no honest way to produce a percentage, and a made-up number invites trust it has not earned.</td></tr>
+<tr><td><strong>When Penny cannot find something, it says so.</strong></td><td>A safe hold with a wrong reason sends a person looking in the wrong place.</td></tr>
+<tr><td><strong>The demo says it is a demo.</strong></td><td>It would be dishonest to imply a public website keeps secrets.</td></tr>
+</tbody></table>
+<h2>Running for a team</h2>
+<table class="mini"><thead><tr><th>Decision</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>Foundation before features.</strong> One whole release added nothing new.</td><td>Jamie did not want to build a shared server on tests that ran only on one machine.</td></tr>
+<tr><td><strong>One server holds the truth.</strong></td><td>A team cannot share work that lives in separate browsers, and a check in the browser is only a suggestion.</td></tr>
+<tr><td><strong>A small database with nothing to install.</strong></td><td>Penny is for an AP team. They should be able to run it without an IT project, and back it up by copying a folder.</td></tr>
+<tr><td><strong>No network without real accounts and encryption.</strong></td><td>The safe setup should be the only setup that works.</td></tr>
+<tr><td><strong>A required update makes Penny read-only, not locked.</strong></td><td>People still need to look things up during a close.</td></tr>
+<tr><td><strong>Review security before building more, and publish what was found.</strong></td><td>The review found a real problem. Anyone on an older copy needs to know to update. See <a href="#/help/security">Security and this demo</a>.</td></tr>
+<tr><td><strong>Live updates never interrupt typing.</strong></td><td>Losing a half-written note to a refresh is the kind of small thing that makes people stop trusting a tool.</td></tr>
+</tbody></table>
+<h2>What Jamie chose not to build</h2>
+<ul>
+  <li><strong>Penny posting or paying.</strong> On purpose. Software that can move money needs controls this project does not claim to have.</li>
+  <li><strong>Single sign-on.</strong> It needs a real company identity provider to test against. Building it against a pretend one would prove nothing.</li>
+  <li><strong>A way to skip the security rules.</strong> The safe setup should be the only one that works.</li>
+  <li><strong>Automatic fixes, and a percentage for confidence.</strong> For the reasons above.</li>
+</ul>
+<h2>What still needs a person</h2>
+<p>These are listed so nobody assumes they were done: an outside security review, a session with someone who uses a screen reader every day, and a try on real phones and on a real Mac and Windows computer.</p>
+<div class="help-note"><strong>The full list.</strong> Every decision, with what was weighed each time, is in <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/DECISIONS.md" target="_blank" rel="noopener">DECISIONS.md on GitHub</a>.</div>` },
+
   { slug: "about", section: "About this project", title: "Where Penny came from",
     summary: "The assignment, and what was built beyond it.",
     html: `
 <p>Penny began as Jamie Collier's answer to an accounts payable technical screen. The assignment asked for an Intacct import file, an Entrata handoff, an exception log, the required approvers, and proof that a rerun is safe. That version was submitted in October 2026 and is kept exactly as it was handed in.</p>
+<p>The reasons behind the choices are in <a href="#/help/decisions">Decisions and why</a>.</p>
 <p>Everything since then is Jamie's own work beyond the assignment:</p>
 <ul>
   <li>Bad or unreadable files are held with a clear reason instead of stopping a run.</li>
@@ -945,7 +1022,13 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
   <li>The version on every screen, and updates that are required or optional (1.6.0).</li>
   <li>Managing people with invitations and resets, emailing files and approval requests, and appearance settings (1.7.0).</li>
   <li>A foundation release with no new features: browser tests on every change, a faster server, a content security policy, and clearer code (1.8.0).</li>
+  <li>Seeing where each value came from on the PDF, a history for each import file, a watched folder, paging for long lists, and an accessibility pass (1.9.0).</li>
+  <li>A layout made for phones (1.9.1).</li>
+  <li>Penny for a real team: one server that checks and saves everyone's work, live updates between teammates, and https for use over a network (2.0.0).</li>
+  <li>A security review that found and fixed a way around sign-in (2.0.1).</li>
+  <li>A setup wizard that installs Penny and gets it ready from a double-click (2.1.0).</li>
+  <li>The reasons for each decision, written into this help center (2.1.1).</li>
 </ul>
-<p>Next comes Penny for a real team: one shared server, so everyone sees the same work. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/ROADMAP.md" target="_blank" rel="noopener">Read the roadmap to 2.0.</a></p>
+<p>The plan to 2.0 is finished. What is intended next, and what still needs a person, is on the roadmap. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/ROADMAP.md" target="_blank" rel="noopener">Read the roadmap.</a></p>
 <p>Each version is documented on its own, so it is always clear what was asked for and what was chosen. <a href="https://github.com/collierjamiec/Hillpointe_AP_Submission/blob/main/SCOPE.md" target="_blank" rel="noopener">Read the full scope and version history on GitHub.</a></p>` },
 ];

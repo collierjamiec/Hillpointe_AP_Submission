@@ -1439,3 +1439,7 @@ main p a:not(.btn), main .prose li a, main .notes li a, .mode-banner a, #dialog 
   .setup-actions .btn-ghost { flex: 0 0 auto; }
 }
 .setup-coin { width: 44px; height: 44px; flex: 0 0 44px; }
+
+/* ---------------------------------------------------------------- v2.1.1: decisions and why */
+.help-why { margin-top: var(--s5); background: var(--surface-2); border-left-color: var(--brand, var(--accent)); }
+main .help-note a, main td a { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }   /* a link inside a note or a table cell never depends on color alone */

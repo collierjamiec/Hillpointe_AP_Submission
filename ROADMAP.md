@@ -1,13 +1,14 @@
 # Roadmap to Penny 2.0
 
 This was the plan from version 1.7.0 to 2.0.0, which is now finished. It is kept up to date as work lands: each item is marked
-**Done**, **In progress** or **Planned**. What has already shipped, version by version, is in [`SCOPE.md`](SCOPE.md).
+**Done**, **In progress** or **Planned**. What has already shipped, version by version, is in [`SCOPE.md`](SCOPE.md). Why I made each choice, including the
+plans I changed, is in [`DECISIONS.md`](DECISIONS.md).
 
 **The goal of 2.0:** Penny for a real team. Today, even with real accounts, what people do in Penny (resolving holds,
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.1.0 was finished.
+Last updated: November 2026, when 2.1.1 was finished.
 
 ---
 

@@ -18,7 +18,15 @@ and what I chose to build on my own.
 | 1.7.0 | November 2026 | **After submission:** real user accounts with invitations, password resets, roles and on/off status; emailing exports and approval requests with the file attached; an Outbox; and appearance settings with preset themes, custom colors and a company default. | Pull request #6, release [v1.7.0](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases/tag/v1.7.0) |
 | 1.8.0 | November 2026 | **After submission:** a stronger foundation with no new features: browser tests in the repository and on every pull request, faster server, a content security policy and bundled fonts, the web app split into files by area, and a description on every function. | Pull request #8 |
 
-The plan from here to 2.0 is in [`ROADMAP.md`](ROADMAP.md).
+| 1.9.0 | November 2026 | **After submission:** see where each value came from on the PDF, a history for each import file, a watched inbox folder, paging for long lists, and an accessibility pass. | Pull request #9 |
+| 1.9.1 | November 2026 | **After submission:** a layout made for phones. | Pull request #10 |
+| 2.0.0 | November 2026 | **After submission, required:** Penny for a real team. One server checks and saves everyone's work in a database, teammates see it live, and Penny can run over a network with https. | Pull request #11 |
+| 2.0.1 | November 2026 | **After submission, required:** a security review, including a fix for a way around sign-in. | Pull request #12 |
+| 2.1.0 | November 2026 | **After submission:** a setup wizard that installs Penny and gets it ready from a double-click. | Pull request #13 |
+| 2.1.1 | November 2026 | **After submission:** the reasons for my decisions, written into every page. | This pull request |
+
+**Why I made each choice** is in [`DECISIONS.md`](DECISIONS.md), and in a short "Why I built this" line under each
+version below. The plan that led to 2.0, and what is intended next, is in [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -59,6 +67,8 @@ These were my own choices, made to show a system someone could trust and run, no
 
 ## Version 1.1: unreadable files (November 2026, after submission)
 
+**Why I built this.** A run that stops on one bad file holds up every good one behind it. I wanted one bad file to cost one hold, with a reason a person can act on. I reused the existing `OTHER` code, because a new code for every kind of problem makes the list harder to learn.
+
 **The problem.** A corrupt, empty, password protected or scanned PDF crashed the whole run with a technical error.
 
 **What changed.**
@@ -76,6 +86,8 @@ These were my own choices, made to show a system someone could trust and run, no
 ---
 
 ## Version 1.2: the web view, phase 1 (November 2026, after submission)
+
+**Why I built this.** Most AP teams will never open a terminal. I started with a view-only version on purpose, so I could get the picture right before letting anyone change anything. It uses the same engine as the commands, so the two can never disagree.
 
 **The idea.** Most AP teams will never open a terminal. The web view shows everything Penny decided in the browser,
 while the terminal keeps working exactly as before. Both use the same engine, so they can never disagree.
@@ -108,6 +120,8 @@ while the terminal keeps working exactly as before. Both use the same engine, so
 ---
 
 ## Version 1.3: roles, actions and a redesigned workspace (November 2026, after submission)
+
+**Why I built this.** Seeing a hold is not the same as being able to deal with it. I added roles before actions, because who may do what is the first question in accounts payable. I also fixed a hold reason that was safe but wrong, because a wrong reason sends a person looking in the wrong place.
 
 ### A fix in Penny itself
 
@@ -188,6 +202,8 @@ neutralize spreadsheet formulas. The help center's "Security and this demo" arti
 
 ## Version 1.4: new batches, suggested fixes and insights (November 2026, after submission)
 
+**Why I built this.** Until now, new invoices still needed the terminal. I wanted the whole weekly job to happen in the browser. An AP Clerk can preview and only an Admin can run for real, so the person who prepares a batch is not the only one who can make it final.
+
 ### Upload and run new batches from the web app
 
 * **New batch page:** name the batch (quick picks like weekly-ap and month-end), drag in the PDFs, then preview or run.
@@ -252,6 +268,8 @@ downloaded, in a shape a server could collect later.
 
 ## Version 1.5: blockers, recheck and manual entry (November 2026, after submission)
 
+**Why I built this.** A hold often waits on two or three separate things, each owned by a different team. I wanted each one tracked by itself, with an owner and a date, so nothing waits on "someone". Manual entry gets a second person over a set amount, because typing is where mistakes and fraud get in.
+
 ### Blockers: each reason for a hold, tracked on its own
 
 * Every reason a held invoice is waiting on is a blocker with a status (Open, Waiting for evidence, Ready for
@@ -312,6 +330,8 @@ downloaded, in a shape a server could collect later.
 
 ## Version 1.6.0: versions and updates (November 2026, after submission)
 
+**Why I built this.** When someone reports a problem, the first question is "which version?". I also needed a way to tell every copy that an update matters. I chose read-only over locked out for a required update, because people still need to look things up during a close.
+
 ### The version on every screen
 
 * One source of truth: `04_Workflow/VERSION` (now `1.6.0`, three parts: major, minor, small fixes) and
@@ -365,6 +385,8 @@ downloaded, in a shape a server could collect later.
 ---
 
 ## Version 1.7.0: people, email and appearance (November 2026, after submission)
+
+**Why I built this.** The four demo accounts were fine for a demo and useless for a team. I wanted real people with their own passwords, email that works on day one and says honestly when it was only saved, and a look a company can make its own without taking away each person's larger text.
 
 ### User management (Admin)
 
@@ -433,6 +455,8 @@ downloaded, in a shape a server could collect later.
 
 ## Version 1.8.0: a stronger foundation (November 2026, after submission)
 
+**Why I built this.** The next two releases were the largest yet. I chose to spend a whole release on tests, security headers and readable code first, with nothing new to show, because I did not want to build a shared server on top of tests that only ran on my own machine.
+
 No new features. I reviewed the whole codebase for gaps and fixed what would make the next releases risky.
 
 ### Browser tests are part of the project
@@ -480,6 +504,8 @@ No new features. I reviewed the whole codebase for gaps and fixed what would mak
 ---
 
 ## Version 1.9.0: finishing the single-user roadmap (November 2026, after submission)
+
+**Why I built this.** These five items finish what one person at one computer needs, before anything is shared. Each one answers a question an AP person really asks: where did that number come from, was this file already imported, why is this list slow, and can everyone on the team use it.
 
 Five items from the roadmap. Nothing here changes how Penny decides an invoice.
 
@@ -541,6 +567,8 @@ Five items from the roadmap. Nothing here changes how Penny decides an invoice.
 
 ## Version 1.9.1: made for phones (November 2026, after submission)
 
+**Why I built this.** I asked whether the phone experience was truly designed for a phone. The honest answer was no: pages fit, but the amount was off screen and the filters filled the first screen. Fitting is not the same as working, so I had it rebuilt before moving on.
+
 After 1.9.0 I checked every main screen on a phone. Pages fit, but the layout was a desktop one made smaller:
 tables scrolled sideways on eight screens and hid the amount, the Invoices filters filled the whole first screen,
 and many buttons were smaller than a thumb. Nothing here changes how Penny decides an invoice, and nothing changes
@@ -566,6 +594,8 @@ on a computer.
 ---
 
 ## Version 2.0.0: Penny for a real team (November 2026, after submission)
+
+**Why I built this.** A team cannot share work that lives in separate browsers, and a check that runs in the browser is only a suggestion. I chose one server, one small database with nothing to install, and a rule that Penny will not open to a network without real accounts and encryption.
 
 Until now, even with real accounts, what people did in Penny was saved in each person's own browser. In 2.0 the
 server is the single source of truth, so a team shares one picture. **This release is required:** older copies
@@ -648,6 +678,8 @@ Nothing here changes how Penny decides an invoice.
 
 ## Version 2.0.1: security review (November 2026, after submission)
 
+**Why I built this.** The moment Penny could be reached over a network, I stopped adding features and had the code reviewed for ways around its own checks. It found a real one. I made the fix a required update and published what was wrong, because anyone running an older copy needs to know.
+
 2.0 opened Penny to a network, so I reviewed the code for ways around its own checks before building anything else.
 **This release is required.** It was a review by the project's own author, not an outside one.
 
@@ -695,6 +727,8 @@ Nothing here changes how Penny decides an invoice.
 
 ## Version 2.1.0: setup wizard (November 2026, after submission)
 
+**Why I built this.** Setting Penny up for a team took six commands in the right order. That is fine for me and a barrier for an AP manager. I chose a wizard in the browser so it looks and reads like the rest of Penny, and I kept it closed unless Penny itself opens it, because it can create an Admin.
+
 Setting Penny up for a team took six terminal commands in the right order: install, invite the first Admin, make a
 certificate, find the package folder, remember the right flags, start. This release makes it a double-click and
 five screens. It is optional, and nothing here changes how Penny decides an invoice.
@@ -741,6 +775,21 @@ five screens. It is optional, and nothing here changes how Penny decides an invo
 * 121 Python tests; 86 run without the assessment package. Seven are new, for the wizard.
 * 18 browser suites (17 without the package). The new one walks the whole wizard, checks every screen for
   accessibility (WCAG 2.2 AA), and checks it on a phone.
+
+---
+
+## Version 2.1.1: decisions and why (November 2026, after submission)
+
+**Why I built this.** A feature list shows what a product does. It does not show how the person who built it thinks.
+I wanted anyone looking at Penny, in the code or in the live demo, to be able to see the reason behind each choice,
+including the ones that cost something.
+
+* [`DECISIONS.md`](DECISIONS.md): every major decision, what I weighed, and why, plus what I chose not to build.
+* A "Why I built this" line under every version on this page.
+* A new help center article, "Decisions and why", so the reasoning is in the live demo and not only on GitHub.
+* A "Why it works this way" note on the help articles for the features people ask about most.
+* A short "Decisions I made" section on the README front page.
+* No change to how Penny works. One new browser check confirms the new article and notes are there.
 
 ---
 
