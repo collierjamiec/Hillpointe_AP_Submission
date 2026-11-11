@@ -101,6 +101,24 @@ const text = async (p, sel) => ((await p.textContent(sel)) || '').replace(/\s+/g
   await d.goto(DEMO); await d.click('.role-card[data-email="sam@penny.demo"]'); await d.waitForSelector('#shell', { state: 'visible' });
   await d.goto(DEMO + '#/invoices'); await d.waitForSelector('#inv-results table.data');
   ok(await d.evaluate(() => getComputedStyle(document.querySelector('#inv-results table')).display === 'table' && getComputedStyle(document.querySelector('#f-toggle')).display === 'none' && !!document.querySelector('#f-status').offsetParent && document.querySelector('.btn').getBoundingClientRect().height <= 38), 'on a desktop nothing changes: a real table, filters open, the same compact buttons');
+  // ---- (v2.1.3) a short window: the menu scrolls, so Help center at the bottom can always be reached
+  const reach = async (pg, how) => {
+    const m = await pg.evaluate(() => { const s = document.querySelector('.sidebar'); return { cut: s.scrollHeight > s.clientHeight + 1, scrolls: getComputedStyle(s).overflowY === 'auto' }; });
+    ok(m.cut && m.scrolls, `${how}: the menu is taller than the window and scrolls`);
+    await pg.evaluate(() => document.querySelector('#nav a[data-nav="help"]').scrollIntoView({ block: 'nearest' })); await pg.waitForTimeout(150);
+    ok(await pg.evaluate(() => { const r = document.querySelector('#nav a[data-nav="help"]').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1; }), `${how}: Help center can be scrolled into view`);
+    await pg.click('#nav a[data-nav="help"]'); await pg.waitForTimeout(300);
+    ok(await pg.evaluate(() => location.hash === '#/help'), `${how}: and it opens`);
+  };
+  await d.setViewportSize({ width: 1280, height: 420 }); await d.goto(DEMO + '#/'); await d.waitForTimeout(300);
+  await reach(d, 'a short desktop window');
+  const flat = await b.newContext({ ...devices['iPhone 13 landscape'] });
+  await flat.addInitScript(() => sessionStorage.setItem('penny.introSeen', '1'));
+  const f = await flat.newPage();
+  f.on('pageerror', (e) => errors.push(e.message));
+  await f.goto(DEMO); await f.tap('.role-card[data-email="sam@penny.demo"]'); await f.waitForSelector('#shell', { state: 'visible' });
+  await f.tap('#menu-btn'); await f.waitForTimeout(350);
+  await reach(f, 'a phone held sideways');
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no page errors');
   console.log(fails ? `${fails} FAILED` : 'ALL PASSED');
   process.exitCode = fails || errors.length ? 1 : 0;

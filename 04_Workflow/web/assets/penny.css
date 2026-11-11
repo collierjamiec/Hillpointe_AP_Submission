@@ -138,8 +138,9 @@ main:focus, main:focus-visible { outline: none; }
 /* ---------- shell */
 .shell { display: flex; min-height: 100vh; }
 .sidebar {
-  position: sticky; top: 0; height: 100vh; width: var(--sidebar-w); flex: none;
+  position: sticky; top: 0; height: 100vh; height: 100dvh; width: var(--sidebar-w); flex: none;
   display: flex; flex-direction: column; gap: 24px; padding: 20px 14px;
+  overflow-y: auto; overscroll-behavior: contain;    /* v2.1.3: a short window scrolls the menu, so Help center is never cut off */
   background: var(--side-bg); border-right: 1px solid var(--side-border); color: var(--side-text);
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px; color: var(--side-text); }

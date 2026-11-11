@@ -24,7 +24,8 @@ and what I chose to build on my own.
 | 2.0.1 | November 2026 | **After submission, required:** a security review, including a fix for a way around sign-in. | Pull request #12 |
 | 2.1.0 | November 2026 | **After submission:** a setup wizard that installs Penny and gets it ready from a double-click. | Pull request #13 |
 | 2.1.1 | November 2026 | **After submission:** the reasons for my decisions, written into every page. | Pull request #14 |
-| 2.1.2 | November 2026 | **After submission:** an honest list of what production would take, with sign-in through Microsoft and Google named as the next step. | This pull request, [`PRODUCTION.md`](PRODUCTION.md) |
+| 2.1.2 | November 2026 | **After submission:** an honest list of what production would take, with sign-in through Microsoft and Google named as the next step. | Pull request #15, [`PRODUCTION.md`](PRODUCTION.md) |
+| 2.1.3 | November 2026 | **After submission:** a fix so the left menu scrolls and Help center is never cut off. | This pull request |
 
 **The short version of every release** is in [`CHANGELOG.md`](CHANGELOG.md), with where each idea came from and a
 list of every idea and where it went. **Why I made each choice** is in [`DECISIONS.md`](DECISIONS.md), and in a short "Why I built this" line under each
@@ -816,6 +817,17 @@ I do need to show I have thought about them.
   newest section is not the current version, or if a required release does not say it is required. The release
   command reminds me too. I asked for this so the record never falls behind again.
 * No change to how Penny works.
+
+---
+
+## Version 2.1.3: a menu that scrolls (November 2026, after submission)
+
+**Why I built this.** I found it myself while using Penny: the left menu cut off Help center because it sat too far
+down, and the menu would not scroll.
+
+* The left menu scrolls by itself when the window is too short to show every link.
+* On phones it uses the height of the visible screen, so the browser's own bars do not hide the last link.
+* Six new checks in the phone test suite: a short desktop window and a phone held sideways.
 
 ---
 

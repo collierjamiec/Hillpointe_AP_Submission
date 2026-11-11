@@ -17,6 +17,7 @@ marked **Required** makes older copies read-only until they update.
 
 | Version | Date | In one line |
 |---|---|---|
+| [2.1.3](#213-a-menu-that-scrolls) | Nov 2026 | The left menu scrolls, so Help center is never cut off |
 | [2.1.2](#212-what-production-would-take) | Nov 2026 | An honest list of what production would take, and this change log |
 | [2.1.1](#211-decisions-and-why) | Nov 2026 | The reason for each decision, written into every page |
 | [2.1.0](#210-setup-wizard) | Nov 2026 | A setup wizard, started with a double-click |
@@ -38,9 +39,30 @@ Also on this page: [Penny by the numbers](#penny-by-the-numbers) and [Ideas, and
 
 ---
 
+## 2.1.3: a menu that scrolls
+
+*November 2026. Optional.*
+
+**Where it started.** "The left hand menu cuts off help center because it's too far down, needs to scroll."
+
+**Fixed**
+
+* The left menu now scrolls by itself when the window is too short to show all of it. Before, the last links
+  (Help center, and for an Admin, Users and Insights) could sit below the bottom of the screen with no way to
+  reach them. This showed up on small laptop screens, zoomed-in browsers and phones held sideways.
+* On phones the menu now uses the height of the visible screen, so the browser's own bars no longer hide its
+  last link.
+
+**Tested:** 122 code checks and 18 browser suites. The phone suite has 6 new checks: in a short desktop window and
+on a phone held sideways, the menu scrolls, Help center can be brought into view, and it opens.
+
+**Not done:** checked on an emulated phone and a resized desktop window, not on a real device.
+
+---
+
 ## 2.1.2: what production would take
 
-*November 2026. Optional. No change to how Penny works.*
+*November 2026. Optional. No change to how Penny works. Pull request #15.*
 
 **Where it started.** "I need to get this to a place where I can call it a good portfolio, but not necessarily
 production ready. There are things I cannot do in this project that would need to be done for production. I do need
@@ -475,6 +497,7 @@ check of the import file before it is written, every business rule in one file, 
 | 2.1.0 | 121 | 18 | |
 | 2.1.1 | 121 | 18 | 50 |
 | 2.1.2 | 122 | 18 | 51 |
+| 2.1.3 | 122 | 18 | 51 |
 
 A blank means I did not record that number at the time. Before 1.8.0 the browser tests ran in build sessions and
 were not yet kept in the project.
@@ -516,6 +539,7 @@ A lot of ideas came up along the way. This table keeps track of them, including 
 | Make the reasons for my decisions known everywhere | Built in 2.1.1. |
 | Say clearly that this is a portfolio project, with what production would take | Built in 2.1.2. |
 | A complete change log | Built in 2.1.2. This page. |
+| A left menu that scrolls when the window is short | Fixed in 2.1.3. |
 | Sign in with Microsoft | **Planned next.** Needs a Microsoft tenant to build and test against. |
 | Sign in with Google | **Planned, after Microsoft.** |
 | A portfolio front door: screenshots, a case study, a guided tour | **Proposed, not started.** |
