@@ -137,7 +137,7 @@ the moment you start it.
 | The whole web app: review, resolve, approve, rules, audit trail, exports, help | Yes | |
 | The guided tour | Yes | |
 | The example invoices beside each decision, with source highlighting | Yes | |
-| The tests that do not read invoices (87 of 122) | Yes | |
+| The tests that do not read invoices (90 of 125) | Yes | |
 | **New batch:** upload PDFs and have Penny read and decide them | | Yes |
 | `./penny run`, `./penny demo` and the other commands that read invoices | | Yes |
 | The other 35 tests | | Yes |
@@ -161,8 +161,8 @@ cd 04_Workflow
 ./penny test
 ```
 
-You should see `Ran 122 tests` and `OK (skipped=35)`. The 35 skipped tests need the invoice package. With it,
-all 122 run.
+You should see `Ran 125 tests` and `OK (skipped=35)`. The 35 skipped tests need the invoice package. With it,
+all 125 run.
 
 The browser tests are optional. They need [Node.js](https://nodejs.org/) and download a test browser the first time:
 
@@ -170,7 +170,7 @@ The browser tests are optional. They need [Node.js](https://nodejs.org/) and dow
 cd 04_Workflow/tests/browser
 npm install
 npx playwright install chromium
-python3 run.py                 # 19 suites; one needs the invoice package
+python3 run.py                 # 20 suites; one needs the invoice package
 ```
 
 ---

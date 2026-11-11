@@ -55,9 +55,14 @@ where each rule lives, assumptions). Read it before changing behavior.
   release is made with `./penny release <x.y.z> --summary "..."` (never by hand), which also updates
   `web/data/releases.json` and `APP_VERSION` in `web/assets/penny-core.js`; a test checks all four agree.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
-- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (15 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
+- `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (16 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
   `assets/penny-tour.js` (v2.2: the guided tour; it only moves between pages and must never record an action; when a
   page it stops on changes, update its stops and `tests/browser/tour.spec.js`),
+  `assets/penny-profile.js` (v2.3: My profile. A person changes their own name, title, about line, backup person and
+  photo through `/api/me/profile`, and their password through `/api/me/password`. The username (sign-in email) and
+  user id are never changeable, and role and status stay with an Admin. `accounts.import_profile()` fills a profile
+  from Microsoft or Google details without overwriting hand-made changes; nothing calls it until that sign-in is
+  built. Personal activity numbers are private to each person: never show them to anyone else),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
   (design tokens at the top). It never re-decides an invoice: human actions are events in an audit log (in the browser for the demo, on the server in team mode).
   Labels must stay honest: ENTER_INTACCT is "Ready for Intacct import", never "entered" or "paid".
@@ -72,7 +77,7 @@ The input package lives at `~/Downloads/Hillpointe_AP_Technical_Screen` (not nex
 ```bash
 cd 04_Workflow
 export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
-./penny test                                   # 122 checks, uses temp dirs, safe
+./penny test                                   # 125 checks, uses temp dirs, safe
 ./penny run 1 -n --package "$HILLPOINTE_PACKAGE"   # dry run, saves nothing
 ```
 

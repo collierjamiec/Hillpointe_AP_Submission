@@ -1473,3 +1473,34 @@ main .help-note a, main td a { text-decoration: underline; text-underline-offset
 }
 .touring .toast { bottom: auto; top: 76px; }              /* a passing message moves up, so it never covers the tour's buttons */
 @media print { .tour { display: none; } }
+
+/* ---------- v2.3: my profile */
+.avatar.has-photo { background: var(--surface-2); overflow: hidden; }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.user-pop a[role=menuitem] { display: block; width: 100%; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text); font: inherit; text-align: left; text-decoration: none; }
+.user-pop a[role=menuitem]:hover, .user-pop a[role=menuitem]:focus-visible { background: var(--surface-2); color: var(--text); text-decoration: none; }
+.pf-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.pf-body { display: flex; flex-direction: column; gap: 18px; }
+.pf-photo { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.pf-avatar { width: 96px; height: 96px; font-size: 32px; }
+.pf-photo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1; min-width: 220px; }
+.pf-photo-actions .hint { flex-basis: 100%; margin: 0; }
+.pf-photo-actions input:focus-visible + .btn, .pf-photo-actions label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.pf-wide { grid-column: 1 / -1; }
+.pf-fields textarea { width: 100%; padding: 9px 12px; border-radius: var(--radius-sm); border: 1px solid var(--control-border); background: var(--surface); color: var(--text); font: inherit; resize: vertical; }
+.pf-fields textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pf-fields .hint, .pf-pw .hint { margin: 2px 0 0; }
+.pf-actions { display: flex; justify-content: flex-end; }
+.pf-facts, .pf-stats { display: grid; gap: 10px; margin: 0 0 12px; }
+.pf-facts > div, .pf-stats > div { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.pf-facts dt, .pf-stats dt { color: var(--text-2); font-size: 13px; }
+.pf-facts dd, .pf-stats dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.pf-stats dd { font-variant-numeric: tabular-nums; }
+.pf-breakdown { width: 100%; margin-bottom: 12px; }
+.pf-breakdown .num { text-align: right; }
+.pf-pw form { display: flex; flex-direction: column; gap: 12px; }
+.pf-pw .look-saved, #pf-saved { margin: 0 0 12px; }
+.u-about, .u-backup { display: block; }
+@media (max-width: 980px) { .pf-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .pf-fields { grid-template-columns: minmax(0, 1fr); } .pf-actions .btn { width: 100%; } }

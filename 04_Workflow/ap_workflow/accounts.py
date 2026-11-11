@@ -22,6 +22,8 @@ Rules that protect the team
   * Only an Admin manages people. Nobody can turn off or demote themselves, and the last active Admin stays an Admin.
   * Every change is appended to state/batch_log.jsonl and shown in the audit trail.
 """
+import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -79,6 +81,67 @@ def password_problem(password, email="", name=""):
     if (local and len(local) >= 4 and local in low) or any(w and len(w) >= 4 and w.lower() in low for w in str(name).split()):
         return "Do not use your email or name in the password."
     return ""
+
+
+# ------------------------------------------------------------------ profiles (v2.3)
+ABOUT_MAX = 280                       # a short "about" line, not a biography
+PHOTO_MAX = 90_000                    # characters of a data: address; the browser shrinks a photo to about 20 KB first
+PHOTO_RE = re.compile(r"^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$")
+PROVIDERS = {"microsoft": "Microsoft", "google": "Google"}
+PROFILE_LABELS = {"name": "name", "title": "title", "about": "about line", "photo": "photo", "backup": "backup person"}
+
+
+def clean_photo(v):
+    """A profile photo as a small data: address (PNG, JPEG or WebP), or '' for none. The bytes are checked, not just
+    the label, and SVG is never accepted because it can carry script."""
+    v = str(v or "").strip()
+    if not v:
+        return ""
+    m = PHOTO_RE.match(v)
+    if not m or len(v) > PHOTO_MAX:
+        raise AccountError("That photo could not be used. Choose a PNG, JPEG or WebP picture.")
+    try:
+        raw = base64.b64decode(m.group(2), validate=True)
+    except (binascii.Error, ValueError):
+        raise AccountError("That photo could not be read. Try another picture.")
+    kind = "png" if raw[:8] == b"\x89PNG\r\n\x1a\n" else "jpeg" if raw[:3] == b"\xff\xd8\xff" else "webp" if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP" else ""
+    if kind != m.group(1):
+        raise AccountError("That file is not the kind of picture it says it is. Choose a PNG, JPEG or WebP picture.")
+    return v
+
+
+def clean_line(v, limit):
+    """Free text for a profile: one line, trimmed, no control characters, cut to a limit."""
+    return re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", str(v or ""))).strip()[:limit]
+
+
+def provider_profile(provider, claims):
+    """What a Microsoft or Google account says about a person, as Penny's profile fields. Only the fields the
+    provider actually sent are returned. `claims` is the provider's own answer:
+    - Microsoft: the Graph "me" record (displayName, jobTitle, aboutMe, department, officeLocation).
+    - Google: the sign-in claims (name) plus the People record (organizations[0].title and .department,
+      biographies[0].value).
+    A photo is passed by the caller as claims["photo"], already downloaded and turned into a data: address, because
+    Penny's pages may not load pictures from other sites."""
+    if provider not in PROVIDERS:
+        raise AccountError("Penny can import a profile from Microsoft or Google.")
+    c = claims if isinstance(claims, dict) else {}
+    if provider == "microsoft":
+        name, title = c.get("displayName") or c.get("name"), c.get("jobTitle")
+        about = c.get("aboutMe") or ", ".join(x for x in (c.get("department"), c.get("officeLocation")) if x)
+    else:
+        org = (c.get("organizations") or [{}])[0] or {}
+        bio = (c.get("biographies") or [{}])[0] or {}
+        name, title = c.get("name"), org.get("title")
+        about = bio.get("value") or org.get("department")
+    out = {"name": clean_line(name, 80), "title": clean_line(title, 80), "about": clean_line(about, ABOUT_MAX)}
+    try:
+        out["photo"] = clean_photo(c.get("photo"))
+    except AccountError:
+        out["photo"] = ""                               # a bad picture from the provider is skipped, never fatal
+    if len(out["name"]) < 2:
+        out.pop("name")
+    return {k: v for k, v in out.items() if v}
 
 
 def clean_email(v):
@@ -164,7 +227,10 @@ class Accounts:
     def public(u):
         """What the web app may see about a person. Never the password hash."""
         return {k: u.get(k) for k in ("id", "email", "name", "title", "role", "status", "created_at", "created_by", "updated_at", "last_sign_in", "prefs")} | {
-            "initials": "".join(w[0] for w in u["name"].split()[:2]).upper(), "has_password": bool(u.get("password"))}
+            "initials": "".join(w[0] for w in u["name"].split()[:2]).upper(), "has_password": bool(u.get("password")),
+            # (v2.3) the profile: a short about line, who covers for them, a small photo, and where the details come from
+            "about": u.get("about", ""), "backup": u.get("backup", ""), "photo": u.get("photo", ""),
+            "source": u.get("source", "penny"), "imported": list(u.get("imported", []))}
 
     def get(self, user_id):
         """One person's full record by id (including the password hash), or None."""
@@ -347,6 +413,110 @@ class Accounts:
             self.end_sessions(user_id)                 # new permissions take effect at once
         self.log({"event": "user.updated", "by": self._who(actor), "user_id": user_id, "email": u["email"], "changes": diff})
         return self.public(u), diff
+
+    # ------------------------------------------------------------------ my profile (v2.3)
+    def update_profile(self, actor, changes):
+        """(v2.3) The signed-in person changes their own name, title, about line, backup person or photo. Everything
+        on a profile can be changed except the username (the sign-in email) and the user id. Role and status are not
+        part of a profile: they control access and stay with an Admin. A detail that was imported from Microsoft or
+        Google can be changed too; once changed by hand it is remembered as theirs and a later import leaves it alone."""
+        if not isinstance(changes, dict):
+            raise AccountError("Those changes could not be saved.")
+        with self.lock:
+            users = self._users()
+            u = next((x for x in users if x["id"] == actor["id"]), None)
+            if not u:
+                raise AccountError("Please sign in again.", 401)
+            asked = [k for k in PROFILE_LABELS if k in changes]
+            before = {k: u.get(k, "") for k in PROFILE_LABELS}
+            after = dict(before)
+            if "name" in asked:
+                after["name"] = clean_line(changes["name"], 80)
+                if len(after["name"]) < 2:
+                    raise AccountError("Enter your name.")
+            if "title" in asked:
+                after["title"] = clean_line(changes["title"], 80)
+            if "about" in asked:
+                after["about"] = clean_line(changes["about"], ABOUT_MAX)
+            if "photo" in asked:
+                after["photo"] = clean_photo(changes["photo"])
+            if "backup" in asked:
+                b = str(changes["backup"] or "")
+                if b and (b == u["id"] or not any(x["id"] == b and x["status"] == "active" for x in users)):
+                    raise AccountError("Choose a backup person who has an active account, other than yourself.")
+                after["backup"] = b
+            changed = [k for k in PROFILE_LABELS if after[k] != before[k]]
+            if not changed:
+                return self.public(u), {}
+            u.update({k: after[k] for k in changed})
+            u["mine"] = sorted(set(u.get("mine", [])) | set(changed))                 # changed by hand: an import will not overwrite these
+            u["imported"] = sorted(set(u.get("imported", [])) - set(changed))
+            u["updated_at"] = now_iso()
+            self._save_users(users)
+        # The log says a photo changed, never the picture itself.
+        diff = {k: (["none" if not before[k] else "a photo", "none" if not after[k] else "a new photo"] if k == "photo" else [before[k], after[k]]) for k in changed}
+        self.log({"event": "user.profile_updated", "by": self._who(u), "user_id": u["id"], "email": u["email"], "changes": diff})
+        return self.public(u), diff
+
+    def change_password(self, actor, current, new, keep_session=None):
+        """(v2.3) The signed-in person chooses a new password. They must give the current one. Every other session
+        they have is ended; the one they are using (keep_session) stays. Five wrong tries lock this for a minute."""
+        now = self.clock()
+        key = "pw:" + actor["id"]
+        st = self.tries.get(key, {"fails": 0, "until": 0, "lockouts": 0})
+        if st["until"] > now:
+            raise AccountError(f"Too many wrong tries. Try again in {int(st['until'] - now) + 1} seconds.", 429)
+        with self.lock:
+            users = self._users()
+            u = next((x for x in users if x["id"] == actor["id"]), None)
+            if not u:
+                raise AccountError("Please sign in again.", 401)
+            if u.get("source", "penny") != "penny":
+                raise AccountError(f"You sign in with {PROVIDERS[u['source']]}, so there is no Penny password to change.", 409)
+            pw = u.get("password") or {"salt": "00" * 16, "hash": "", "iterations": ITERATIONS}
+            typed = hashlib.pbkdf2_hmac("sha256", str(current or "").encode(), bytes.fromhex(pw["salt"]), pw.get("iterations", ITERATIONS)).hex()
+            if not pw["hash"] or not hmac.compare_digest(typed, pw["hash"]):
+                st["fails"] += 1
+                if st["fails"] >= MAX_TRIES:
+                    st.update(fails=0, until=now + 60, lockouts=st["lockouts"] + 1)
+                self.tries[key] = st
+                raise AccountError("That is not your current password.", 403)
+            self.tries.pop(key, None)
+            problem = password_problem(new, u["email"], u["name"])
+            if problem:
+                raise AccountError(problem)
+            if str(new) == str(current):
+                raise AccountError("Choose a password that is different from your current one.")
+            u["password"] = hash_password(str(new))
+            u["updated_at"] = now_iso()
+            self._save_users(users)
+            keep = hashlib.sha256(keep_session.encode()).hexdigest() if keep_session else None
+            for k in [k for k, v in self.sessions.items() if v["user"] == u["id"] and k != keep]:
+                self.sessions.pop(k, None)
+        self.log({"event": "user.password_changed", "by": self._who(u), "user_id": u["id"], "email": u["email"]})
+        return self.public(u)
+
+    def import_profile(self, user_id, provider, claims):
+        """(v2.3) Fill a person's profile from their Microsoft or Google account. The imported details are a starting
+        point: the person can change any of them, and a detail they have changed by hand is never overwritten by a
+        later import. The username (sign-in email) and user id are not touched.
+        This is ready for sign-in with Microsoft and Google, which is not built yet: nothing calls it until then."""
+        got = provider_profile(provider, claims)
+        with self.lock:
+            users = self._users()
+            u = next((x for x in users if x["id"] == user_id), None)
+            if not u:
+                raise AccountError("That person is not in Penny.", 404)
+            got = {k: v for k, v in got.items() if k not in u.get("mine", [])}
+            before = {k: u.get(k, "") for k in got}
+            u.update(got)
+            u["source"] = provider
+            u["imported"] = sorted(set(u.get("imported", [])) | set(got))
+            u["updated_at"] = now_iso()
+            self._save_users(users)
+        self.log({"event": "user.profile_imported", "by": self._who(u), "user_id": u["id"], "email": u["email"], "provider": provider,
+                  "fields": sorted(k for k in got if got[k] != before[k])})
+        return self.public(u)
 
     def set_prefs(self, actor, prefs):
         """Save the signed-in person's own appearance settings."""

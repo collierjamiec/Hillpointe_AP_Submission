@@ -8,7 +8,7 @@ plans I changed, is in [`DECISIONS.md`](DECISIONS.md).
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.2.0 was finished.
+Last updated: November 2026, when 2.3.0 was finished.
 
 ---
 
@@ -122,6 +122,15 @@ Penny is a portfolio project. This release writes down, in one place, what stand
 | [`GETTING_STARTED.md`](GETTING_STARTED.md) for people who download the project | Done |
 | [`CASE_STUDY.md`](CASE_STUDY.md) | Done |
 | Screenshots of the real app, and a README that leads with them | Done |
+
+## 2.3.0: my profile (Done)
+
+| Item | Status |
+|---|---|
+| A profile each person manages: name, title, about line, backup person and photo | Done |
+| Change your password while signed in | Done |
+| My activity, private to each person | Done |
+| Import profile details from Microsoft or Google | Done (the import; it runs once that sign-in is built) |
 
 ## After 2.0 (intended, not scheduled)
 

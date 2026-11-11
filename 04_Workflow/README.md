@@ -31,7 +31,7 @@ Penny is the short name for this workflow. Open a terminal in this folder and ty
 ./penny run 2 -n                              # -n means dry run: show every decision, save nothing
 ./penny explain 6                             # every check for document 0006 in the latest run
 ./penny status                                # what the register remembers
-./penny test                                  # run the 122 automated checks
+./penny test                                  # run the 125 automated checks
 python tests/browser/run.py                   # (added after submission, v1.8) the browser suites; needs Node and Playwright
 ./penny reset                                 # forget everything and start fresh
 ./penny web-export --package <package>        # (added after submission) package saved runs and PDFs for the web view
@@ -109,6 +109,10 @@ A browser view of everything Penny decided, for people who would rather not use 
   each file carries a SHA-256 from `ap_workflow/webexport.py`), the watched inbox folder (`./penny web --watch`, see
   `ap_workflow/watcher.py`; previews only, never a real run), paging for long lists, and an accessibility pass with
   an automated WCAG 2.2 AA check of every screen (`tests/browser/accessibility.spec.js`).
+* **My profile (v2.3.0):** `web/assets/penny-profile.js` and the `/api/me/profile` and `/api/me/password` routes. A
+  person changes their own name, title, about line, backup person and photo; never the username (sign-in email) or
+  user id. `accounts.import_profile()` fills a profile from Microsoft or Google details and is ready for that
+  sign-in, which is not built yet. `tests/browser/profile.spec.js` checks the page.
 * **Guided tour (v2.2.0):** `web/assets/penny-tour.js`. Nine stops on the real pages, started from **Take the tour**.
   It only moves between pages and never records an action. `tests/browser/tour.spec.js` checks every stop, and
   `tests/browser/screenshots.js` retakes the pictures in `../docs/screenshots/`. New to the project? Start with

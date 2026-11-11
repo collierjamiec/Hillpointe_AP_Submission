@@ -32,6 +32,8 @@ const ServerAuth = {
     async useToken(t, password, name, purpose) { return (await jsonPost(purpose === "reset" ? "api/auth/reset" : "api/auth/activate", { token: t, password, name })).user; },
     async forgot(email) { await jsonPost("api/auth/forgot", { email }); return null; },
     async setPrefs(id, prefs) { return (await jsonPost("api/me/prefs", { prefs })).prefs; },
+    async updateProfile(id, changes) { return jsonPost("api/me/profile", { changes }); },                       // (v2.3) the server acts as the session's person
+    async changePassword(current, password) { return jsonPost("api/me/password", { current, password }); },
   },
 };
 const AUTH = () => (serverAccounts() ? ServerAuth : PennyAuth);
@@ -251,8 +253,9 @@ function usersTable() {
     <tbody>${PEOPLE.list.map((u) => {
       const [sl, sc] = STATUS_USER[u.status] || [u.status, "b-skip"];
       const me = user && u.id === user.id;
-      return `<tr><td><span class="u-person"><span class="avatar av-${esc(u.role)}" aria-hidden="true">${esc(u.initials)}</span><span><b>${esc(u.name)}</b>${me ? ' <span class="chip">You</span>' : ""}${u.builtIn ? ' <span class="chip" title="Public demo account with a published password">Demo account</span>' : ""}
-          <span class="sub">${esc(u.email)}${u.title ? ` · ${esc(u.title)}` : ""}</span></span></span></td>
+      return `<tr><td><span class="u-person"><span class="avatar av-${esc(u.role)}${u.photo ? " has-photo" : ""}" aria-hidden="true">${avatarInner(u)}</span><span><b>${esc(u.name)}</b>${me ? ' <span class="chip">You</span>' : ""}${u.builtIn ? ' <span class="chip" title="Public demo account with a published password">Demo account</span>' : ""}
+          <span class="sub">${esc(u.email)}${u.title ? ` · ${esc(u.title)}` : ""}</span>${u.about ? `<span class="sub u-about">${esc(u.about)}</span>` : ""}${
+            u.backup && PEOPLE.list.find((x) => x.id === u.backup) ? `<span class="sub u-backup">Covered by ${esc(PEOPLE.list.find((x) => x.id === u.backup).name)}</span>` : ""}</span></span></td>
         <td>${esc(ROLES[u.role].name)}</td><td><span class="badge ${sc}">${esc(sl)}</span></td>
         <td class="hide-sm">${u.last_sign_in ? esc(fmtDateTime(u.last_sign_in)) : '<span class="hint">Never</span>'}</td>
         <td><div class="u-actions"><button class="btn btn-sm" type="button" data-user-edit="${esc(u.id)}">Edit</button>

@@ -36,10 +36,12 @@ team. A real company wants people to use the account they already have.
 |---|---|---|---|
 | **Sign in with Microsoft** | Not built. | Sign in with a Microsoft work account (Microsoft Entra ID), so nobody has a separate Penny password. | **Intended next.** It needs a Microsoft tenant and an app registration to build and test against, which I have to set up myself. |
 | **Sign in with Google** | Not built. | Sign in with a Google Workspace account, for companies that use Google. | **Intended, after Microsoft.** It needs a Google Cloud project and a Workspace domain to test against. |
+| **Profile details from the company account** | Each person fills in their own profile. The code that imports a name, title, about line and photo from Microsoft or Google is written and tested with sample data. | The import runs at sign-in, against the real services. | Waits on Microsoft and Google sign-in. |
 | **Two-step sign-in** | Not built. | A second step, such as a code from a phone. | Comes with Microsoft and Google sign-in, where the company already manages it. |
 | **Roles from the company directory** | An Admin sets each person's role in Penny. | Roles follow the groups a person belongs to in the company directory. | Needs a real directory with groups. |
 | **Leaving the company** | An Admin turns the account off in Penny. | The account turns off by itself when the person is removed from the company directory. | Needs a real directory. |
 | **Stronger password storage** | Passwords are scrambled with PBKDF2, a sound and standard method. | Argon2id, a newer method that is harder to attack. | Could be built. Low priority once Microsoft and Google sign-in exist, because then Penny holds no passwords. |
+| **Changing your own password** | Built in 2.3.0: it asks for the current password and signs out your other devices. | The same. | Done. |
 | **Staying signed in through a restart** | Restarting Penny signs everyone out. | Sign-ins survive a restart. | Could be built. A small, known gap. |
 
 **How Microsoft and Google sign-in would work in Penny.** Both use the same open standard (OpenID Connect), so one
@@ -122,7 +124,7 @@ This is the largest gap, and it is on purpose.
 
 ## 7. Testing with real people
 
-Automated tests are strong on rules and weak on people. Penny has 122 code tests and 19 browser suites. None of
+Automated tests are strong on rules and weak on people. Penny has 125 code tests and 20 browser suites. None of
 them is a person.
 
 | | Today | Production needs | Why not here |
