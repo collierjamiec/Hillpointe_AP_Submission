@@ -137,6 +137,7 @@
     return { id: a.id, name: a.name, email: a.email, role: a.role, title: a.title || "", status: a.status || "active", builtIn: !!a.builtIn,
              created_at: a.created_at || "", created_by: a.created_by || null, updated_at: a.updated_at || "", last_sign_in: a.last_sign_in || "",
              has_password: !!a.hash, prefs: (dir().prefs || {})[a.id] || {},
+             about: a.about || "", backup: a.backup || "", photo: a.photo || "", source: a.source || "penny", imported: a.imported || [],   // (v2.3) the profile
              initials: a.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() };
   }
 
@@ -286,6 +287,33 @@
       d.tokens[await sha(t)].used = nowIso();
       saveDir(d);
       return publicUser({ ...u, ...fields });
+    },
+    /** (v2.3) A person changes their own name, title, about line, backup person or photo. Never the email or id. */
+    updateProfile(id, changes) {
+      const d = dir();
+      const u = all().find((x) => x.id === id) || err("Please sign in again.");
+      const before = { name: u.name, title: u.title || "", about: u.about || "", backup: u.backup || "", photo: u.photo || "" };
+      const after = { ...before };
+      const line = (v, max) => String(v || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+      if ("name" in changes) { after.name = line(changes.name, 80); if (after.name.length < 2) err("Enter your name."); }
+      if ("title" in changes) after.title = line(changes.title, 80);
+      if ("about" in changes) after.about = line(changes.about, 280);
+      if ("photo" in changes) {
+        after.photo = String(changes.photo || "");
+        if (after.photo && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(after.photo) || after.photo.length > 90000)) err("That photo could not be used. Choose a PNG, JPEG or WebP picture.");
+      }
+      if ("backup" in changes) {
+        after.backup = String(changes.backup || "");
+        if (after.backup && (after.backup === id || !all().some((x) => x.id === after.backup && (x.status || "active") === "active"))) err("Choose a backup person who has an active account, other than yourself.");
+      }
+      const changed = Object.keys(after).filter((k) => after[k] !== before[k]);
+      const diff = Object.fromEntries(changed.map((k) => [k, k === "photo" ? [before.photo ? "a photo" : "none", after.photo ? "a new photo" : "none"] : [before[k], after[k]]]));
+      if (changed.length) {
+        patch(d, id, { ...Object.fromEntries(changed.map((k) => [k, after[k]])), updated_at: nowIso() });
+        saveDir(d);
+        if (!ls.get(DIR_KEY) || JSON.stringify(ls.get(DIR_KEY)) !== JSON.stringify(d)) err("This browser could not save that. Its storage may be full or turned off.");
+      }
+      return { user: publicUser({ ...u, ...after }), changes: diff };
     },
     setPrefs(id, prefs) { const d = dir(); d.prefs = { ...(d.prefs || {}), [id]: prefs }; saveDir(d); return prefs; },
     reset() { memoryDir = null; ls.del(DIR_KEY); },

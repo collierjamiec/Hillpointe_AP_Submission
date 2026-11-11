@@ -802,9 +802,10 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
                     raise BatchError("Only an Admin can manage people.", 403)
                 return self.send_json({"users": self.service.accounts.list(), "email": __import__("ap_workflow.mailer", fromlist=["describe"]).describe()})
             if url.path == "/api/people":
-                # Anyone signed in may see who can be emailed: name, email and role of active people only.
+                # Anyone signed in may see who can be emailed or chosen as a backup: id, name, email, role and title of
+                # active people only.
                 self.actor(None)
-                return self.send_json({"people": [{k: u[k] for k in ("name", "email", "role")} for u in self.service.accounts.list() if u["status"] == "active"]})
+                return self.send_json({"people": [{k: u[k] for k in ("id", "name", "email", "role", "title")} for u in self.service.accounts.list() if u["status"] == "active"]})
             if url.path == "/api/events":
                 # The team's audit log since a number. With wait=N the answer is held back until something new
                 # arrives (or N seconds pass), which is how every open browser learns of a teammate's work at once.
@@ -903,7 +904,7 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
     def account_routes(self, parts, raw):
         """Sign-in, links, people and preferences. Returns a response, or None when the path is not one of these."""
         acc = self.service.accounts
-        if parts[:2] != ["api", "auth"] and parts[:2] != ["api", "users"] and parts != ["api", "me", "prefs"]:
+        if parts[:2] != ["api", "auth"] and parts[:2] != ["api", "users"] and parts not in (["api", "me", "prefs"], ["api", "me", "profile"], ["api", "me", "password"]):
             return None
         body = json.loads(raw or b"{}")
         if parts == ["api", "auth", "login"]:
@@ -925,6 +926,12 @@ class PennyHandler(http.server.SimpleHTTPRequestHandler):
         who = self.actor(None)
         if parts == ["api", "me", "prefs"]:
             return self.send_json({"prefs": acc.set_prefs(who, body.get("prefs"))})
+        if parts == ["api", "me", "profile"]:           # (v2.3) your own name, title, about line, backup person and photo
+            self.service.paused("Changing your profile")
+            user, diff = acc.update_profile(who, body.get("changes") or {})
+            return self.send_json({"user": user, "changes": diff})
+        if parts == ["api", "me", "password"]:          # (v2.3) a new password, while signed in
+            return self.send_json({"user": acc.change_password(who, body.get("current"), body.get("password"), keep_session=self.session_token())})
         if parts == ["api", "users"]:
             self.service.paused("Inviting people")
             user, token, hours = acc.invite(who, body.get("email"), body.get("name"), body.get("role"), body.get("title", ""))

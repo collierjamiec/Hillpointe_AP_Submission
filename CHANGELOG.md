@@ -17,6 +17,7 @@ marked **Required** makes older copies read-only until they update.
 
 | Version | Date | In one line |
 |---|---|---|
+| [2.3.0](#230-my-profile) | Nov 2026 | A profile each person manages: details, photo, password and private activity |
 | [2.2.0](#220-a-front-door) | Nov 2026 | A guided tour, a case study, a getting started guide and screenshots |
 | [2.1.3](#213-a-menu-that-scrolls) | Nov 2026 | The left menu scrolls, so Help center is never cut off |
 | [2.1.2](#212-what-production-would-take) | Nov 2026 | An honest list of what production would take, and this change log |
@@ -40,9 +41,56 @@ Also on this page: [Penny by the numbers](#penny-by-the-numbers) and [Ideas, and
 
 ---
 
-## 2.2.0: a front door
+## 2.3.0: my profile
 
 *November 2026. Optional.*
+
+**Where it started.** "Can users edit their own profiles? Add photos, bios, stats, etc??" They could not. Then two
+rules from me while it was being built: "If the profile is Microsoft or Google, import about data," and "Only thing
+unchangeable is user name / user id."
+
+**Added**
+
+* **My profile,** in the menu under your name. Each person changes their own name, title, a short "about" line,
+  who covers for them, and a photo.
+* **A photo.** Penny cuts the picture to a square and shrinks it in the browser, so only a small file is stored.
+  It replaces your initials in the top bar, on your profile and on the Users page. PNG, JPEG and WebP only, and the
+  server checks the file's contents, not just its name.
+* **Change your password while signed in.** It asks for the current one, and your other devices are signed out.
+  Five wrong tries lock it for a minute.
+* **My activity.** Your own numbers from the audit trail: how many actions, what kind, and what is waiting on you.
+  Only you can see them.
+* **The username and user ID are shown and cannot be changed,** so the audit trail always points to the same
+  person. Everything else on a profile can be.
+* **Import from Microsoft or Google.** The code that fills a profile from a Microsoft or Google account is written
+  and tested with sample data. Imported details are a starting point: the person can change any of them, and a
+  later import never overwrites a change they made by hand.
+* A help center article, "Your profile".
+
+**Changed**
+
+* The Users page shows each person's photo, about line and who covers for them.
+* A profile change is one entry in the audit trail, with before and after. It says a photo changed and never holds
+  the picture.
+
+**Security**
+
+* A person can change only their own profile. The server uses the signed-in session and ignores any id, email, role
+  or status the browser sends.
+* SVG pictures are refused, because they can carry script.
+
+**Tested:** 125 code checks (3 new) and 20 browser suites. The new profile suite has 38 checks: the demo, a phone,
+real accounts, a WCAG 2.2 AA check, and the password change.
+
+**Not done:** sign-in with Microsoft and Google is not built, so nothing calls the import yet. A photo does not
+show beside past entries in the audit trail, which keep the initials recorded at the time. Not tried on a real
+phone.
+
+---
+
+## 2.2.0: a front door
+
+*November 2026. Optional. Pull request #17.*
 
 **Where it started.** The product was strong, but someone landing on the project saw mostly text. The plan was a
 front door: screenshots, a case study, and a tour in the demo. While it was being built I added: "We need a getting
@@ -540,6 +588,7 @@ check of the import file before it is written, every business rule in one file, 
 | 2.1.2 | 122 | 18 | 51 |
 | 2.1.3 | 122 | 18 | 51 |
 | 2.2.0 | 122 | 19 | 52 |
+| 2.3.0 | 125 | 20 | 53 |
 
 A blank means I did not record that number at the time. Before 1.8.0 the browser tests ran in build sessions and
 were not yet kept in the project.
@@ -584,6 +633,9 @@ A lot of ideas came up along the way. This table keeps track of them, including 
 | A left menu that scrolls when the window is short | Fixed in 2.1.3. |
 | A portfolio front door: screenshots, a case study and a guided tour | Built in 2.2.0. |
 | A getting started guide for people who download the project | Built in 2.2.0. |
+| Profiles people edit themselves: photo, about line, stats | Built in 2.3.0. Stats are private to each person. |
+| Import profile details from Microsoft or Google | The import is built and tested in 2.3.0. It runs once sign-in with Microsoft and Google exists. |
+| Photos beside past entries in the audit trail | Not built. Past entries keep the initials recorded at the time. |
 | Sign in with Microsoft | **Planned next.** Needs a Microsoft tenant to build and test against. |
 | Sign in with Google | **Planned, after Microsoft.** |
 | A portfolio front door: screenshots, a case study, a guided tour | **Proposed, not started.** |

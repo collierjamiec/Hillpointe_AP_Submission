@@ -2,6 +2,17 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.3.0",
+      "date": "2026-11-11",
+      "required": false,
+      "summary": "A profile each person manages: details, photo, password and private activity",
+      "notes": [
+        "My profile, in the menu under your name: change your name, title, about line, who covers for you, and your photo. Your username and user ID stay the same.",
+        "Change your password while signed in. Your other devices are signed out.",
+        "My activity shows your own numbers. Only you can see them."
+      ]
+    },
+    {
       "version": "2.2.0",
       "date": "2026-11-11",
       "required": false,

@@ -258,6 +258,31 @@ Each entry says what I decided, what I weighed, and why. Where a decision has a 
 * **Why:** Even a small internal tool holds vendor and payment information. These habits are cheap to build in at
   the start and painful to add later.
 
+### People own their profile, except the username and user ID
+
+* **Decision:** Each person can change everything on their own profile: name, title, about line, backup person and
+  photo. The only things that cannot be changed are the username (the sign-in email) and the user ID.
+* **What I weighed:** Before this, only an Admin could change a name.
+* **Why:** The username and ID are what the audit trail points to, so they have to stay the same. Everything else
+  belongs to the person. Role and status are not part of a profile. They control access, so they stay with an Admin.
+
+### A Microsoft or Google profile brings its details, and they stay editable
+
+* **Decision:** When a profile comes from Microsoft or Google, Penny imports the name, title, about details and
+  photo. The person can still change any of them, and a later import does not overwrite their change.
+* **What I weighed:** Locking imported details, so the company directory is the only source.
+* **Why:** I set the rule that only the username and user ID are fixed. An import should save typing, not take the
+  profile away from the person.
+* **The cost:** A profile in Penny can differ from the company directory. Sign-in with Microsoft and Google is not
+  built yet, so today the import is tested with sample data only.
+
+### Personal activity numbers are private
+
+* **Decision:** "My activity" shows a person their own numbers. Nobody else sees them.
+* **What I weighed:** Showing everyone's numbers to the team or to Admins.
+* **Why:** Usage insights already count by role, never by person. Numbers per person that others can see can feel
+  like being watched.
+
 ### Real email, and an honest stand-in when there is none
 
 * **Decision:** Penny sends real email when a mail account is set up. When it is not, messages go to an Outbox with

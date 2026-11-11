@@ -76,6 +76,7 @@ function render() {
   else if (a === "about") { location.replace("#/help/about"); return; }
   else if (a === "whats-new") { html = viewWhatsNew(); title = "What's new"; nav = "help"; }
   else if (a === "appearance") { html = viewAppearance(); title = "Appearance"; nav = "appearance"; after = bindAppearance; }
+  else if (a === "profile") { html = viewProfile(); title = "My profile"; nav = ""; after = bindProfile; }
   else if (a === "users") { html = viewUsers(); title = "Users"; nav = "users"; after = bindUsers; }
   else if (a === "outbox") { html = viewOutbox(); title = "Outbox"; nav = "outbox"; after = bindOutbox; }
   else if (a === "help") { html = viewHelp(b, q); const art = HELP().find((x) => x.slug === b); title = art ? `${art.title} · Help` : "Help center"; nav = "help"; after = bindHelp; }
@@ -157,7 +158,7 @@ function bindChrome() {
       "", "Erase my demo changes", () => { EV = []; store.del(SANDBOX_KEY); store.del(OUTBOX_KEY); if (!serverAccounts()) PennyAuth.directory.reset(); derive(); ruleDraft = {}; render(); toast("Demo reset. Everything is back to Penny's results."); return ""; }, { danger: true });
   });
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".user-menu")) closeUserMenu();
+    if (!e.target.closest(".user-menu") || e.target.closest("#my-profile")) closeUserMenu();
     const act = e.target.closest("[data-act]");
     if (act) { e.preventDefault(); doAction(act.dataset.act, act.dataset.doc, act.dataset); return; }
     const em = e.target.closest("[data-email-file]");
@@ -242,11 +243,8 @@ function closeUserMenu() { $("#user-pop").hidden = true; $("#user-btn").setAttri
 function enterApp(u) {
   user = u;
   role = u.role;
-  $("#user-avatar").textContent = u.initials;
-  $("#user-avatar").className = `avatar av-${u.role}`;
-  $("#user-name").textContent = u.name;
-  $("#user-role").textContent = ROLES[u.role].name;
-  $("#user-pop-head").innerHTML = `<strong>${esc(u.name)}</strong>${esc(u.title)} · ${esc(ROLES[u.role].name)}<br>${esc(u.email)}`;
+  PF = { people: [], photo: null, busy: false, said: "", pwSaid: "" };       // a new person starts with a clean profile form
+  paintMe();
   $("[data-needs=work]").hidden = !(can("resolve") || can("approve"));
   $("[data-needs=insights]").hidden = !can("rules");
   $("[data-needs=upload]").hidden = !can("upload");

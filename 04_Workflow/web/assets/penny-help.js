@@ -250,6 +250,34 @@ window.PENNY_HELP = [
 <div class="help-note">In this public demo you can key and check entries. Checking with Penny and saving for the next run need Penny on your computer.</div>
 <div class="help-note help-why"><strong>Why it works this way.</strong> Typing is where mistakes and fraud get in, so an entry over a set amount is keyed again by a different person. The amount is a setting, so a team can match it to their own policy. <a href="#/help/decisions">More decisions</a></div>` },
 
+  { slug: "profile", section: "Using the web app", title: "Your profile",
+    summary: "Change your name, title, photo and password, and see your own activity.",
+    html: `
+<p><em>Added after submission, in version 2.3.0.</em></p>
+<p>Open the menu under your name and choose <strong>My profile</strong>. This is where you manage your own details.</p>
+<h2>What you can change</h2>
+<ul>
+  <li><strong>Name and title.</strong></li>
+  <li><strong>About.</strong> One or two sentences, up to 280 characters: what you cover, or when you are out.</li>
+  <li><strong>Who covers for you.</strong> Pick a teammate. An Admin sees this on the <a href="#/users">Users</a> page, so they know who to ask when you are away.</li>
+  <li><strong>Photo.</strong> Choose a PNG, JPEG or WebP picture. Penny cuts it to a square and shrinks it before saving. It replaces your initials in the top bar, on your profile and on Users. <strong>Remove photo</strong> brings your initials back.</li>
+</ul>
+<p>Choose <strong>Save profile</strong> to keep your changes. Each save is one entry in the <a href="#/audit">audit trail</a>, with before and after. The entry says a photo changed. It never holds the picture.</p>
+<h2>What you cannot change</h2>
+<ul>
+  <li><strong>Your username</strong> (the email you sign in with) and <strong>your user ID</strong>. These never change, so the audit trail always points to the same person.</li>
+  <li><strong>Your role.</strong> It is not part of your profile. It decides what you can do, so an Admin sets it.</li>
+</ul>
+<h2>Changing your password</h2>
+<p>With real accounts, the Password card asks for your current password and a new one. When it is changed, your other devices are signed out and the one you are using stays signed in. Five wrong tries lock the form for a minute.</p>
+<p>The demo people sign in with a click, so there is no password to change in the demo.</p>
+<h2>My activity</h2>
+<p>Your own numbers, from the audit trail: how many actions you have recorded, what kind, and what is waiting on you now. <strong>Only you can see them.</strong> Admins see usage by role on <a href="#/insights">Insights</a>, never by person.</p>
+<h2>Profiles from Microsoft or Google</h2>
+<p>Sign-in with Microsoft and Google is planned, not built. When it is, Penny will bring in your name, title, about details and photo from that account. The part that does this is already written and tested. Imported details are a starting point: you can change any of them, and Penny keeps your version the next time it imports.</p>
+<div class="help-note"><strong>In the demo.</strong> Profile changes stay in this browser, like everything else. <strong>Reset demo data</strong> in the menu under your name clears them.</div>
+<div class="help-note help-why"><strong>Why it works this way.</strong> A profile belongs to the person, so they can change everything on it. The username and user ID are the exception, because the audit trail depends on them. Activity numbers are private so they never feel like being watched. <a href="#/help/decisions">More decisions</a></div>` },
+
   { slug: "users", section: "Using the web app", title: "Managing people (Admin)",
     summary: "Invite people, set roles, turn accounts off, and send password resets.",
     html: `
@@ -991,7 +1019,7 @@ export PENNY_PUBLIC_URL=http://127.0.0.1:8765   # where people open Penny, for l
 <h2>Can people sign in with a Microsoft or Google account?</h2>
 <p>Not yet. It is the next thing Jamie intends to build: Microsoft work accounts first, then Google. Today each person has their own Penny password. See <a href="#/help/users">Managing people</a>.</p>
 <h2>How is Penny tested?</h2>
-<p>Two ways, on every change: 122 automated checks of Penny's decisions, accounts, email and server, and 19 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
+<p>Two ways, on every change: 125 automated checks of Penny's decisions, accounts, email and server, and 20 browser suites that sign in as each role and use the app the way a person would, including an <a href="#/help/accessibility">accessibility</a> check of every screen a test with 5,000 invoices, a run on an emulated <a href="#/help/phone">phone</a>, and three people <a href="#/help/team">working at once</a>. A third set runs on the maintainer's computer with the full example package.</p>
 <h2>Why do some invoices appear in more than one run?</h2>
 <p>Runs can read the same folder again. That is how Penny proves a rerun is safe.</p>` },
 

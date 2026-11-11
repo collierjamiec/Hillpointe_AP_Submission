@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.3.0";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -100,6 +100,7 @@ const EVENT_LABEL = {
   "recheck.preview": "Rechecked an invoice (preview)",
   "user.invited": "Invited someone", "user.updated": "Changed someone's account", "user.reset_sent": "Sent a password reset", "user.invite_resent": "Resent an invitation",
   "user.activated": "Set up their account", "user.password_reset": "Chose a new password", "user.reset_requested": "Asked for a password reset", "user.signed_in": "Signed in",
+  "user.profile_updated": "Changed their profile", "user.password_changed": "Changed their password", "user.profile_imported": "Profile imported from their work account",
   "watch.picked_up": "Picked up files from the watched folder",
   "export.download": "Downloaded a file", "export.imported": "Marked a file as imported", "export.confirmed": "Confirmed an import", "export.undo": "Marked a file as not imported",
   "email.sent": "Sent an email", "email.saved": "Saved an email (not sent)", "email.failed": "An email failed to send",

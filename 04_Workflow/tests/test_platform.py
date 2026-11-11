@@ -620,6 +620,97 @@ class AccountServerTests(unittest.TestCase):
         self.assertIn("Max-Age=0", cleared)
         self.assertEqual(self.call("/data/penny-data.json", cookie=riley)[0], 401)
 
+    # ---- (added after submission, v2.3) my profile
+    PNG = "data:image/png;base64," + __import__("base64").b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40).decode()
+
+    def test_a_person_changes_their_own_profile_but_not_their_username_or_id(self):
+        sam = self.login("sam@hillpointe.com")
+        me = self.call("/api/auth/me", cookie=sam)[1]["user"]
+        self.assertEqual((me["about"], me["photo"], me["backup"], me["source"], me["imported"]), ("", "", "", "penny", []))
+        self.call("/api/users", {"email": "avery@hillpointe.com", "name": "Avery Chen", "role": "clerk"}, cookie=sam)
+        link = self.svc.outbox.list()[0]["body"].split("token=")[1].split()[0]
+        self.call("/api/auth/activate", {"token": link, "password": AccountTests.GOOD})
+        avery = self.login("avery@hillpointe.com")
+        mine = self.call("/api/auth/me", cookie=avery)[1]["user"]
+        code, body, _ = self.call("/api/me/profile", {"changes": {"name": "  Avery   M. Chen ", "title": "Senior AP specialist", "about": "Construction invoices.\nOut on Fridays.",
+                                                                   "backup": me["id"], "photo": self.PNG}}, cookie=avery)
+        self.assertEqual(code, 200, body)
+        u = body["user"]
+        self.assertEqual((u["name"], u["title"], u["about"], u["backup"], u["photo"], u["initials"]),
+                         ("Avery M. Chen", "Senior AP specialist", "Construction invoices. Out on Fridays.", me["id"], self.PNG, "AM"))
+        # The username (sign-in email), the id, the role and the status are not part of a profile: asking changes nothing.
+        code, body, _ = self.call("/api/me/profile", {"changes": {"email": "boss@hillpointe.com", "id": "sam", "role": "admin", "status": "inactive"}}, cookie=avery)
+        self.assertEqual((code, body["changes"]), (200, {}))
+        again = self.call("/api/auth/me", cookie=avery)[1]["user"]
+        self.assertEqual((again["id"], again["email"], again["role"], again["status"]), (mine["id"], "avery@hillpointe.com", "clerk", "active"))
+        # What is refused, in plain words
+        for changes, said in (({"name": "A"}, "Enter your name"), ({"backup": mine["id"]}, "other than yourself"), ({"backup": "nobody"}, "active account"),
+                              ({"photo": "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="}, "PNG, JPEG or WebP"),
+                              ({"photo": self.PNG.replace("image/png", "image/jpeg")}, "not the kind of picture"),
+                              ({"photo": "https://example.com/me.png"}, "PNG, JPEG or WebP")):
+            code, err, _ = self.call("/api/me/profile", {"changes": changes}, cookie=avery)
+            self.assertEqual(code, 400, changes)
+            self.assertIn(said, err["error"])
+        self.assertEqual(len(self.call("/api/me/profile", {"changes": {"about": "x" * 900}}, cookie=avery)[1]["user"]["about"]), 280)
+        self.assertEqual(self.call("/api/me/profile", {"changes": {"about": "hi"}})[0], 401)          # no session, no change
+        # The audit log says what changed, and never holds the picture itself
+        entry = [x for x in self.svc.read_log() if x["event"] == "user.profile_updated"][0]
+        self.assertEqual(entry["changes"]["photo"], ["none", "a new photo"])
+        self.assertEqual(entry["changes"]["name"], ["Avery Chen", "Avery M. Chen"])
+        self.assertNotIn("base64", json.dumps(self.svc.read_log()))
+        # An Admin sees the profile on the Users list
+        row = [x for x in self.call("/api/users", cookie=sam)[1]["users"] if x["email"] == "avery@hillpointe.com"][0]
+        self.assertEqual((row["title"], row["photo"]), ("Senior AP specialist", self.PNG))
+
+    def test_changing_your_password_needs_the_current_one_and_ends_your_other_sessions(self):
+        here, elsewhere = self.login("sam@hillpointe.com"), self.login("sam@hillpointe.com")
+        new = "walnut ferry lantern"
+        code, err, _ = self.call("/api/me/password", {"current": "not it at all", "password": new}, cookie=here)
+        self.assertEqual(code, 403)
+        self.assertIn("not your current password", err["error"])
+        for bad, said in (("short", "at least 10"), (AccountTests.GOOD, "different from your current")):
+            code, err, _ = self.call("/api/me/password", {"current": AccountTests.GOOD, "password": bad}, cookie=here)
+            self.assertEqual(code, 400)
+            self.assertIn(said, err["error"])
+        self.assertEqual(self.call("/api/me/password", {"current": AccountTests.GOOD, "password": new}, cookie=here)[0], 200)
+        self.assertEqual(self.call("/api/auth/me", cookie=here)[0], 200)                 # the session you are using stays
+        self.assertEqual(self.call("/api/auth/me", cookie=elsewhere)[1].get("user"), None)   # every other one is ended
+        self.assertEqual(self.call("/api/auth/login", {"email": "sam@hillpointe.com", "password": AccountTests.GOOD})[0], 401)      # the old password no longer works
+        self.login("sam@hillpointe.com", new)
+        self.assertIn("user.password_changed", [x["event"] for x in self.svc.read_log()])
+        self.assertNotIn(new, json.dumps(self.svc.read_log()))
+        for _ in range(5):
+            self.call("/api/me/password", {"current": "wrong", "password": "another fine phrase"}, cookie=here)
+        self.assertEqual(self.call("/api/me/password", {"current": new, "password": "another fine phrase"}, cookie=here)[0], 429)
+
+    def test_a_microsoft_or_google_profile_is_imported_and_then_belongs_to_the_person(self):
+        from ap_workflow.accounts import provider_profile, AccountError
+        acc = self.svc.accounts
+        sam = acc.list()[0]
+        ms = {"displayName": "Samantha Rivera", "jobTitle": "AP Manager", "department": "Finance", "officeLocation": "Winter Park", "photo": self.PNG,
+              "mail": "someone.else@hillpointe.com", "id": "0000-aaaa"}
+        self.assertEqual(provider_profile("microsoft", ms), {"name": "Samantha Rivera", "title": "AP Manager", "about": "Finance, Winter Park", "photo": self.PNG})
+        self.assertEqual(provider_profile("microsoft", {**ms, "aboutMe": "I run accounts payable."})["about"], "I run accounts payable.")
+        g = {"name": "Sam Rivera", "picture": "https://lh3.googleusercontent.com/a/x", "organizations": [{"title": "AP Lead", "department": "Accounting"}],
+             "biographies": [{"value": "Bills, mostly."}]}
+        self.assertEqual(provider_profile("google", g), {"name": "Sam Rivera", "title": "AP Lead", "about": "Bills, mostly."})   # a picture address alone is not imported
+        self.assertEqual(provider_profile("google", {"name": "Sam Rivera", "photo": "data:image/svg+xml;base64,PHN2Zz4="}), {"name": "Sam Rivera"})
+        with self.assertRaises(AccountError):
+            provider_profile("someone-else", {})
+        u = acc.import_profile(sam["id"], "microsoft", ms)
+        self.assertEqual((u["name"], u["title"], u["about"], u["photo"], u["source"], u["imported"]),
+                         ("Samantha Rivera", "AP Manager", "Finance, Winter Park", self.PNG, "microsoft", ["about", "name", "photo", "title"]))
+        self.assertEqual((u["id"], u["email"], u["role"]), (sam["id"], "sam@hillpointe.com", "admin"))     # the username and id never come from the import
+        # Imported details are a starting point: the person can change them, and a later import leaves their change alone
+        cookie = self.login("sam@hillpointe.com")
+        code, body, _ = self.call("/api/me/profile", {"changes": {"name": "Sam Rivera", "about": "Ask me about holds."}}, cookie=cookie)
+        self.assertEqual((code, body["user"]["name"], body["user"]["imported"]), (200, "Sam Rivera", ["photo", "title"]))
+        u = acc.import_profile(sam["id"], "microsoft", {**ms, "jobTitle": "Director of AP"})
+        self.assertEqual((u["name"], u["about"], u["title"]), ("Sam Rivera", "Ask me about holds.", "Director of AP"))
+        self.assertEqual(self.call("/api/me/password", {"current": AccountTests.GOOD, "password": "walnut ferry lantern"}, cookie=cookie)[0], 409)   # they sign in with Microsoft
+        entry = [x for x in self.svc.read_log() if x["event"] == "user.profile_imported"][0]
+        self.assertEqual((entry["provider"], entry["fields"]), ("microsoft", ["about", "name", "photo", "title"]))
+
     def test_email_an_export_or_an_approval_with_the_file_attached(self):
         sam = self.login("sam@hillpointe.com")
         code, e, _ = self.call("/api/email", {"kind": "export", "to": ["ap@hillpointe.com"], "note": "For Monday", "run_id": "run1_x", "file": "exception_log.csv"}, cookie=sam)
