@@ -10,6 +10,12 @@ bill twice.
 Penny began as my answer to the Hillpointe AP technical screen. I have kept building it since, to show how I think
 about a real product.
 
+[![Penny's Overview: nine invoices need review, largest first, each with its reason and where it goes next](docs/screenshots/overview.png)](https://collierjamiec.github.io/Hillpointe_AP_Submission/)
+
+**[Open the live demo](https://collierjamiec.github.io/Hillpointe_AP_Submission/)**, pick a demo person, and choose
+**Take the tour**. It takes two minutes. Or read the **[case study](CASE_STUDY.md)** (four minutes), or
+**[run it yourself](GETTING_STARTED.md)** (five minutes).
+
 > **This is a portfolio project, not production software.** It works and it is tested, and I know what stands
 > between it and running a real company's accounts payable. That list, with where Penny stands on each item, is in
 > [`PRODUCTION.md`](PRODUCTION.md).
@@ -17,14 +23,37 @@ about a real product.
 | | What it is | Start here |
 |---|---|---|
 | **Live demo** | The web app with the example invoices, in your browser. Pick a demo role to sign in. | [collierjamiec.github.io/Hillpointe_AP_Submission](https://collierjamiec.github.io/Hillpointe_AP_Submission/) |
+| **Case study** | The problem, my approach, the hard calls, and what I would do next | [`CASE_STUDY.md`](CASE_STUDY.md) |
+| **Getting started** | Download it, install it and look around, step by step | [`GETTING_STARTED.md`](GETTING_STARTED.md) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1 to 2.1.3)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
-| **Current version: 2.1.3** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Built after submission (v1.1 to 2.2.0)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 2.2.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
 | **Why I made each choice** | Every major decision, what I weighed, and what I chose not to build | [`DECISIONS.md`](DECISIONS.md) |
 | **Change log** | Every version, what changed, where the idea came from, and what was tested | [`CHANGELOG.md`](CHANGELOG.md) |
 | **What production would take** | Sign-in with Microsoft and Google, an outside security test, real connections, real invoices, and more | [`PRODUCTION.md`](PRODUCTION.md) |
 | **Where it is going** | The plan that led to 2.0, and what is intended next | [`ROADMAP.md`](ROADMAP.md) |
 | **How it works** | Every check, rule and assumption | [`04_Workflow/README.md`](04_Workflow/README.md) |
+
+## A look inside
+
+| | |
+|---|---|
+| [![A held invoice, with the reason, the next step and the invoice beside it](docs/screenshots/held-invoice.png)](docs/screenshots/held-invoice.png) | [![The amount Penny read, outlined on the invoice it came from](docs/screenshots/source-highlighting.png)](docs/screenshots/source-highlighting.png) |
+| **Every hold says why.** What Penny found, what to do next, and who it goes to. The invoice sits beside the decision. | **Check Penny's reading yourself.** Pick a value and it is outlined on the page it came from. |
+| [![The rules page, with thresholds and routes in plain view](docs/screenshots/rules.png)](docs/screenshots/rules.png) | [![The audit trail, listing who did what and when](docs/screenshots/audit-trail.png)](docs/screenshots/audit-trail.png) |
+| **Rules a person can read.** An Admin can change one, preview what it would do to real invoices, and undo it. | **Everything is on the record.** Entries can be added. They are never edited or removed. |
+| [![The guided tour, on its second stop](docs/screenshots/tour.png)](docs/screenshots/tour.png) | [![My work, in the dark theme](docs/screenshots/my-work-dark.png)](docs/screenshots/my-work-dark.png) |
+| **A guided tour.** Nine stops on the real pages, in about two minutes. | **Light and dark,** checked against WCAG 2.2 AA, and laid out for phones. |
+
+## What this project shows about how I work
+
+* **I decide where AI belongs.** It reads. It never decides what happens to a bill.
+* **I work out the right answer first,** so the code can never grade its own work.
+* **I say what really happened, in plain words,** in labels, in limits, and in what is not done.
+* **I fix the foundation and review security before adding more.**
+* **I keep the record current,** and make the project check that I did.
+
+The reasons, and what I weighed each time, are below and in [`DECISIONS.md`](DECISIONS.md).
 
 ## Decisions I made
 
@@ -43,6 +72,8 @@ in [`DECISIONS.md`](DECISIONS.md).
 | **Call it a portfolio project, not production software.** | Some of what production needs I cannot do here: a company's real systems, an outside auditor, real people to test with. Saying so shows I know the difference. |
 
 ## Try it
+
+The step-by-step version, with what to do if something goes wrong, is in [`GETTING_STARTED.md`](GETTING_STARTED.md).
 
 The easy way: open the `04_Workflow` folder and double-click **Install Penny**. It installs Penny and opens a setup
 wizard in your browser. After that, double-click **Start Penny**. The same steps by hand:
@@ -88,7 +119,9 @@ For a team, the setup wizard turns on real accounts, where one server checks and
   live updates between teammates, and https for use over a network (v2.0.0), followed by a security review that
   found and fixed a way around sign-in (v2.0.1), and a setup wizard that installs Penny and gets it ready from
   a double-click (v2.1.0), the reasons for my decisions written into every page (v2.1.1), and an honest list of what production would
-  take (v2.1.2), and a left menu that scrolls on short screens (v2.1.3).
+  take (v2.1.2), and a left menu that scrolls on short screens (v2.1.3), and a
+  front door for the project: a guided tour in the app, a case study, a getting started guide and screenshots
+  (v2.2.0).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 

@@ -2,6 +2,16 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.2.0",
+      "date": "2026-11-11",
+      "required": false,
+      "summary": "A guided tour, a case study, a getting started guide and screenshots",
+      "notes": [
+        "Take the tour: nine stops on the real pages, in about two minutes. Find it at the top of the Overview, in the Help center, and in the menu under your name. It changes nothing.",
+        "A getting started guide for anyone who downloads the project, and a short case study, both on GitHub."
+      ]
+    },
+    {
       "version": "2.1.3",
       "date": "2026-11-11",
       "required": false,

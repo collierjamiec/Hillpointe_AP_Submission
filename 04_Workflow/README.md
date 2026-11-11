@@ -109,6 +109,10 @@ A browser view of everything Penny decided, for people who would rather not use 
   each file carries a SHA-256 from `ap_workflow/webexport.py`), the watched inbox folder (`./penny web --watch`, see
   `ap_workflow/watcher.py`; previews only, never a real run), paging for long lists, and an accessibility pass with
   an automated WCAG 2.2 AA check of every screen (`tests/browser/accessibility.spec.js`).
+* **Guided tour (v2.2.0):** `web/assets/penny-tour.js`. Nine stops on the real pages, started from **Take the tour**.
+  It only moves between pages and never records an action. `tests/browser/tour.spec.js` checks every stop, and
+  `tests/browser/screenshots.js` retakes the pictures in `../docs/screenshots/`. New to the project? Start with
+  [`../GETTING_STARTED.md`](../GETTING_STARTED.md).
 * **Foundation (v1.8.0):** browser suites in `tests/browser/` (see its `run.py`), Python tests split into
   `tests/test_engine.py`, `test_web.py` and `test_platform.py`, the web app split into `web/assets/penny-*.js`
   (load order in `web/index.html`), a content security policy, and bundled fonts.

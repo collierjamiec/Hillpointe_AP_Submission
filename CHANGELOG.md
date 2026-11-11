@@ -17,6 +17,7 @@ marked **Required** makes older copies read-only until they update.
 
 | Version | Date | In one line |
 |---|---|---|
+| [2.2.0](#220-a-front-door) | Nov 2026 | A guided tour, a case study, a getting started guide and screenshots |
 | [2.1.3](#213-a-menu-that-scrolls) | Nov 2026 | The left menu scrolls, so Help center is never cut off |
 | [2.1.2](#212-what-production-would-take) | Nov 2026 | An honest list of what production would take, and this change log |
 | [2.1.1](#211-decisions-and-why) | Nov 2026 | The reason for each decision, written into every page |
@@ -39,9 +40,49 @@ Also on this page: [Penny by the numbers](#penny-by-the-numbers) and [Ideas, and
 
 ---
 
-## 2.1.3: a menu that scrolls
+## 2.2.0: a front door
 
 *November 2026. Optional.*
+
+**Where it started.** The product was strong, but someone landing on the project saw mostly text. The plan was a
+front door: screenshots, a case study, and a tour in the demo. While it was being built I added: "We need a getting
+started guide when folks download the project."
+
+**Added**
+
+* **A guided tour in the web app.** Nine stops on the real pages: the Overview, a held invoice, what Penny read, a
+  bill that is ready, Exceptions, Exports, Rules, the Audit trail, and the reasons behind it all. Each stop outlines
+  the part it describes and explains it in a few sentences. It starts from **Take the tour** on the Overview, in the
+  Help center, and in the menu under your name.
+* The tour changes nothing, so it is safe in every role and with real accounts. The page behind the card still
+  works. Escape, the X and signing out all end it. Stops that need an invoice are left out when there is none.
+* [`GETTING_STARTED.md`](GETTING_STARTED.md): download, install, start and look around, with what works without the
+  invoice package and a table of common problems.
+* [`CASE_STUDY.md`](CASE_STUDY.md): the problem, my approach, what I built, the hard calls, how I worked, and what
+  I would do next.
+* Eleven screenshots of the real app in `docs/screenshots/`, and the script that takes them, so they can be
+  retaken after any change.
+* A help center article, "Take the guided tour".
+
+**Changed**
+
+* The README now opens with a screenshot and three ways in: the live demo, the case study, and the getting started
+  guide. It has a "look inside" section and a short list of what the project shows about how I work.
+* The welcome article in the help center points to the tour.
+* A passing message moves to the top of the screen during the tour, so it never covers the tour's buttons.
+
+**Tested:** 122 code checks and 19 browser suites. The new tour suite has 34 checks: every stop, every way in and
+out, keyboard only, a phone, and real accounts. The accessibility suite now checks the open tour card in light, dark
+and phone. I also ran the getting started steps on a fresh copy of the project on Linux.
+
+**Not done:** the tour and the installer files have not been tried on a real phone, Mac or Windows computer. The
+screenshots show the example data.
+
+---
+
+## 2.1.3: a menu that scrolls
+
+*November 2026. Optional. Pull request #16.*
 
 **Where it started.** "The left hand menu cuts off help center because it's too far down, needs to scroll."
 
@@ -498,6 +539,7 @@ check of the import file before it is written, every business rule in one file, 
 | 2.1.1 | 121 | 18 | 50 |
 | 2.1.2 | 122 | 18 | 51 |
 | 2.1.3 | 122 | 18 | 51 |
+| 2.2.0 | 122 | 19 | 52 |
 
 A blank means I did not record that number at the time. Before 1.8.0 the browser tests ran in build sessions and
 were not yet kept in the project.
@@ -540,6 +582,8 @@ A lot of ideas came up along the way. This table keeps track of them, including 
 | Say clearly that this is a portfolio project, with what production would take | Built in 2.1.2. |
 | A complete change log | Built in 2.1.2. This page. |
 | A left menu that scrolls when the window is short | Fixed in 2.1.3. |
+| A portfolio front door: screenshots, a case study and a guided tour | Built in 2.2.0. |
+| A getting started guide for people who download the project | Built in 2.2.0. |
 | Sign in with Microsoft | **Planned next.** Needs a Microsoft tenant to build and test against. |
 | Sign in with Google | **Planned, after Microsoft.** |
 | A portfolio front door: screenshots, a case study, a guided tour | **Proposed, not started.** |

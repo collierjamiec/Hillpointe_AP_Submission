@@ -135,7 +135,7 @@ function viewHelp(slug, q) {
   const all = HELP();
   if (!slug) {
     const term = (q.get("q") || "").trim();
-    return `${head("Help center", "Everything about Penny: how to use this web app and the terminal, how Penny decides, every rule and code, and what each word means.")}
+    return `${head("Help center", "Everything about Penny: how to use this web app and the terminal, how Penny decides, every rule and code, and what each word means.", TOUR_BUTTON)}
       <div class="help-search card"><label class="sr-only" for="help-q">Search help</label>
         <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/></svg>
         <input id="help-q" type="search" placeholder="Search help, for example: duplicate, approve, dry run" value="${esc(term)}" autocomplete="off"></div>

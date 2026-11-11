@@ -8,7 +8,7 @@ plans I changed, is in [`DECISIONS.md`](DECISIONS.md).
 approvals, notes, blockers, rule changes) is saved in each person's own browser. In 2.0 the server becomes the single
 source of truth, so a team shares one picture.
 
-Last updated: November 2026, when 2.1.3 was finished.
+Last updated: November 2026, when 2.2.0 was finished.
 
 ---
 
@@ -113,6 +113,15 @@ Penny is a portfolio project. This release writes down, in one place, what stand
 |---|---|
 | The left menu scrolls when the window is short, so Help center can always be reached | Done |
 | Checks for a short desktop window and a phone held sideways | Done |
+
+## 2.2.0: a front door (Done)
+
+| Item | Status |
+|---|---|
+| A guided tour in the web app: nine stops on the real pages | Done |
+| [`GETTING_STARTED.md`](GETTING_STARTED.md) for people who download the project | Done |
+| [`CASE_STUDY.md`](CASE_STUDY.md) | Done |
+| Screenshots of the real app, and a README that leads with them | Done |
 
 ## After 2.0 (intended, not scheduled)
 

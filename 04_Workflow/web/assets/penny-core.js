@@ -10,7 +10,7 @@
    ENTER_INTACCT = a row in the Intacct import file a person uploads. ENTER_ENTRATA = a row in the Entrata handoff list. */
 /* The version of this web app. ./penny release changes it together with VERSION and releases.json, and a test
    fails if they ever disagree. */
-const APP_VERSION = "2.1.3";
+const APP_VERSION = "2.2.0";
 const STATUS = {
   ENTER_INTACCT: { label: "Ready for Intacct import", short: "Ready to import", cls: "b-ok", icon: "check" },
   ENTER_ENTRATA: { label: "In Entrata handoff", short: "Ready to hand off", cls: "b-ok", icon: "check" },
@@ -490,6 +490,8 @@ function track(type, props = {}) {
 const openedAt = {};          // invoice id -> when it was opened, for time-to-decision
 
 // ------------------------------------------------------------------ shared pieces
+/** The "Take the tour" button, shown on the Overview and the help center (v2.2). Any control with data-tour starts the tour. */
+const TOUR_BUTTON = '<button class="btn tour-start" type="button" data-tour><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M12.8 7.2l-1.6 4-4 1.6 1.6-4z"/></svg>Take the tour</button>';
 function head(title, lede, right = "", crumbs = "") {
   return `<div class="page-head"><div>${crumbs}<h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div>${right}</div>`;
 }

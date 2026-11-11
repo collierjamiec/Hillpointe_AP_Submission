@@ -47,6 +47,13 @@ async function check(p, name) {
         await p.goto(DEMO + hash); await p.waitForTimeout(350);
         await check(p, `${tag} ${name}`);
       }
+      // ---- (v2.2) the guided tour card, on its first stop and on an invoice
+      await p.goto(DEMO + '#/'); await p.waitForTimeout(300);
+      await p.click('#main .page-head [data-tour]'); await p.waitForTimeout(450);
+      await check(p, `${tag} the tour, stop 1`);
+      await p.click('#tour-next'); await p.waitForTimeout(450);
+      await check(p, `${tag} the tour, on a held invoice`);
+      await p.keyboard.press('Escape'); await p.waitForTimeout(200);
       if (scheme === 'light' && device === 'desktop') {
         // ---- a dialog: focus moves in, stays in, Escape closes, and focus goes back to the button that opened it
         await p.goto(DEMO + '#/exports'); await p.waitForSelector('[data-ex="imported"]');

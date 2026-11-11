@@ -190,6 +190,7 @@ function bindChrome() {
   ["click", "keydown"].forEach((t) => document.addEventListener(t, activity, true));
   setInterval(() => { if (user && !AUTH().currentUser()) endSession("expired"); }, 20000);
   bindShortcuts();
+  bindTour();
   document.addEventListener("change", (e) => { if (e.target.matches && e.target.matches("select[data-per]")) goToPage({ per: e.target.value, page: null }); });
   window.addEventListener("resize", () => { clearTimeout(scrollableTables.t); scrollableTables.t = setTimeout(scrollableTables, 150); });
   // Parts of a page are redrawn without a new page (filters, sorting, adding a line), so watch for new tables.
@@ -264,6 +265,7 @@ function enterApp(u) {
   if (teamMode()) { teamLoop(); offerEarlierWork(); }
 }
 function endSession(reason) {
+  endTour();
   AUTH().signOut(reason);
   user = null;
   teamStop();
