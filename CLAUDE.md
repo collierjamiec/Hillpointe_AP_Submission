@@ -9,7 +9,10 @@ where each rule lives, assumptions). Read it before changing behavior.
 
 ## Layout
 
-- `README.md` (GitHub landing page) and `SCOPE.md` (original assignment vs. everything added after submission, by version).
+- `README.md` (GitHub landing page), `SCOPE.md` (original assignment vs. everything added after submission, by version)
+  and `DECISIONS.md` (every major decision, what Jamie weighed, and why; all credited as Jamie's decisions). A new
+  feature also gets a "Why I built this" line in `SCOPE.md`, an entry in `DECISIONS.md` when it involved a real choice,
+  and a "Why it works this way" note on its help article. Only write reasons Jamie has stated or confirmed.
   Any new feature gets a version entry in `SCOPE.md` and an "(added after submission)" mark in the docs it touches.
 - `00_START_HERE.md`, `01_`–`05_` folders: the submitted package. Treat `02_Batch01_Deliverables` and
   `03_Rerun_Evidence` as submitted outputs; don't regenerate or edit them unless asked.
@@ -45,7 +48,7 @@ where each rule lives, assumptions). Read it before changing behavior.
 - `04_Workflow/inbox/<YYYY-MM-DD>_<name>/`: batches uploaded through the web app (git-ignored).
 - `04_Workflow/web/`: the browser app (plain HTML/CSS/JS, no build step). `assets/penny-*.js` (14 files by area, loaded in order by `index.html`, sharing top-level names; `penny-core.js` first, `penny-app.js` last; no inline scripts, the page has a content security policy),
   `assets/penny-auth.js` (demo sign-in, PBKDF2 hashes), `assets/penny-help.js` (help center articles), `assets/penny.css`
-  (design tokens at the top). It never re-decides an invoice: human actions are events in a browser-only audit log.
+  (design tokens at the top). It never re-decides an invoice: human actions are events in an audit log (in the browser for the demo, on the server in team mode).
   Labels must stay honest: ENTER_INTACCT is "Ready for Intacct import", never "entered" or "paid".
 - `04_Workflow/config/rules.json`: thresholds, routes, keywords. Prefer rule changes here over code.
 - `04_Workflow/state/`: the register (`processed_register.csv`, `run_log.csv`). Runs read and write it.
@@ -71,8 +74,8 @@ export HILLPOINTE_PACKAGE=~/Downloads/Hillpointe_AP_Technical_Screen
 - Every decision change should come with a test in `tests/test_engine.py` (web and server tests go in `test_web.py`,
   accounts, email, versions and security in `test_platform.py`; shared setup is `tests/common.py`). Browser suites live in
   `tests/browser/` and run with `python tests/browser/run.py`; add to them when the web app changes.
-- Every function gets a one-line description. `ROADMAP.md` is the plan to 2.0: update its status column in the same
-  change as the work.
+- Every function gets a one-line description. `ROADMAP.md` was the plan to 2.0 (finished) and now lists what is
+  intended next: update it in the same change as the work.
 - For decisions: `tests/expected_decisions.json` holds the
   expected outcome per sample document.
 - `.github/workflows/tests.yml` runs the package-free tests on every pull request; keep them passing without the package.

@@ -60,7 +60,8 @@ Python 3.9 or newer. No API key is needed for the default mode.
 
 ## The web view (`web/`) (added after submission, v1.2)
 
-A browser view of everything Penny decided, for people who would rather not use the terminal. Phase 1 is view only.
+A browser view of everything Penny decided, for people who would rather not use the terminal. It began view only
+(phase 1). The entries below, in the order they were added, are what it does now.
 
 * **Dashboard:** where every dollar landed, why invoices are on hold, results by run, and the rerun proof.
 * **Runs:** each batch with its results. **Invoices:** every document, filterable by result, reason, vendor and bill date.
@@ -68,8 +69,8 @@ A browser view of everything Penny decided, for people who would rather not use 
 * **Rules:** every setting in `config/rules.json`, in plain language.
 * **Sign-in and roles (v1.3):** Viewer, AP Clerk, Approver and Admin, each a demo account on the sign-in screen. Clerks
   resolve, reject and reassign holds; Approvers approve or send back bills; Admins also change rules with an impact
-  preview and undo. Every action needs a reason and goes to the audit trail. In this static site the actions are saved
-  in the visitor's browser only; the help center explains the security habits and what a server would add.
+  preview and undo. Every action needs a reason and goes to the audit trail. On the public demo site the actions are
+  saved in the visitor's browser only. With real accounts they are checked and saved on the server (v2.0, below).
 * **Help center (v1.3):** a searchable knowledge base for the web app, the terminal, the rules and every exception code.
 * **New batch (v1.4):** upload PDFs into `inbox/<YYYY-MM-DD>_<name>/` and preview (AP Clerk, Admin) or run for real
   (Admin). Needs the local server (`./penny web --package <package>`, see `ap_workflow/webserver.py`). Every step is
@@ -79,6 +80,8 @@ A browser view of everything Penny decided, for people who would rather not use 
   the register (`ap_workflow/replay.py`); an unreadable file can be keyed by hand beside a screenshot, with a second
   person re-keying the invoice number and total above `thresholds.manual_entry_check_over` (`ap_workflow/manual.py`).
   A batch folder with `<file>.keyed.json` next to `<file>.pdf` uses the keyed record for that exact file.
+* **Decisions and why (v2.1.1):** the reason behind each choice is in `../DECISIONS.md`, in the help center article
+  "Decisions and why", and in a "Why it works this way" note on the feature help articles. No behavior changed.
 * **Setup wizard (v2.1.0):** `Install Penny.command` / `.bat` install Penny and open a five-screen wizard in the
   browser (`web/setup.html`, `web/assets/penny-setup.js`, `ap_workflow/setup.py`): a check of this computer, the
   invoice package, who signs in (creating the first Admin), settings (time zone, watched folder, network and

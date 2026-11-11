@@ -2,6 +2,17 @@
   "_readme": "Every Penny release, newest first. Add one with ./penny release <version> --summary \"...\" [--note \"...\"] [--required]. A required release is the minimum: older copies must update before real runs or changes. Versions before 1.6.0 had no update checks, so none of them is required.",
   "releases": [
     {
+      "version": "2.1.1",
+      "date": "2026-11-10",
+      "required": false,
+      "summary": "The reasons behind Penny's design are now in the help center: a Decisions and why article, and a note on each feature saying why it works the way it does.",
+      "notes": [
+        "New help article: Decisions and why.",
+        "A \"Why it works this way\" note on 25 help articles.",
+        "No change to how Penny works."
+      ]
+    },
+    {
       "version": "2.1.0",
       "date": "2026-11-10",
       "required": false,

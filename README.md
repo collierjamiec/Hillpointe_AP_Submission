@@ -14,24 +14,45 @@ about a real product.
 |---|---|---|
 | **Live demo** | The web app with the example invoices, in your browser. Pick a demo role to sign in. | [collierjamiec.github.io/Hillpointe_AP_Submission](https://collierjamiec.github.io/Hillpointe_AP_Submission/) |
 | **The assessment (v1.0)** | The package as submitted in October 2026 | [`00_START_HERE.md`](00_START_HERE.md) |
-| **Built after submission (v1.1 to 2.1.0)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
-| **Current version: 2.1.0** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
-| **Where it is going** | The plan to 2.0: a shared server for a real team | [`ROADMAP.md`](ROADMAP.md) |
+| **Built after submission (v1.1 to 2.1.1)** | A full web app for a team: roles, new batches, blockers, manual entry, user accounts, email, appearance, updates, source highlighting, export history, a watched folder, and one shared server with live updates | [`SCOPE.md`](SCOPE.md) |
+| **Current version: 2.1.1** | What changed in each release, and whether it is required | [Releases](https://github.com/collierjamiec/Hillpointe_AP_Submission/releases) |
+| **Why I made each choice** | Every major decision, what I weighed, and what I chose not to build | [`DECISIONS.md`](DECISIONS.md) |
+| **Where it is going** | The plan that led to 2.0, and what is intended next | [`ROADMAP.md`](ROADMAP.md) |
 | **How it works** | Every check, rule and assumption | [`04_Workflow/README.md`](04_Workflow/README.md) |
 
+## Decisions I made
+
+I made every decision in this project. An AI assistant wrote the code and often laid out options; I chose, reviewed
+every change, and own the result. These six shaped everything else. The full list, with what I weighed each time, is
+in [`DECISIONS.md`](DECISIONS.md).
+
+| I decided | Because |
+|---|---|
+| **AI may read a document. It never decides what happens to a bill.** | In accounts payable a wrong answer is money leaving the company. Rules in code give the same answer every time and can be tested. |
+| **Work out the right answer before writing the code.** | So the code could never grade its own work. |
+| **Say what really happened, in plain words.** "Ready for Intacct import", never "entered" or "paid". | A label that overstates is how a team comes to believe a bill was paid when it was not. |
+| **Some steps need a second person, and the audit trail can only grow.** | One person checking their own work finds fewer mistakes, and a record that can be edited is not evidence. |
+| **Fix the foundation and review security before adding more.** | I did not want to build a shared server on tests that ran only on my machine. The security review then found a real problem, which I fixed and published. |
+| **List what is not done.** | A reviewer will find the gaps anyway. I would rather they hear them from me, with the reason. |
+
 ## Try it
+
+The easy way: open the `04_Workflow` folder and double-click **Install Penny**. It installs Penny and opens a setup
+wizard in your browser. After that, double-click **Start Penny**. The same steps by hand:
 
 ```bash
 cd 04_Workflow
 ./penny install                                         # once
+./penny setup                                           # the setup wizard, in your browser
 ./penny demo --package /path/to/Hillpointe_AP_Technical_Screen
 ./penny web-export --package /path/to/Hillpointe_AP_Technical_Screen
 ./penny web --package /path/to/Hillpointe_AP_Technical_Screen   # opens the web app; New batch can run invoices
 ```
 
-In the web view, pick any of the four demo roles on the sign-in screen. Everything you do stays in your browser.
+In the web view, pick any of the four demo roles on the sign-in screen. With the demo roles, everything you do stays
+in your browser.
 
-For a team on one computer, turn on real accounts and email (all optional):
+For a team, the setup wizard turns on real accounts, where one server checks and saves everyone's work. By hand:
 
 ```bash
 ./penny users invite --email you@company.com --name "Your Name" --role admin   # the first Admin; then invite others in the web app
@@ -59,7 +80,7 @@ For a team on one computer, turn on real accounts and email (all optional):
   phones (v1.9.1), and Penny for a real team: one server that checks and saves everyone's work in a database,
   live updates between teammates, and https for use over a network (v2.0.0), followed by a security review that
   found and fixed a way around sign-in (v2.0.1), and a setup wizard that installs Penny and gets it ready from
-  a double-click (v2.1.0).
+  a double-click (v2.1.0), and the reasons for my decisions written into every page (v2.1.1).
 
 The full story, version by version, is in [`SCOPE.md`](SCOPE.md).
 
